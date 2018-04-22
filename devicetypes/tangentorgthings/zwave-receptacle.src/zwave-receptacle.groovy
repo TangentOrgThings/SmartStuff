@@ -1,3 +1,4 @@
+// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 /**
  *  Copyright 2017 Brian Aker <brian@tangent.org>
  *
@@ -13,7 +14,7 @@
  */
  
 def getDriverVersion() {
-  return "v3.95"
+  return "v3.98"
 }
 
 metadata {
@@ -148,60 +149,13 @@ metadata {
     details(["switch","indicator", "driverVersion", "refresh"])
   }
 }
-def prepDevice() {
-  [
-    zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.versionV1.versionGet(),
-    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
-    zwave.zwaveCmdClassV1.requestNodeInfo(),
+
+def getCommandClassVersions() {
+  [ 
+    0x20: 1,  // Basic
+    0x56: 1,  // Crc16Encap
+    0x70: 1,  // Configuration
   ]
-}
-
-def installed() {
-  log.debug "$device.displayName installed()"
-  
-  /*
-  if (device.rawDescription) {
-    def zwInfo = getZwaveInfo()
-    if ($zwInfo) {
-      log.debug("$device.displayName $zwInfo")
-      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-    }
-  }
-  */
-  
-  // Device-Watch simply pings if no device events received for 32min(checkInterval) 
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-
-  sendCommands(prepDevice())
-}
-
-def updated() {
-  log.debug "$device.displayName updated"
-  
-  /*
-  if (device.rawDescription) {
-    def zwInfo = getZwaveInfo()
-    if ($zwInfo) {
-      log.debug("$device.displayName $zwInfo")
-      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-    }
-  }
-  */
-  
-  // Check in case the device has been changed
-  //state.manufacturer = null
-  //updateDataValue("MSR", "000-000-000")
-  //updateDataValue("manufacturer", "")
-  
-  // Device-Watch simply pings if no device events received for 32min(checkInterval) 
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-  
-  sendCommands(prepDevice())
 }
 
 def parse(String description) {
@@ -244,14 +198,6 @@ def parse(String description) {
   }
     
   return result
-}
-
-def getCommandClassVersions() {
-  [ 
-    0x20: 1,  // Basic
-    0x56: 1,  // Crc16Encap
-    0x70: 1,  // Configuration
-  ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
@@ -617,6 +563,62 @@ def reset() {
 		zwave.meterV2.meterReset().format(),
 		zwave.meterV2.meterGet(scale: 0).format()
 	]
+}
+
+def prepDevice() {
+  [
+    zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.versionV1.versionGet(),
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
+  ]
+}
+
+def installed() {
+  log.debug "$device.displayName installed()"
+  
+  /*
+  if (device.rawDescription) {
+    def zwInfo = getZwaveInfo()
+    if ($zwInfo) {
+      log.debug("$device.displayName $zwInfo")
+      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+    }
+  }
+  */
+  
+  // Device-Watch simply pings if no device events received for 32min(checkInterval) 
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+
+  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  sendCommands(prepDevice())
+}
+
+def updated() {
+  log.debug "$device.displayName updated"
+  
+  /*
+  if (device.rawDescription) {
+    def zwInfo = getZwaveInfo()
+    if ($zwInfo) {
+      log.debug("$device.displayName $zwInfo")
+      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+    }
+  }
+  */
+  
+  // Check in case the device has been changed
+  //state.manufacturer = null
+  //updateDataValue("MSR", "000-000-000")
+  //updateDataValue("manufacturer", "")
+  
+  // Device-Watch simply pings if no device events received for 32min(checkInterval) 
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+
+  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  
+  sendCommands(prepDevice())
 }
 
 void indicatorWhenOn() {
