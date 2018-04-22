@@ -17,7 +17,7 @@
  
  
 def getDriverVersion() {
-  return "v1.48"
+  return "v1.51"
 }
 
 metadata {
@@ -60,7 +60,7 @@ metadata {
     */
  
     fingerprint mfr: "0109", prod: "2021", model: "2101", ui: "0C07", deviceJoinName: "Vision Security 4-in-1 Sensor ZP3111"
-	fingerprint mfr: "027A", prod: "2021", model: "2101", ui: "0C07", deviceJoinName: "Zooz Z-Wave Plus 4-in-1 Sensor ZSE40"
+    fingerprint mfr: "027A", prod: "2021", model: "2101", ui: "0C07", deviceJoinName: "Zooz Z-Wave Plus 4-in-1 Sensor ZSE40"
     // fingerprint type: "0x0701", inClusters: "0x5E,0x86,0x72,0x59,0x85,0x73,0x71,0x84,0x80,0x31,0x70,0x5A,0x98,0x7A"
   }
   preferences {
@@ -94,54 +94,55 @@ metadata {
     }
   simulator {
   }
-   tiles (scale: 2) {
-        multiAttributeTile(name:"main", type: "generic", width: 6, height: 4){
-            tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
-            	attributeState "temperature",label:'${currentValue}°', backgroundColors:[
-                   [value: 31, color: "#153591"],
-                   [value: 44, color: "#1e9cbb"],
-                   [value: 59, color: "#90d2a7"],
-                   [value: 74, color: "#44b621"],
-                   [value: 84, color: "#f1d801"],
-                   [value: 95, color: "#d04e00"],
-                   [value: 96, color: "#bc2323"]
-                ]
-                attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0"
-                attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
-            }
-            tileAttribute("device.humidity", key: "SECONDARY_CONTROL") {
+  tiles (scale: 2) {
+    multiAttributeTile(name:"main", type: "generic", width: 6, height: 4) {
+      tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
+        attributeState "temperature",label:'${currentValue}°', backgroundColors:[
+          [value: 31, color: "#153591"],
+          [value: 44, color: "#1e9cbb"],
+          [value: 59, color: "#90d2a7"],
+          [value: 74, color: "#44b621"],
+          [value: 84, color: "#f1d801"],
+          [value: 95, color: "#d04e00"],
+          [value: 96, color: "#bc2323"]
+        ]
+        attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0"
+        attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
+      }
+      tileAttribute("device.humidity", key: "SECONDARY_CONTROL") {
 				attributeState("humidity", label:'${currentValue}%', unit:"%", defaultState: true)
 			}
-        }
+    }
 
-		standardTile("motion","device.motion", inactiveLabel: false, width: 2, height: 2) {
-                state "inactive",label:'no motion',icon:"st.motion.motion.inactive",backgroundColor:"#ffffff"
-                state "active",label:'motion',icon:"st.motion.motion.active",backgroundColor:"#00a0dc"
-		}
+    standardTile("motion", "device.motion", inactiveLabel: false, width: 2, height: 2) {
+      state "inactive",label:'no motion',icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
+      state "active",label:'motion',icon:"st.motion.motion.active", backgroundColor:"#00a0dc"
+    }
         
-		valueTile("illuminance", "device.illuminance", inactiveLabel: false, width: 2, height: 2) {
-           state "luminosity", label:'${currentValue} lux', unit:"lux", 
-                backgroundColors:[
-                	[value: 0, color: "#000000"],
-                    [value: 1, color: "#060053"],
-                    [value: 3, color: "#3E3900"],
-                    [value: 12, color: "#8E8400"],
-					[value: 24, color: "#C5C08B"],
-					[value: 36, color: "#DAD7B6"],
-					[value: 128, color: "#F3F2E9"],
-                    [value: 1000, color: "#FFFFFF"]
-				]
-		}
-     standardTile("tamper", "device.tamper", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-			state("clear", label:'clear', icon:"st.contact.contact.closed", backgroundColor:"#cccccc", action: "resetTamperAlert")
-            state("detected", label:'tamper', icon:"st.contact.contact.open", backgroundColor:"#e86d13", action: "resetTamperAlert")
-     }
+    valueTile("illuminance", "device.illuminance", inactiveLabel: false, width: 2, height: 2) {
+      state "luminosity", label:'${currentValue} lux', unit:"lux", 
+      backgroundColors:[
+        [value: 0, color: "#000000"],
+        [value: 1, color: "#060053"],
+        [value: 3, color: "#3E3900"],
+        [value: 12, color: "#8E8400"],
+        [value: 24, color: "#C5C08B"],
+        [value: 36, color: "#DAD7B6"],
+        [value: 128, color: "#F3F2E9"],
+        [value: 1000, color: "#FFFFFF"]
+      ]
+    }
+
+    standardTile("tamper", "device.tamper", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+      state("clear", label:'clear', icon:"st.contact.contact.closed", backgroundColor:"#cccccc", action: "resetTamperAlert")
+      state("detected", label:'tamper', icon:"st.contact.contact.open", backgroundColor:"#e86d13", action: "resetTamperAlert")
+    }
      
-     valueTile("battery", "device.battery", decoration: "flat", width: 2, height: 2) {
-       state "battery", label:'${currentValue}% battery', unit:""
-     }
-     
-     valueTile("firmwareVersion", "device.firmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
+    valueTile("battery", "device.battery", decoration: "flat", width: 2, height: 2) {
+      state "battery", label:'${currentValue}% battery', unit:""
+    }
+
+    valueTile("firmwareVersion", "device.firmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
       state "default", label: '${currentValue}'
     }
 
@@ -154,13 +155,13 @@ metadata {
       state "true", label:'reset', backgroundColor:"#e51426"
     }
 
-     valueTile("configure", "device.needUpdate", decoration: "flat", width: 2, height: 2) {
-       state("Synced" , label:'Synced', action:"configuration.configure", backgroundColor:"#8acb47")
-       state("Pending", label:'Pending', action:"configuration.configure", backgroundColor:"#f39c12")
-     }
-     
-     main("main")
-     details(["main", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "configure", "reset"])
+    valueTile("configure", "device.needUpdate", decoration: "flat", width: 2, height: 2) {
+      state("Synced" , label:'Synced', action:"configuration.configure", backgroundColor:"#8acb47")
+      state("Pending", label:'Pending', action:"configuration.configure", backgroundColor:"#f39c12")
+    }
+
+    main("motion")
+    details(["main", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "configure", "reset"])
    }
  }
  
@@ -241,13 +242,14 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
   logger("$device.displayName $cmd")
   configure()
+  [ createEvent(descriptionText: "SecurityCommandsSupportedReport() Unable to extract encapsulated from $cmd") ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
   logger("$device.displayName $cmd")
   update_current_properties(cmd)
   log.debug "${device.displayName} parameter '${cmd.parameterNumber}' with a byte size of '${cmd.size}' is set to '${cmd2Integer(cmd.configurationValue)}'"
-  createEvent(value: description, descriptionText: description)
+  [ createEvent(descriptionText: "ConfigurationReport() Unable to extract encapsulated from $cmd") ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
@@ -259,7 +261,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
   logger("$device.displayName $cmd")
-  
+
   def map = [ name: "battery", unit: "%" ]
   if (cmd.batteryLevel == 0xFF) {
     map.value = 1
@@ -304,63 +306,64 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 }*/
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
-    logger("$device.displayName $cmd")
-    
-	def map = [ displayed: true, isStateChange: true, value: cmd.scaledSensorValue.toString() ]
-	switch (cmd.sensorType) {
-		case 1:
-			map.name = "temperature"
-			map.unit = cmd.scale == 1 ? "F" : "C"
-			break;
-		case 2:
-			map.name = "value"
-			map.unit = cmd.scale == 1 ? "%" : ""
-			break;
-		case 3:
-			map.name = "illuminance"
-			map.value = cmd.scaledSensorValue.toInteger().toString()
-			map.unit = "lux"
-			break;
-		case 4:
-			map.name = "power"
-			map.unit = cmd.scale == 1 ? "Btu/h" : "W"
-			break;
-		case 5:
-			map.name = "humidity"
-			map.value = cmd.scaledSensorValue.toInteger().toString()
-			map.unit = cmd.scale == 0 ? "%" : ""
-			break;
-		case 6:
-			map.name = "velocity"
-			map.unit = cmd.scale == 1 ? "mph" : "m/s"
-			break;
-		case 8:
-		case 9:
-			map.name = "pressure"
-			map.unit = cmd.scale == 1 ? "inHg" : "kPa"
-			break;
-		case 0xE:
-			map.name = "weight"
-			map.unit = cmd.scale == 1 ? "lbs" : "kg"
-			break;
-		case 0xF:
-			map.name = "voltage"
-			map.unit = cmd.scale == 1 ? "mV" : "V"
-			break;
-		case 0x10:
-			map.name = "current"
-			map.unit = cmd.scale == 1 ? "mA" : "A"
-			break;
-		case 0x12:
-			map.name = "air flow"
-			map.unit = cmd.scale == 1 ? "cfm" : "m^3/h"
-			break;
-		case 0x1E:
-			map.name = "loudness"
-			map.unit = cmd.scale == 1 ? "dBA" : "dB"
-			break;
-	}
-	createEvent(map)
+  logger("$device.displayName $cmd")
+
+  def map = [ displayed: true, isStateChange: true, value: cmd.scaledSensorValue.toString() ]
+  switch (cmd.sensorType) {
+    case 1:
+    map.name = "temperature"
+    map.unit = cmd.scale == 1 ? "F" : "C"
+    break;
+    case 2:
+    map.name = "value"
+    map.unit = cmd.scale == 1 ? "%" : ""
+    break;
+    case 3:
+    map.name = "illuminance"
+    map.value = cmd.scaledSensorValue.toInteger().toString()
+    map.unit = "lux"
+    break;
+    case 4:
+    map.name = "power"
+    map.unit = cmd.scale == 1 ? "Btu/h" : "W"
+    break;
+    case 5:
+    map.name = "humidity"
+    map.value = cmd.scaledSensorValue.toInteger().toString()
+    map.unit = cmd.scale == 0 ? "%" : ""
+    break;
+    case 6:
+    map.name = "velocity"
+    map.unit = cmd.scale == 1 ? "mph" : "m/s"
+    break;
+    case 8:
+    case 9:
+    map.name = "pressure"
+    map.unit = cmd.scale == 1 ? "inHg" : "kPa"
+    break;
+    case 0xE:
+    map.name = "weight"
+    map.unit = cmd.scale == 1 ? "lbs" : "kg"
+    break;
+    case 0xF:
+    map.name = "voltage"
+    map.unit = cmd.scale == 1 ? "mV" : "V"
+    break;
+    case 0x10:
+    map.name = "current"
+    map.unit = cmd.scale == 1 ? "mA" : "A"
+    break;
+    case 0x12:
+    map.name = "air flow"
+    map.unit = cmd.scale == 1 ? "cfm" : "m^3/h"
+    break;
+    case 0x1E:
+    map.name = "loudness"
+    map.unit = cmd.scale == 1 ? "dBA" : "dB"
+    break;
+  }
+
+  createEvent(map)
 }
 
 def motionEvent(boolean motion_value) {
@@ -382,6 +385,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
   log.debug("$device.displayName $cmd")
+
 	def result = []
 	if (cmd.notificationType == 7) {
 		switch (cmd.event) {
@@ -415,27 +419,28 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("$device.displayName $cmd")
-   sendEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)
+
+  sendEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)
 
   if (0) {
     def cmds = readSensors()
-    
+
     // read the battery level every day
     log.debug "battery ${state.batteryReadTime} ${new Date().time}"
     if (!state.lastBatteryReport || (now() - state.lastBatteryReport) / 60000 >= 60 * 24) {
-        cmds += secure(zwave.batteryV1.batteryGet())
+      cmds += secure(zwave.batteryV1.batteryGet())
     }
     if (state.configRequired) {
-        // send pending configure commands
-        cmds += configCmds()
-        state.configRequired = false
-        sendEvent(name:"needUpdate", value: "Synced")
+      // send pending configure commands
+      cmds += configCmds()
+      state.configRequired = false
+      sendEvent(name:"needUpdate", value: "Synced")
     }
     cmds += zwave.wakeUpV2.wakeUpNoMoreInformation().format()
     cmds = delayBetween(cmds, 600)
     return [response(cmds)]
   }
-    
+
   [ createEvent(descriptionText: cmd.toString(), isStateChange: false) ] 
 }
 
