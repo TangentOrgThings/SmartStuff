@@ -63,39 +63,52 @@ metadata {
     fingerprint mfr: "027A", prod: "2021", model: "2101", ui: "0C07", deviceJoinName: "Zooz Z-Wave Plus 4-in-1 Sensor ZSE40"
     // fingerprint type: "0x0701", inClusters: "0x5E,0x86,0x72,0x59,0x85,0x73,0x71,0x84,0x80,0x31,0x70,0x5A,0x98,0x7A"
   }
+
   preferences {
-        input "primaryDisplayType", "enum", options: ["Motion", "Temperature"], title: "Primary Display", defaultValue: "Motion",
-              description: "Sensor to show in primary display",
-              required: false, displayDuringSetup: true
-        input "pirTimeout", "number", title: "Motion Sensor Idle Time (minutes)", defaultValue: 3,
-              description: "Inactivity time before reporting no motion",
-              required: false, displayDuringSetup: true, range: "1..255"
-        input "pirSensitivity", "number", title: "Motion Sensor Sensitivity (1 high - 7 low)", defaultValue: 3,
-              description: "1 is most sensitive, 7 is least sensitive",
-              required: false, displayDuringSetup: true, range: "1..7"
-        input "tempAlert", "number", title: "Temperature reporting level (1/10th °C)", defaultValue: 10,
-              description: "Minimum temperature change to trigger temp updates",
-              required: false, displayDuringSetup: true, range: "1..50"
-        input "humidityAlert", "number", title: "Humidity reporting level", defaultValue: 50,
-              description: "Minimum humidity level change to trigger updates",
-              required: false, displayDuringSetup: true, range: "1..50"
-        input "illumSensorAlerts", "enum", options: ["Enabled", "Disabled"], title: "Enable Illumination Sensor Updates", defaultValue: "Disabled",
-              description: "Enables illumination update events",
-              required: false, displayDuringSetup: true
-        input "illumAlert", "number", title: "Illumination reporting level", defaultValue: 50,
-              description: "Minumum illumination level change to trigger updates",
-              required: false, displayDuringSetup: true, range: "5..50"
-        input "ledMode", "number", title: "LED Mode", defaultValue: 3,
-              description: "1 LED Off, 2 - Always on (drains battery), 3 - Blink LED",
-              required: false, displayDuringSetup: true, range: "1..3"
-        input "wakeInterval", "number", title: "Wake Interval (minutes)", defaultValue: 60,
-              description: "Interval (in minutes) for polling configuration and sensor values, shorter interval reduces battery life.",
-              required: false, displayDuringSetup: true, range: "10..10080"
-    }
+    input "primaryDisplayType", "enum", options: ["Motion", "Temperature"], title: "Primary Display", defaultValue: "Motion",
+    description: "Sensor to show in primary display",
+    required: false, displayDuringSetup: true
+    input "pirTimeout", "number", title: "Motion Sensor Idle Time (minutes)", defaultValue: 3,
+    description: "Inactivity time before reporting no motion",
+    required: false, displayDuringSetup: true, range: "1..255"
+    input "pirSensitivity", "number", title: "Motion Sensor Sensitivity (1 high - 7 low)", defaultValue: 3,
+    description: "1 is most sensitive, 7 is least sensitive",
+    required: false, displayDuringSetup: true, range: "1..7"
+    input "tempAlert", "number", title: "Temperature reporting level (1/10th °C)", defaultValue: 10,
+    description: "Minimum temperature change to trigger temp updates",
+    required: false, displayDuringSetup: true, range: "1..50"
+    input "humidityAlert", "number", title: "Humidity reporting level", defaultValue: 50,
+    description: "Minimum humidity level change to trigger updates",
+    required: false, displayDuringSetup: true, range: "1..50"
+    input "illumSensorAlerts", "enum", options: ["Enabled", "Disabled"], title: "Enable Illumination Sensor Updates", defaultValue: "Disabled",
+    description: "Enables illumination update events",
+    required: false, displayDuringSetup: true
+    input "illumAlert", "number", title: "Illumination reporting level", defaultValue: 50,
+    description: "Minumum illumination level change to trigger updates",
+    required: false, displayDuringSetup: true, range: "5..50"
+    input "ledMode", "number", title: "LED Mode", defaultValue: 3,
+    description: "1 LED Off, 2 - Always on (drains battery), 3 - Blink LED",
+    required: false, displayDuringSetup: true, range: "1..3"
+    input "wakeInterval", "number", title: "Wake Interval (minutes)", defaultValue: 60,
+    description: "Interval (in minutes) for polling configuration and sensor values, shorter interval reduces battery life.",
+    required: false, displayDuringSetup: true, range: "10..10080"
+  }
+
   simulator {
   }
+
   tiles (scale: 2) {
     multiAttributeTile(name:"main", type: "generic", width: 6, height: 4) {
+      tileAttribute("device.motion", key: "PRIMARY_CONTROL") {
+        attributeState "inactive", label:'${currentValue}°', backgroundColors: "#ffffff"
+        attributeState "active", label:'${currentValue}°', backgroundColors: "#00a0dc"
+      }
+      tileAttribute("device.humidity", key: "SECONDARY_CONTROL") {
+				attributeState("humidity", label:'${currentValue}%', unit:"%", defaultState: true)
+			}
+    }
+
+    multiAttributeTile(name:"temperature", type: "generic", width: 6, height: 4) {
       tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
         attributeState "temperature",label:'${currentValue}°', backgroundColors:[
           [value: 31, color: "#153591"],
@@ -106,15 +119,13 @@ metadata {
           [value: 95, color: "#d04e00"],
           [value: 96, color: "#bc2323"]
         ]
-        attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0"
-        attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
       }
       tileAttribute("device.humidity", key: "SECONDARY_CONTROL") {
 				attributeState("humidity", label:'${currentValue}%', unit:"%", defaultState: true)
 			}
     }
 
-    standardTile("motion", "device.motion", inactiveLabel: false, width: 2, height: 2) {
+    valueTile("motion", "device.motion", width: 2, height: 2) {
       state "inactive",label:'no motion',icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
       state "active",label:'motion',icon:"st.motion.motion.active", backgroundColor:"#00a0dc"
     }
@@ -151,7 +162,7 @@ metadata {
     }
     
     standardTile("reset", "device.DeviceReset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-      state "false", label:'', backgroundColor:"#ffffff"
+      state "false", label:'', backgroundColor:"#ffffff", defaultState: true
       state "true", label:'reset', backgroundColor:"#e51426"
     }
 
@@ -160,8 +171,8 @@ metadata {
       state("Pending", label:'Pending', action:"configuration.configure", backgroundColor:"#f39c12")
     }
 
-    main("motion")
-    details(["main", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "configure", "reset"])
+    main("main")
+    details(["temperature", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "configure", "reset"])
    }
  }
  
