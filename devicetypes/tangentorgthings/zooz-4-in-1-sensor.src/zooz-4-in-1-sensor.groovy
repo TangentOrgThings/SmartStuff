@@ -17,7 +17,7 @@
  
  
 def getDriverVersion() {
-  return "v1.51"
+  return "v1.53"
 }
 
 metadata {
@@ -98,16 +98,6 @@ metadata {
   }
 
   tiles (scale: 2) {
-    multiAttributeTile(name:"main", type: "generic", width: 6, height: 4) {
-      tileAttribute("device.motion", key: "PRIMARY_CONTROL") {
-        attributeState "inactive", label:'${currentValue}°', backgroundColors: "#ffffff"
-        attributeState "active", label:'${currentValue}°', backgroundColors: "#00a0dc"
-      }
-      tileAttribute("device.humidity", key: "SECONDARY_CONTROL") {
-				attributeState("humidity", label:'${currentValue}%', unit:"%", defaultState: true)
-			}
-    }
-
     multiAttributeTile(name:"temperature", type: "generic", width: 6, height: 4) {
       tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
         attributeState "temperature",label:'${currentValue}°', backgroundColors:[
@@ -171,7 +161,7 @@ metadata {
       state("Pending", label:'Pending', action:"configuration.configure", backgroundColor:"#f39c12")
     }
 
-    main("main")
+    main("motion")
     details(["temperature", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "configure", "reset"])
    }
  }
@@ -199,8 +189,7 @@ metadata {
 def parse(String description) {
   def result = null
 
-  log.debug "DESCRIPTION: ${description}"
-  if (description.startsWith("Err")) {
+  if (description && description.startsWith("Err")) {
     log.error "parse error: ${description}"
     result = []
     result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
@@ -214,6 +203,8 @@ def parse(String description) {
           isStateChange: true,
         )
     }    
+  } else if (! description) {
+    result = createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 	
@@ -221,17 +212,15 @@ def parse(String description) {
       result = zwaveEvent(cmd)
       
       if (! result) {
-        log.warning "zwaveEvent() failed to return a value for command ${cmd}"
+        log.warn "zwaveEvent() failed to return a value for command ${cmd}"
         result = createEvent(name: "lastError", value: "$cmd", descriptionText: description)
       } else {
         // If we displayed the result
       }
     } else {
-      log.warning "zwave.parse() failed for: ${description}"
+      log.warn "zwave.parse() failed for: ${description}"
       result = createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
     }
-  } else {
-    result = createEvent(name: "logMessage", value: "DESC: ${description}", descriptionText: description)
   }
     
   return result
