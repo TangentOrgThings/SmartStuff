@@ -17,13 +17,12 @@
  
  
 def getDriverVersion() {
-  return "v1.53"
+  return "v1.55"
 }
 
 metadata {
   definition (name: "Zooz 4 in 1 Sensor", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Battery"
-    capability "Configuration"
     capability "Illuminance Measurement"
     capability "Motion Sensor"
     capability "Relative Humidity Measurement"
@@ -38,6 +37,7 @@ metadata {
     attribute "lastError", "string"        // Last error message
 
     attribute "needUpdate", "enum", ["Synced", "Pending"]
+    
     attribute "Lifeline", "string"
  
     attribute "driverVersion", "string"
@@ -51,6 +51,8 @@ metadata {
     attribute "ProductCode", "string"
     attribute "WakeUp", "string"
     attribute "WirelessConfig", "string"
+    
+    attribute "sensorlevels", "string"
     
     /*
       vendorId: 265 (00:15)
@@ -279,115 +281,57 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
   createEvent(map)
 }
 
-/* def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
-  log.debug "SensorMultilevelReport ${cmd}"
-  def events = []
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
+  logger("$device.displayName $cmd")
+  
+  def result = []
   switch (cmd.sensorType) {
     case 1: //temp
       def cmdScale = cmd.scale == 1 ? "F" : "C"
       state.realTemperature = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmdScale, cmd.precision)
       state.temp = getAdjustedTemp(state.realTemperature)
-      events += createEvent([name: "temperature", value: state.temp, unit: "$cmdScale"]) 
+      result << createEvent(name: "temperature", value: state.temp, unit: "$cmdScale") 
       break
     case 3: // light
       state.realLuminance = cmd.scaledSensorValue.toInteger()
       state.illuminance = getAdjustedLuminance(cmd.scaledSensorValue.toInteger())
-      events += createEvent([name: "illuminance", value: state.illuminance, unit: "lux"]) 
+      result << createEvent(name: "illuminance", value: state.illuminance, unit: "lux") 
       break
     case 5: // humidity
       state.realHumidity = cmd.scaledSensorValue.toInteger()
       state.humidity = getAdjustedHumidity(cmd.scaledSensorValue.toInteger())
-      events += createEvent([name: "humidity", value: state.humidity, unit: "%"]) 
+      result << createEvent(name: "humidity", value: state.humidity, unit: "%") 
     break
   }
-  events += createEvent([name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}"])
+  result << createEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}  Temperature:${state.temp}")
 
-  return evt
-}*/
-
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
-  logger("$device.displayName $cmd")
-
-  def map = [ displayed: true, isStateChange: true, value: cmd.scaledSensorValue.toString() ]
-  switch (cmd.sensorType) {
-    case 1:
-    map.name = "temperature"
-    map.unit = cmd.scale == 1 ? "F" : "C"
-    break;
-    case 2:
-    map.name = "value"
-    map.unit = cmd.scale == 1 ? "%" : ""
-    break;
-    case 3:
-    map.name = "illuminance"
-    map.value = cmd.scaledSensorValue.toInteger().toString()
-    map.unit = "lux"
-    break;
-    case 4:
-    map.name = "power"
-    map.unit = cmd.scale == 1 ? "Btu/h" : "W"
-    break;
-    case 5:
-    map.name = "humidity"
-    map.value = cmd.scaledSensorValue.toInteger().toString()
-    map.unit = cmd.scale == 0 ? "%" : ""
-    break;
-    case 6:
-    map.name = "velocity"
-    map.unit = cmd.scale == 1 ? "mph" : "m/s"
-    break;
-    case 8:
-    case 9:
-    map.name = "pressure"
-    map.unit = cmd.scale == 1 ? "inHg" : "kPa"
-    break;
-    case 0xE:
-    map.name = "weight"
-    map.unit = cmd.scale == 1 ? "lbs" : "kg"
-    break;
-    case 0xF:
-    map.name = "voltage"
-    map.unit = cmd.scale == 1 ? "mV" : "V"
-    break;
-    case 0x10:
-    map.name = "current"
-    map.unit = cmd.scale == 1 ? "mA" : "A"
-    break;
-    case 0x12:
-    map.name = "air flow"
-    map.unit = cmd.scale == 1 ? "cfm" : "m^3/h"
-    break;
-    case 0x1E:
-    map.name = "loudness"
-    map.unit = cmd.scale == 1 ? "dBA" : "dB"
-    break;
-  }
-
-  createEvent(map)
+  return result
 }
 
 def motionEvent(boolean motion_value) {
   state.motion = motion_value ? "active" : "inactive"
   description = motion_value ? "$device.displayName detected motion" :"$device.displayName motion has stopped"
   
-  return [ createEvent(name:"motion", value: state.motion, descriptionText: "$description") ]
+  sendEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}  Temperature:${state.realTemperature}")
+  
+  return createEvent(name:"motion", value: state.motion, descriptionText: "$description")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
-  log.debug "SensorBinaryReport ${cmd}"
-  return motionEvent(cmd.sensorValue ? true : false)
+  logger("$device.displayName $cmd")
+  [ motionEvent(cmd.sensorValue ? true : false) ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
-  log.debug("$device.displayName $cmd")
-  return motionEvent(cmd.value ? true : false)
+  logger("$device.displayName $cmd")
+  [ motionEvent(cmd.value ? true : false) ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
-  log.debug("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
 
-	def result = []
-	if (cmd.notificationType == 7) {
+  def result = []
+  if (cmd.notificationType == 7) {
 		switch (cmd.event) {
 			case 0:
               result << motionEvent(false)
@@ -409,8 +353,8 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 			break
 		}
 	} else {
-		log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
-		result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
+      log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
+	  result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
 	}
 	
     return result
@@ -419,29 +363,33 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("$device.displayName $cmd")
+  
+  def result = []
 
-  sendEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)
+  result << createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)
 
   if (0) {
     def cmds = readSensors()
 
     // read the battery level every day
-    log.debug "battery ${state.batteryReadTime} ${new Date().time}"
+    logger("battery ${state.batteryReadTime} ${new Date().time}", "debug")
+    
     if (!state.lastBatteryReport || (now() - state.lastBatteryReport) / 60000 >= 60 * 24) {
-      cmds += secure(zwave.batteryV1.batteryGet())
+      cmds << zwave.batteryV1.batteryGet().format()
     }
+    
     if (state.configRequired) {
       // send pending configure commands
       cmds += configCmds()
       state.configRequired = false
       sendEvent(name:"needUpdate", value: "Synced")
     }
-    cmds += zwave.wakeUpV2.wakeUpNoMoreInformation().format()
-    cmds = delayBetween(cmds, 600)
-    return [response(cmds)]
+    cmds << zwave.wakeUpV2.wakeUpNoMoreInformation().format()
+
+    result << response(delayBetween(cmds, 600))
   }
 
-  [ createEvent(descriptionText: cmd.toString(), isStateChange: false) ] 
+  return result 
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
@@ -489,7 +437,6 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("$device.displayName $cmd")
-  state.reset = true
   [ createEvent(name: "DeviceReset", value: state.reset, descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
 }
 
@@ -577,12 +524,13 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 }
 
 def refresh() {
-  log.debug "$device.displayName - refresh()"
+  logger("$device.displayName - refresh()")
 
   def cmds = []
   
   if (state.lastRefresh != null && now() - state.lastRefresh < 5000) {
-    log.debug "Refresh Double Press"
+    logger("Refresh Double Press", "debug")
+    
     def configuration = parseXml(configuration_model())
     configuration.Value.each
     {
@@ -594,13 +542,13 @@ def refresh() {
   }
   
   state.lastRefresh = now()
-  cmds << zwave.batteryV1.batteryGet().format()
-  cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:1, scale:1).format()
-  cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:3, scale:1).format()
-  cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:5, scale:1).format()
-  cmds << zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]).format()
+  cmds << zwave.batteryV1.batteryGet()
+  cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:1, scale:1)
+  cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:3, scale:1)
+  cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:5, scale:1)
+  cmds << zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId])
   
-  response(commands(cmds, 500))
+  sendCommands(cmds, 500)
 }
 
 /**
@@ -644,19 +592,6 @@ private isConfigured() {
   getDataValue("configured") == "true"
 }
 
-private command(physicalgraph.zwave.Command cmd) {
-
-  if (state.sec != 0 && cmd.toString()) {
-    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
-  } else {
-    cmd.format()
-  }
-}
-
-private commands(commands, delay=1000) {
-  delayBetween(commands.collect{ command(it) }, delay)
-}
-
 private getBatteryRuntime() {
   def currentmillis = now() - state.batteryRuntimeStart
   def days=0
@@ -672,7 +607,7 @@ private getBatteryRuntime() {
   hours=(hours-(days*24)).toString().padLeft(2, '0') 
 
 
-  if (days>0) { 
+  if ( days>0) { 
     return "$days days and $hours:$mins:$secs"
   } else {
     return "$hours:$mins:$secs"
@@ -681,10 +616,11 @@ private getBatteryRuntime() {
 
 private getRoundedInterval(number) {
   double tempDouble = (number / 60)
-  if (tempDouble == tempDouble.round())
+  if (tempDouble == tempDouble.round()) {
     return (tempDouble * 60).toInteger()
-  else 
+  } else {
     return ((tempDouble.round() + 1) * 60).toInteger()
+  }
 }
 
 private getAdjustedTemp(value) {
@@ -724,59 +660,88 @@ private getAdjustedLuminance(value) {
 }
 
 def updated() {
-  log.debug "updated()"
+  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
+    return
+  }
+  log.info("$device.displayName updated() debug: ${debugLevel}")
+  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-  state.loggingLevelIDE = 4
   
   state.lastBatteryReport = 0
   state.configRequired = true
   sendEvent(name:"needUpdate", value: "Pending")
 
-  if (state.realTemperature != null) 
-  {
+  if (state.realTemperature != null) {
     sendEvent(name:"temperature", value: getAdjustedTemp(state.realTemperature))
-  }
-  if (state.realHumidity != null) 
-  {
-    sendEvent(name:"humidity", value: getAdjustedHumidity(state.realHumidity))
-  }
-  if (state.realLuminance != null) 
-  {
-    sendEvent(name:"illuminance", value: getAdjustedLuminance(state.realLuminance))
+  } else {
+    state.realTemperature = 0
+    state.temp = 0
   }
   
-  sendEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}")
+  if (state.realHumidity != null) {
+    sendEvent(name:"humidity", value: getAdjustedHumidity(state.realHumidity))
+  } else {
+    state.realHumidity = 0
+    state.humidity = 0
+  }
+
+  if (state.realLuminance != null) {
+    sendEvent(name:"illuminance", value: getAdjustedLuminance(state.realLuminance))
+  } else {
+    state.realLuminance = 0
+    state.illuminance = 0
+  }
   
   // set default values so the display isn't messed up
   if (state.motion == null || state.motionText == null) {
       state.motion = "inactive"
       state.motionText = "No Motion"
   }
+  
+  sendEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}  Temperature:${state.realTemperature}")
+  
   sendEvent(name:"motion", value: state.motion, descriptionText: "$state.motionText")
   
   if (!device.currentState("ManufacturerCode")) {
-    response(commands(zwave.manufacturerSpecificV2.manufacturerSpecificGet()))
+    sendCommands([
+      zwave.manufacturerSpecificV2.manufacturerSpecificGet()
+    ])
   }
   
-  // configure()
+  // Avoid calling updated() twice
+  state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
 
 def installed() {
-  log.debug "installed()"
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  log.info("$device.displayName installed()")
   state.loggingLevelIDE = 4
+  
+  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   sendEvent(name: "configured", value: "false", isStateChange: true)
+  sendEvent(name: "DeviceReset", value: false, isStateChange: true, displayed: true)
+  
   // called when the device is installed
   state.configRequired = true
   state.lastBatteryReport = 0
+  
+  state.realTemperature = 0
+  state.temp = 0
+  state.realHumidity = 0
+  state.humidity = 0
+  state.realLuminance = 0
+  state.illuminance = 0
+  
   sendEvent(name:"needUpdate", value: "Pending")
 }
 
 def readSensors() {
     [
-        secure(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:3)), // light
-        secure(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:5)), // humidity
-        secure(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:1)), // temp
+        zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:3).format(), // light
+        zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:5).format(), // humidity
+        zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:1).format(), // temp
     ]
 }
 
@@ -818,16 +783,15 @@ def configCmds() {
   log.debug "configure, pirSensitivityPref:${pirSensitivityPref} ledModePref:${ledModePref}" 
   log.debug "configure, wakeIntervalPref:${wakeIntervalPref}"
   def cmds = [
-    secure(zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId)),
-
-    secure(zwave.configurationV1.configurationSet(scaledConfigurationValue: tempAlertPref, parameterNumber: 2)),
-    secure(zwave.configurationV1.configurationSet(scaledConfigurationValue: humidityAlertPref, parameterNumber: 3)),
-    secure(zwave.configurationV1.configurationSet(scaledConfigurationValue: illumAlertPref, parameterNumber: 4)),
-    secure(zwave.configurationV1.configurationSet(scaledConfigurationValue: pirTimeoutPref, parameterNumber: 5)),
-    secure(zwave.configurationV1.configurationSet(scaledConfigurationValue: pirSensitivityPref, parameterNumber: 6)),
-    secure(zwave.configurationV1.configurationSet(scaledConfigurationValue: ledModePref, parameterNumber: 7)),
-    secure(zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid: 0x01))
-    // secure(zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid:zwaveHubNodeId))
+    zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId).format(),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: tempAlertPref, parameterNumber: 2).format(),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: humidityAlertPref, parameterNumber: 3).format(),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: illumAlertPref, parameterNumber: 4).format(),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: pirTimeoutPref, parameterNumber: 5).format(),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: pirSensitivityPref, parameterNumber: 6).format(),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: ledModePref, parameterNumber: 7).format(),
+    zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid: 0x01).format(),
+    // zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid:zwaveHubNodeId).format()
   ]
   return cmds
 }
@@ -873,6 +837,7 @@ private prepCommands(cmds, delay) {
 private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
+
 /**
  *  logger()
  *
@@ -881,7 +846,7 @@ private sendCommands(cmds, delay=200) {
  *    messages by sending events for the device's logMessage attribute and lastError attribute.
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
-private logger(msg, level = "debug") {
+private logger(msg, level = "trace") {
   switch(level) {
     case "error":
     if (state.loggingLevelIDE >= 1) {
