@@ -209,7 +209,7 @@ def parse(String description) {
 
     } else {
       log.warn "zwave.parse() failed for: ${description}"
-      result = createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
     }
   }
   
