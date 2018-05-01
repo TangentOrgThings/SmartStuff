@@ -14,7 +14,7 @@
  */
  
 def getDriverVersion() {
-  return "v4.22"
+  return "v4.27"
 }
 
 metadata {
@@ -600,7 +600,7 @@ def poll() {
   * PING is used by Device-Watch in attempt to reach the Device
 **/
 def ping() {
-  response(zwave.switchBinaryV1.switchBinaryGet())
+  zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
 def refresh() {
@@ -623,9 +623,7 @@ def prepDevice() {
     zwave.versionV1.versionGet(),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
-    zwave.associationV1.associationGroupingsGet(),
-    zwave.meterV2.meterGet(scale: 0),
-    zwave.meterV2.meterGet(scale: 2),
+    // zwave.associationV1.associationGroupingsGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
