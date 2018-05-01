@@ -73,7 +73,6 @@ metadata {
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
-    attribute "WakeUp", "string"
     attribute "WirelessConfig", "string"
     
     attribute "WakeUp", "string"
@@ -125,7 +124,7 @@ metadata {
       state "true", label:'', backgroundColor:"#e51426"
     }
     
-    valueTile("lastActive", "state.lastActive", width:2, height:2, inactiveLabel: true, decoration: "flat") {
+    valueTile("lastActive", "state.LastActive", width:2, height:2, inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
     
@@ -234,7 +233,7 @@ def sensorValueEvent(happened, result) {
   if (happened) {
     logger("  is active", "info")
     state.lastActive = new Date().time
-    result << createEvent(name: "lastActive", value: state.lastActive, isStateChange: true, displayed: true)
+    result << createEvent(name: "LastActive", value: state.lastActive, isStateChange: true, displayed: true)
   } 
     
   result << createEvent(name: "motion", value: happened ? "active" : "inactive", isStateChange: true, displayed: true)
@@ -388,7 +387,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
-	log.debug ("AssociationReport() $cmd")
+  logger("$device.displayName $cmd")
 
 	if (cmd.groupingIdentifier == getAssociationGroup()) {
 		if (cmd.nodeId.any { it == zwaveHubNodeId }) {
