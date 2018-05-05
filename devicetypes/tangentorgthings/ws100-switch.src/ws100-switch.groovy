@@ -72,7 +72,7 @@ metadata {
     attribute "Scene_1_Duration", "number"
     attribute "Scene_2", "number"
     attribute "Scene_2_Duration", "number"
-    
+
     attribute "SwitchAll", "string"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
@@ -116,7 +116,7 @@ metadata {
     valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
       state "default", label: '${currentValue}'
     }
-    
+
     valueTile("setScene", "device.setScene", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
       state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
       state "Setting", label: '${name}' //, nextState: "Set_Scene"
@@ -145,7 +145,7 @@ metadata {
 }
 
 def getCommandClassVersions() {
-  [ 
+  [
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
@@ -159,7 +159,7 @@ def getCommandClassVersions() {
     // 0x73: 1, // Powerlevel
     0x7A: 2,  // Firmware Update Md
     0x86: 1,  // Version
-    0x85: 2,  // Association	0x85	V1 V2
+    0x85: 2,  // Association  0x85  V1 V2
   ]
 }
 
@@ -171,7 +171,7 @@ def parse(String description) {
     log.error "parse error: ${description}"
     result = []
     result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
-    
+
     if (description.startsWith("Err 106")) {
       result << createEvent(
           descriptionText: "Security, possible key exchange error.",
@@ -211,7 +211,7 @@ private switchEvents(Short value, boolean isPhysical = true) {
     logger("$device.displayName returned Unknown for status.", "warn")
     return createEvent(descriptionText: "$device.displayName returned Unknown for status.", displayed: true)
   }
-  
+
   return [ createEvent(name: "switch", value: value ? "on" : "off", type: isPhysical ? "physical" : "digital") ]
 }
 
@@ -257,7 +257,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd) {
   log.debug("$device.displayName $cmd")
-  
+
   // HomeSeer (ST?) does not implement this scene
   if (cmd.sceneId == 0) {
     return [
@@ -279,7 +279,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
   String scene_name = "Scene_$cmd.sceneId"
   String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
-  
+
   [ createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true),
     createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true),
     createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true),
@@ -301,7 +301,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
   if (cmd.parameterNumber == 3) {
     def value = "when off"
-    
+
     if (cmd.configurationValue[0] == 1) {
       value = "when on"
     }
@@ -310,7 +310,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     }
     state.indicatorStatus = value
     return [ createEvent(name: "indicatorStatus", value: value, display: false) ]
-  } else if (cmd.parameterNumber == 4) {  
+  } else if (cmd.parameterNumber == 4) {
     if ( cmd.configurationValue[0] != invertSwitch) {
       return response( [
         zwave.configurationV1.configurationSet(scaledConfigurationValue: invertSwitch ? 1 : 0, parameterNumber: cmd.parameterNumber, size: 1).format(),
@@ -414,7 +414,7 @@ def on() {
   log.debug("$device.displayName on()")
 
   state.lastActive = new Date().time
-  
+
   if (0) { // Add option to have digital commands execute buttons
     buttonEvent(1, false, "digital")
   }
@@ -429,7 +429,7 @@ def off() {
   log.debug("$device.displayName off()")
 
   state.lastActive = new Date().time
-  
+
   if (0) { // Add option to have digital commands execute buttons
     buttonEvent(2, false, "digital")
   }
@@ -549,7 +549,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
 
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotification cmd) {
   log.debug("$device.displayName $cmd")
-  
+
   if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
     return [ createEvent(descriptionText: "Late sequenceNumber  $cmd", isStateChange: false, displayed: true) ]
   }
@@ -564,7 +564,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     // Up
     switch (cmd.keyAttributes) {
       case 2:
-      case 0:    
+      case 0:
       buttonEvent(cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
       result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
@@ -611,11 +611,11 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
 
   result << createEvent(name: "keyAttributes", value: cmd.keyAttributes, isStateChange: true, displayed: true)
   result << createEvent(name: "Scene", value: cmd.sceneNumber, isStateChange: true, displayed: true)
-  
+
   if ( 0 ) { // cmd.keyAttributes ) {
     result << response(zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: cmd.sceneNumber))
   }
-  
+
   return result
 }
 
@@ -730,7 +730,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd) {
       zwave.switchAllV1.switchAllGet(),
     ])
   } else {
-    [ 
+    [
       createEvent(name: "SwitchAll", value: msg, isStateChange: true, displayed: true),
     ]
   }
@@ -778,7 +778,7 @@ def updated() {
     return
   }
   state.loggingLevelIDE = 4
-  
+
   if (! state.reset) {
     sendEvent(name: "reset", value: false, isStateChange: true, displayed: true)
   } else {
@@ -811,7 +811,7 @@ def updated() {
     settings.indicatorStatus = "when off"
     state.indicatorStatus = settings.indicatorStatus
   }
-  
+
   if (0) {
   switch (settings.indicatorStatus) {
     case "when on":
