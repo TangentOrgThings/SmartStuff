@@ -29,11 +29,12 @@ metadata {
     capability "Energy Meter"
     capability "Health Check"
     capability "Motion Sensor"
+    capability "Outlet"
     capability "Polling"
     capability "Power Meter"
     capability "Refresh"
     capability "Sensor"
-    capability "Outlet"
+    capability "Switch"
 
     command "reset"
 
@@ -619,14 +620,18 @@ private sendCommands(cmds, delay=200) {
 private logger(msg, level = "trace") {
 	switch(level) {
 		case "error":
-		if (state.loggingLevelIDE >= 1) log.error msg
-			if (state.loggingLevelDevice >= 1) sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-				break
+		if (state.loggingLevelIDE >= 1) {
+      log.error msg
+			sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
+    }
+    break
 
 		case "warn":
-		if (state.loggingLevelIDE >= 2) log.warn msg
-			if (state.loggingLevelDevice >= 2) sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
-				break
+		if (state.loggingLevelIDE >= 2) {
+      log.warn msg
+			sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    }
+    break
 
 		case "info":
 		if (state.loggingLevelIDE >= 3) log.info msg

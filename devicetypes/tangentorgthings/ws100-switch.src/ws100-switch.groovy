@@ -38,7 +38,7 @@ metadata {
     // capability "Health Check"
     capability "Button"
     capability "Indicator"
-    capability "Light"
+    // capability "Light"
     capability "Polling"
     capability "Refresh"
     capability "Sensor"
@@ -91,9 +91,10 @@ metadata {
   }
 
   preferences {
-    input "ledIndicator", "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options: ["When Off", "When On", "Never"]
-    input "invertSwitch", "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
-    input "disbableDigitalOff", "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options: ["When Off", "When On", "Never"]
+    input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
+    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
   tiles(scale: 2) {
@@ -891,8 +892,6 @@ private logger(msg, level = "debug") {
     case "error":
     if (state.loggingLevelIDE >= 1) {
       log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
       sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
     }
     break
@@ -900,8 +899,6 @@ private logger(msg, level = "debug") {
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     break

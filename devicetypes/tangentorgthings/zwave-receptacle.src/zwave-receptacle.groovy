@@ -35,7 +35,7 @@ metadata {
     capability "Polling"
     capability "Refresh"
     capability "Sensor"
-    // capability "Switch"
+    capability "Switch"
     capability "Power Meter"
     // capability "Health Check"
 
@@ -199,6 +199,7 @@ def deviceCommandClasses() {
     0x86: 1,  // Version
     ]
     break;
+    case "0063-4952-3133": // Alcove Lamp    
     case "0184-4447-3031":
     return [
     0x20: 1,  // Basic
@@ -446,10 +447,10 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", displayed: true, isStateChange: true)
 
   switch (msr) {
-    case "0063-4952-3133":
+    case "UNUSED":
     result << response(delayBetween([
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
-      zwave.associationV1.associationGroupingsGet().format(),
+      zwave.associationV2.associationGroupingsGet().format(),
     ]))
     return
     break;
@@ -460,11 +461,12 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       ]))
     return
     break;
+    case "0063-4952-3031":
+    case "0063-4952-3133":
     case "0184-4447-3031":
     result << response(delayBetween([
       zwave.associationV2.associationGroupingsGet().format(),
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
-      zwave.firmwareUpdateMdV2.firmwareMdGet().format(),
       ]))
     break;
     return
@@ -655,14 +657,14 @@ def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result
 
 def on() {
   delayBetween([
-    zwave.basicV1.basicSet(value: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
     zwave.switchBinaryV1.switchBinaryGet().format()
   ])
 }
 
 def off() {
   delayBetween([
-    zwave.basicV1.basicSet(value: 0x00).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
     zwave.switchBinaryV1.switchBinaryGet().format()
   ])
 }

@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion () {
-  return "v0.15"
+  return "v0.17"
 }
 
 metadata {
@@ -43,8 +43,8 @@ metadata {
   tiles {
     multiAttributeTile(name:"switch", type: "generic", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        state "off", label: "Night", action: "diem", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
-        state "on", label: "Day", action: "noctem", icon: "st.switches.switch.on", backgroundColor: "#00a0dc"
+        state "off", label: "Night", icon: "st.Weather.weather4", backgroundColor: "#ffffff"
+        state "on", label: "Day", icon: "st.Weather.weather14", backgroundColor: "#00a0dc"
       }
       tileAttribute ("device.illuminance", key: "SECONDARY_CONTROL") {
         attributeState "device.illuminance", value: '${currentValue}', unit:"lux"
