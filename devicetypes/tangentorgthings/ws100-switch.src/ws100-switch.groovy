@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.23"
+  return "v6.24"
 }
 
 metadata {
@@ -61,8 +61,6 @@ metadata {
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
-    attribute "WakeUp", "string"
-    attribute "WirelessConfig", "string"
 
     attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
@@ -299,13 +297,14 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   if (cmd.parameterNumber == 3) {
     def value = "when off"
 
-    if (cmd.configurationValue[0] == 1) {
+    if (cmd.configurationValue[0] == 0) {
       value = "when on"
-    }
-    if (cmd.configurationValue[0] == 2) {
+    } else if (cmd.configurationValue[0] == 1) {
+      value = "when on"
+    } else if (cmd.configurationValue[0] == 2) {
       value = "never"
     }
-    state.indicatorStatus = value
+
     return [ createEvent(name: "indicatorStatus", value: value, display: false) ]
   } else if (cmd.parameterNumber == 4) {
     if ( cmd.configurationValue[0] != invertSwitch) {
@@ -360,7 +359,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   sendEvent(name: "ManufacturerCode", value: manufacturerCode)
   sendEvent(name: "ProduceTypeCode", value: productTypeCode)
   sendEvent(name: "ProductCode", value: productCode)
-  sendEvent(name: "WirelessConfig", value: wirelessConfig)
 
   def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
@@ -471,9 +469,6 @@ void indicatorWhenOn() {
   logger("$device.displayName indicatorWhenOn()")
   // sendEvent(name: "indicatorStatus", value: "when on", displayed: false)
 
-  // Indicate when off
-  state.indicatorStatus = "when on"
-
   sendHubCommand([
     zwave.configurationV1.configurationSet(scaledConfigurationValue: 1, parameterNumber: 3, size: 1).format(),
     zwave.configurationV1.configurationGet(parameterNumber: 3).format(),
@@ -482,8 +477,6 @@ void indicatorWhenOn() {
 
 void indicatorWhenOff() {
   logger("$device.displayName indicatorWhenOff()")
-
-  state.indicatorStatus = "when off"
 
   sendHubCommand([
     zwave.configurationV1.configurationSet(scaledConfigurationValue: 0, parameterNumber: 3, size: 1).format(),
@@ -494,9 +487,6 @@ void indicatorWhenOff() {
 void indicatorNever() {
   logger("$device.displayName indicatorNever()")
   // sendEvent(name: "indicatorStatus", value: "never", displayed: false)
-
-  // Never turn on Indicator
-  state.indicatorStatus = "never"
 
   sendHubCommand([
     zwave.configurationV1.configurationSet(scaledConfigurationValue: 2, parameterNumber: 3, size: 1).format(),
@@ -735,7 +725,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd) {
 def prepDevice() {
   [
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    // zwave.configurationV1.configurationGet(parameterNumber: 3),
+    zwave.configurationV1.configurationGet(parameterNumber: 3),
     zwave.configurationV1.configurationGet(parameterNumber: 4),
     zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV1.firmwareMdGet(),
@@ -755,9 +745,11 @@ def installed() {
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
   state.loggingLevelIDE = 4
 
-  def zwInfo = getZwaveInfo()
-  log.debug("$device.displayName $zwInfo")
-  sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+  if (0) {
+    def zwInfo = getZwaveInfo()
+    log.debug("$device.displayName $zwInfo")
+    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+  }
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
@@ -765,7 +757,9 @@ def installed() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   indicatorWhenOff()
 
-  sendCommands( prepDevice(), 2000 )
+  sendCommands( [
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: 0, parameterNumber: 3, size: 1),
+    ] + prepDevice(), 2000 )
 }
 
 def updated() {
@@ -775,26 +769,17 @@ def updated() {
   log.info("$device.displayName updated() debug: ${debugLevel}")
   state.loggingLevelIDE = debugLevel ? debugLevel : 4
 
-  /*
-  def zwInfo = getZwaveInfo()
-  if ( !isNull($zwInfo) ) {
-  log.debug("$device.displayName $zwInfo")
-  sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  }
-   */
-
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
-
-  // Check in case the device has been changed
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "numberOfButtons", value: 8, displayed: true, isStateChange: true)
-  //sendEvent(name: "indicator", value: "when off", displayed: true, isStateChange: true)
 
-  if (! state.indicatorStatus) {
-    settings.indicatorStatus = state.indicatorStatus
-  } else {
-    settings.indicatorStatus = "when off"
-    state.indicatorStatus = settings.indicatorStatus
+  if (0) {
+    if (! state.indicatorStatus) {
+      settings.indicatorStatus = state.indicatorStatus
+    } else {
+      settings.indicatorStatus = "when off"
+      state.indicatorStatus = settings.indicatorStatus
+    }
   }
 
   if (0) {
