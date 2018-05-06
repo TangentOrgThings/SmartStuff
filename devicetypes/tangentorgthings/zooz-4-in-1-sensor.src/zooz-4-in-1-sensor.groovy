@@ -1,3 +1,4 @@
+// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 /**
  *
  *  zooZ 4-in-1 Sensor
@@ -17,7 +18,7 @@
 
 
 def getDriverVersion() {
-  return "v1.55"
+  return "v1.57"
 }
 
 metadata {
@@ -137,12 +138,12 @@ metadata {
     }
 
     standardTile("tamper", "device.tamper", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-      state("clear", label:'clear', icon:"st.contact.contact.closed", backgroundColor:"#cccccc", action: "resetTamperAlert")
+      state("clear", label:'clear', icon:"st.contact.contact.closed", backgroundColor:"#cccccc", action: "resetTamperAlert", defaultState: true)
       state("detected", label:'tamper', icon:"st.contact.contact.open", backgroundColor:"#e86d13", action: "resetTamperAlert")
     }
 
     valueTile("battery", "device.battery", decoration: "flat", width: 2, height: 2) {
-      state "battery", label:'${currentValue}% battery', unit:""
+      state "battery", label:'${currentValue}', unit:"%"
     }
 
     valueTile("firmwareVersion", "device.firmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -164,7 +165,7 @@ metadata {
     }
 
     main("motion")
-    details(["temperature", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "configure", "reset"])
+    details(["temperature", "motion", "illuminance", "tamper", "battery", "firmwareVersion", "driverVersion", "reset"])
    }
  }
 
@@ -209,7 +210,7 @@ def parse(String description) {
     result = createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
-  
+
     if (cmd) {
       result = zwaveEvent(cmd)
 
@@ -303,28 +304,12 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
       result << createEvent(name: "humidity", value: state.humidity, unit: "%")
     break
   }
-  result << createEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}  Temperature:${state.temp}")
 
   return result
 }
 
 def motionEvent(boolean motion_value) {
-  state.motion = motion_value ? "active" : "inactive"
-  description = motion_value ? "$device.displayName detected motion" :"$device.displayName motion has stopped"
-
-  sendEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}  Temperature:${state.realTemperature}")
-
-  return createEvent(name:"motion", value: state.motion, descriptionText: "$description")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
-  logger("$device.displayName $cmd")
-  [ motionEvent(cmd.sensorValue ? true : false) ]
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
-  logger("$device.displayName $cmd")
-  [ motionEvent(cmd.value ? true : false) ]
+  createEvent(name:"motion", value: motion_value ? "active" : "inactive", descriptionText: motion_value ? "detected motion" : "motion has stopped")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
@@ -334,7 +319,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   if (cmd.notificationType == 7) {
     switch (cmd.event) {
       case 0:
-              result << motionEvent(false)
+      result << motionEvent(false)
               if (cmd.eventParameter == [8]) {
               //
               } else if (cmd.eventParameter == [3]) {
@@ -348,6 +333,8 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
         result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered")
         // Clear the tamper alert after 10s. This is a temporary fix for the tamper attribute until local execution handles it
       break
+      case 1:
+      case 2:
       case 7:
         result << motionEvent(true)
       break
@@ -356,7 +343,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
       log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
     result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
   }
-  
+
     return result
 }
 
@@ -437,7 +424,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("$device.displayName $cmd")
-  [ createEvent(name: "DeviceReset", value: state.reset, descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
+  [ createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd) {
@@ -721,7 +708,6 @@ def installed() {
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   sendEvent(name: "configured", value: "false", isStateChange: true)
-  sendEvent(name: "DeviceReset", value: false, isStateChange: true, displayed: true)
 
   // called when the device is installed
   state.configRequired = true

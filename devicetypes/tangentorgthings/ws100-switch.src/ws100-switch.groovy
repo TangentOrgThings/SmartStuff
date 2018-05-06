@@ -38,7 +38,7 @@ metadata {
     // capability "Health Check"
     capability "Button"
     capability "Indicator"
-    // capability "Light"
+    capability "Light"
     capability "Polling"
     capability "Refresh"
     capability "Sensor"
@@ -103,22 +103,18 @@ metadata {
         attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
         attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
-      tileAttribute("device.status", key: "SECONDARY_CONTROL") {
-        attributeState("default", label:'${currentValue}', unit:"")
+      tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
+        attributeState("when off", label:'${currentValue}', icon:"st.indicators.lit-when-off")
+        attributeState("when on", label:'${currentValue}', icon:"st.indicators.lit-when-on")
+        attributeState("never", label:'${currentValue}', icon:"st.indicators.never-lit")
       }
     }
 
-    standardTile("indicator", "device.indicatorStatus", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "when off", action:"indicator.indicatorWhenOn", icon:"st.indicators.lit-when-off"
-      state "when on", action:"indicator.indicatorNever", icon:"st.indicators.lit-when-on"
-      state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
-    }
-
-    valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
+    valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
       state "default", label: '${currentValue}'
     }
 
-    valueTile("setScene", "device.setScene", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
+    valueTile("setScene", "device.setScene", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
       state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
@@ -127,11 +123,11 @@ metadata {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
     }
 
-    valueTile("firmwareVersion", "device.firmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
+    valueTile("firmwareVersion", "device.firmwareVersion", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
       state "default", label: '${currentValue}'
     }
 
-    valueTile("driverVersion", "device.driverVersion", width:2, height:2, inactiveLabel: true, decoration: "flat") {
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
 
@@ -141,7 +137,7 @@ metadata {
     }
 
     main "switch"
-    details(["switch", "indicator", "scene", "setScene", "firmwareVersion", "driverVersion", "refresh", "reset"])
+    details(["switch", "scene", "setScene", "firmwareVersion", "driverVersion", "refresh", "reset"])
   }
 }
 
@@ -525,8 +521,7 @@ def invertSwitch(invert=true) {
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("$device.displayName $cmd")
-  state.reset = true
-  [ createEvent(name: "DeviceReset", value: state.reset, descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
+  [ createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd) {
@@ -767,7 +762,6 @@ def installed() {
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
-  sendEvent(name: "reset", value: false, isStateChange: true, displayed: true)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   indicatorWhenOff()
 
@@ -778,15 +772,8 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = 4
-
-  if (! state.reset) {
-    sendEvent(name: "reset", value: false, isStateChange: true, displayed: true)
-  } else {
-    sendEvent(name: "reset", value: true, isStateChange: true, displayed: true)
-  }
-
-  logger("$device.displayName  updated()")
+  log.info("$device.displayName updated() debug: ${debugLevel}")
+  state.loggingLevelIDE = debugLevel ? debugLevel : 4
 
   /*
   def zwInfo = getZwaveInfo()
@@ -800,9 +787,6 @@ def updated() {
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
   // Check in case the device has been changed
-  state.manufacturer = null
-  updateDataValue("MSR", null)
-  updateDataValue("manufacturer", null)
   sendEvent(name: "numberOfButtons", value: 8, displayed: true, isStateChange: true)
   //sendEvent(name: "indicator", value: "when off", displayed: true, isStateChange: true)
 
