@@ -95,20 +95,22 @@ metadata {
 		}
 
 		valueTile("power", "device.power", decoration: "flat") {
-			state "default", label:'${currentValue}', unit:"W"
+			state "default", label:'${currentValue} W', unit:"W"
 		}
 
 		valueTile("energy", "device.energy", decoration: "flat") {
-			state "default", label:'${currentValue}', unit:"kWh"
+			state "default", label:'${currentValue} kWh', unit:"kWh"
 		}
 
 		standardTile("reset", "device.energy", inactiveLabel: false, decoration: "flat") {
 			state "default", label:'reset kWh', action:"reset"
 		}
 
+    /*
 		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
+    */
 
 		valueTile("driverVersion", "device.driverVersion", width:2, height:2, inactiveLabel: true, decoration: "flat") {
 			state "default", label: '${currentValue}'
