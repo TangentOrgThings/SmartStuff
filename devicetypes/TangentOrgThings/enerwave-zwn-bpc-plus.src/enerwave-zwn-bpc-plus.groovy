@@ -1,8 +1,8 @@
 // vim :set ts=2 sw=2 sts=2 expandtab smarttab :
 /**
- *  Enerwave ZWN BPC
+ *  Enerwave ZWN BPC PLUS
  *
- *  Copyright 2016 Brian Aker
+ *  Copyright 2016-2018 Brian Aker
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -17,7 +17,7 @@
 
 
 def getDriverVersion() {
-  return "v3.19"
+  return "v3.21"
 }
 
 def getDefaultMotionTimeout() {
@@ -73,8 +73,6 @@ metadata {
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
-    attribute "WakeUp", "string"
-    attribute "WirelessConfig", "string"
 
     attribute "WakeUp", "string"
     attribute "WakeUpInterval", "number"
@@ -144,7 +142,7 @@ metadata {
   }
 }
 
-private deviceCommandClasses () {
+private deviceCommandClasses() {
   if (isPlus()) {
     return [
       0x20: 1,  // Basic
@@ -232,10 +230,10 @@ def sensorValueEvent(happened, result) {
   if (happened) {
     logger("  is active", "info")
     state.lastActive = new Date().time
-    result << createEvent(name: "lastActive", value: state.lastActive, isStateChange: true, displayed: true)
+    result << createEvent(name: "lastActive", value: state.lastActive)
   }
 
-  result << createEvent(name: "motion", value: happened ? "active" : "inactive", isStateChange: true, displayed: true)
+  result << createEvent(name: "motion", value: happened ? "active" : "inactive")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
@@ -248,15 +246,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   sensorValueEvent(cmd.value, result)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
   logger("$device.displayName $cmd")
   sensorValueEvent(cmd.sensorValue, result)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd, result) {
-  logger("$device.displayName $cmd")
-  sensorValueEvent(cmd.sensorState, result)
-}
 
 // NotificationReport() NotificationReport(event: 8, eventParameter: [], eventParametersLength: 0, notificationStatus: 255, notificationType: 7, reserved61: 0, sequence: false, v1AlarmLevel: 0, v1AlarmType: 0, zensorNetSourceNodeId: 0)
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
@@ -266,9 +260,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   if (cmd.notificationType == 0x07) {
     switch (cmd.event) {
       case 0x08:
-      case 0x07:
-      case 0x02:
-      case 0x01:
       sensorValueEvent(true, result)
       break;
       case 0x03:

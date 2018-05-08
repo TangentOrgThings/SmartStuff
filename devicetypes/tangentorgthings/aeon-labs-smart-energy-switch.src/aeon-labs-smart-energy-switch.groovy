@@ -15,11 +15,15 @@
  */
 
 def getDriverVersion() {
-  return "v2.88"
+  return "v2.93"
 }
 
 def getAssociationGroup() {
   return 1
+}
+
+def getWattMin() {
+  return 5
 }
 
 metadata {
@@ -28,8 +32,6 @@ metadata {
     capability "Acceleration Sensor"
     capability "Energy Meter"
     capability "Health Check"
-    capability "Motion Sensor"
-    capability "Outlet"
     capability "Polling"
     capability "Power Meter"
     capability "Refresh"
@@ -122,10 +124,11 @@ def deviceCommandClasses() { // 25, 31, 32, 27, 70, 85, 72, 86
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
-    0x31: 5,  // SensorMultilevel V4
-    0x32: 3,  // Meter V2
+    0x31: 3,  // SensorMultilevel V3
+    0x32: 2,  // Meter V2
     0x70: 2,  // Configuration V2
     0x72: 2,  // Manufacturer Specific V2
+    0x82: 1, // Hail
     0x86: 1,  // Version
     0x85: 2,  // Association	0x85	V1 V2
   ]
@@ -153,14 +156,7 @@ def parse(String description) {
     def cmd = zwave.parse(description, deviceCommandClasses())
 
     if (cmd) {
-      def cmds_result = []
-      def cmds = checkConfigure()
-
-      if (cmds) {
-        result << response( delayBetween ( cmds ))
-      }
       zwaveEvent(cmd, result)
-
     } else {
       log.warn "zwave.parse() failed for: ${description}"
       result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
@@ -237,103 +233,57 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 }
 
 // def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd) {
-def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
   logger("$device.displayName: $cmd");
 
   if (cmd.meterType != 1) {
-    result << createEvent(descriptionText: "$device.displayName bad type: $cmd")
+    result << createEvent(descriptionText: "$device.displayName replied with bad meterType: ${cmd.meterType}")
     return
   }
 
-  if (cmd.scale == 0) {
+  switch (cmd.scale) {
+    case 0x00:
     result << createEvent(name: "energy", value: cmd.scaledMeterValue, unit: "kWh")
-  } else if (cmd.scale == 1) {
+    break;
+    case 0x01:
     result << createEvent(name: "energy", value: cmd.scaledMeterValue, unit: "kVAh")
-  } else if (cmd.scale == 2) {
-    result << createEvent(name: "power", value: cmd.scaledMeterValue ? Math.round(cmd.scaledMeterValue) : 0, unit: "W")
-    result << createEvent(name: "acceleration", value: cmd.scaledMeterValue ? "active" : "inactive")
-   } else {
+    break;    
+    case 0x02:
+    Integer power_value = cmd.scaledMeterValue ? Math.round(cmd.scaledMeterValue) : 0
+    result << createEvent(name: "power", value: cmd.scaledMeterValue ? Math.round(cmd.scaledMeterValue) : 0, unit: "W", isStateChange: false)
+    break;
+    default:
     result << createEvent(descriptionText: "$device.displayName scale not implemented: $cmd")
+    break;
   }
 }
 
-// def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv4.SensorMultilevelReport cmd) {
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv3.SensorMultilevelReport cmd, result) {
   logger("$device.displayName: $cmd");
 
-  def map = [ descriptionText: "$device.displayName ${cmd.scaledSensorValue}" ]
+  switch (cmd.sensorType) {
+    case 4:
+    if (cmd.scale == 0) {
+      Integer power_value = cmd.scaledSensorValue ? Math.round(cmd.scaledSensorValue) : 0
+      map.value = power_value
+      result << createEvent(name: "power", value: power_value, unit: "W", descriptionText: "$device.displayName ${cmd.scaledSensorValue}")
+      result << createEvent(name: "acceleration", value: ( power_value > getWattMin() ) ? "active" : "inactive")
+      return
+    }
+    logger("$device.displayName: SensorMultilevelReport Unknown power scale ${cmd.scale}", "error")
+    break;
+    default:
+    break;
+  }
 
-  map.value = cmd.scaledSensorValue ? cmd.scaledSensorValue.toString() : ""
-
-    Boolean isActive = false
-	switch (cmd.sensorType) {
-		case 1:
-			map.name = "temperature"
-			map.unit = cmd.scale == 1 ? "F" : "C"
-			break;
-		case 2:
-			map.name = "value"
-			map.unit = cmd.scale == 1 ? "%" : ""
-			break;
-		case 3:
-			map.name = "illuminance"
-			map.value = cmd.scaledSensorValue ? cmd.scaledSensorValue.toInteger().toString() : 0
-			map.unit = "lux"
-			break;
-		case 4:
-			map.name = "power"
-            // map.value = cmd.scaledSensorValue ? cmd.scaledSensorValue.toInteger().toString() : 0
-			map.unit = cmd.scale == 1 ? "Btu/h" : "W"
-            if (cmd.scale != 1) sendEvent(name: "acceleration", value: cmd.scaledSensorValue ? "active" : "inactive")
-			break;
-		case 5:
-			map.name = "humidity"
-			map.value = cmd.scaledSensorValue ? cmd.scaledSensorValue.toInteger().toString() : 0
-			map.unit = cmd.scale == 0 ? "%" : ""
-			break;
-		case 6:
-			map.name = "velocity"
-			map.unit = cmd.scale == 1 ? "mph" : "m/s"
-			break;
-		case 8:
-		case 9:
-			map.name = "pressure"
-			map.unit = cmd.scale == 1 ? "inHg" : "kPa"
-			break;
-		case 0xE:
-			map.name = "weight"
-			map.unit = cmd.scale == 1 ? "lbs" : "kg"
-			break;
-		case 0xF:
-			map.name = "voltage"
-			map.unit = cmd.scale == 1 ? "mV" : "V"
-			break;
-		case 0x10:
-			map.name = "current"
-			map.unit = cmd.scale == 1 ? "mA" : "A"
-            sendEvent(name: "motion", value: cmd.scaledSensorValue ? "active" : "inactive")
-			break;
-		case 0x12:
-			map.name = "air flow"
-			map.unit = cmd.scale == 1 ? "cfm" : "m^3/h"
-			break;
-		case 0x1E:
-			map.name = "loudness"
-			map.unit = cmd.scale == 1 ? "dBA" : "dB"
-			break;
-        default:
-            map.descriptionText = cmd.toString()
-            break;
-	}
-
-  result << createEvent(map)
+  logger("$device.displayName: SensorMultilevelReport Unknown sensor type ${cmd.sensorType}", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName: $cmd");
 
   result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
-  result << response(zwave.meterV2.meterGet(scale:02))
+  result << response(zwave.meterV2.meterGet(scale:0))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
@@ -351,7 +301,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
-  logger("$device.displayName command not implemented: $cmd")
+  logger("$device.displayName command not implemented: $cmd", "error")
   result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
 
@@ -359,9 +309,10 @@ def on() {
   logger("$device.displayName: on()");
 
   delayBetween([
-		zwave.switchBinaryV1.switchBinarySet(value: 0xFF).format(),
+		zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
         zwave.switchBinaryV1.switchBinaryGet().format(),
-	])
+        zwave.meterV2.meterGet(scale: 0x02),
+	], 1000)
 }
 
 def off() {
@@ -376,9 +327,9 @@ def off() {
   delayBetween([
     // Lets not turn off the Dryer or the Washer by accident
     // zwave.basicV1.basicSet(value: 0x00),
-    zwave.switchBinaryV1.switchBinarySet(value: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
     zwave.switchBinaryV1.switchBinaryGet().format(),
-  ])
+  ], 2000)
 }
 
 def ping() {
@@ -395,7 +346,7 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
   logger("$device.displayName: $cmd");
 
   result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: true)
-  result << response(zwave.meterV2.meterGet(scale:0))
+  result << response(zwave.meterV2.meterGet(scale: 0x00))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
@@ -463,7 +414,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
     msg = "Device is included in the all on/all off functionality."
     break
   }
-  logger("Switch All Mode: ${msg}","info")
+  logger("Switch All Mode: ${msg}","debug")
 
   if (cmd.mode != 0) {
     result << delayBetween([
@@ -479,8 +430,8 @@ def refresh() {
   logger("$device.displayName: refresh()");
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
-    zwave.meterV2.meterGet(scale: 0).format(),
-    zwave.meterV2.meterGet(scale: 2).format(),
+    zwave.meterV2.meterGet(scale: 0x00).format(),
+    zwave.meterV2.meterGet(scale: 0x02).format(),
     ])
 }
 
@@ -488,13 +439,9 @@ def reset() {
   logger("$device.displayName: reset()");
   sendCommands([
 		zwave.meterV2.meterReset(),
-		zwave.meterV2.meterGet(scale: 0),
-        zwave.meterV2.meterGet(scale: 2),
+		zwave.meterV2.meterGet(scale: 0x00),
+        zwave.meterV2.meterGet(scale: 0x02),
 	])
-}
-
-def checkConfigure() {
-  return []
 }
 
 private prepDevice() {
@@ -506,15 +453,15 @@ private prepDevice() {
     zwave.configurationV1.configurationSet(parameterNumber: 90, size: 1, scaledConfigurationValue: 1),
     zwave.configurationV1.configurationSet(parameterNumber: 91, size: 2, scaledConfigurationValue: 20),
     zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: 10),
-    zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 8),   // energy in W
-    zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: 3600), // every 5 min
-    zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 0),   // energy in W
-    zwave.configurationV1.configurationSet(parameterNumber: 112, size: 4, scaledConfigurationValue: 0), // every 5 min
+    zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 8),   // energy in KW
+    zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: 3600), // every 60 min
+    zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 0),
+    zwave.configurationV1.configurationSet(parameterNumber: 112, size: 4, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 103, size: 4, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 113, size: 4, scaledConfigurationValue: 0),
     zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.meterV2.meterGet(scale: 0),
-    zwave.meterV2.meterGet(scale: 2),
+    zwave.meterV2.meterGet(scale: 0x00),
+    zwave.meterV2.meterGet(scale: 0x02),
     zwave.switchAllV1.switchAllGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
@@ -543,9 +490,8 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${debugLevel}")
-
   state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -555,9 +501,6 @@ def updated() {
     log.debug("$device.displayName $zwInfo")
     sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
   }
-
-  // Device-Watch simply pings if no device events received for 86220 (one day minus 3 minutes)
-  //sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
 
@@ -618,18 +561,18 @@ private sendCommands(cmds, delay=200) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-	switch(level) {
-		case "error":
-		if (state.loggingLevelIDE >= 1) {
+  switch(level) {
+	case "error":
+    if (state.loggingLevelIDE >= 1) {
       log.error msg
-			sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
+      sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    break;
 
-		case "warn":
-		if (state.loggingLevelIDE >= 2) {
+    case "warn":
+    if (state.loggingLevelIDE >= 2) {
       log.warn msg
-			sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     break
 

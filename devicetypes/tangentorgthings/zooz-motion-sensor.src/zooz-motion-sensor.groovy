@@ -44,7 +44,6 @@ metadata {
     attribute "ManufacturerCode", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
-    attribute "WirelessConfig", "string"
     attribute "firmwareVersion", "string"
     attribute "AlarmTypeSupportedReport", "string"
     attribute "SensorMultilevelSupportedScaleReport", "string"
@@ -206,8 +205,8 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${debugLevel}")
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  state.loggingLevelIDE = debugLevel ? debugLevel : 3
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -296,21 +295,20 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, res
     result << response( delayBetween ( cmds ))
   }
 
-  return result
+  return
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
   logger("$device.displayName $cmd")
-  state.reset = true
-  result << createEvent(name: "reset", value: state.reset, descriptionText: cmd.toString(), isStateChange: true, displayed: true)
+  result << createEvent(name: "reset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
-	logger("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
 
-	String manufacturerCode = String.format("%04X", cmd.manufacturerId)
-	String productTypeCode = String.format("%04X", cmd.productTypeId)
-	String productCode = String.format("%04X", cmd.productId)
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
 
 	state.manufacturer = cmd.manufacturerName ? cmd.manufacturerName : "Zooz"
 
@@ -350,7 +348,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result)
 
   result << createEvent(map)
 
-	return
+  return
 }
 
 def motionEvent(value, result) {
@@ -359,8 +357,8 @@ def motionEvent(value, result) {
     map.value = "active"
     map.descriptionText = "$device.displayName detected motion"
     state.lastActive = new Date().time
-		result << createEvent(name: "LastActive", value: state.lastActive, displayed: true)
-	} else {
+	result << createEvent(name: "LastActive", value: state.lastActive, displayed: true)
+  } else {
     map.value = "inactive"
     map.descriptionText = "$device.displayName motion has stopped"
   }
@@ -400,8 +398,9 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
   switch (cmd.sensorType) {
     case 27:
       result << motionEvent(cmd.scale)
+      motionEvent(cmd.value, result)
       break;
-  default:
+    default:
       result << createEvent(descriptionText: "$device.displayName unsupported sensortype: $cmd.sensorType", displayed: true)
       break;
   }
@@ -415,7 +414,8 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   logger("$device.displayName $cmd")
 
   if (cmd.notificationType == NOTIFICATION_TYPE_BURGLAR) {
-    if (cmd.event == 0x00) {
+    switch (cmd.event) {
+     case 0:
       if (cmd.eventParameter == [8]) {
         motionEvent(0, result)
       } else if (cmd.eventParameter == [3]) { // payload : 00 00 00 FF 07 00 01 03
@@ -424,13 +424,20 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
         result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName has been deactivated by the switch.")
         motionEvent(0, result)
       }
-    } else if (cmd.event == 0x03) {
+      break;
+    case 3:
       result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName has been deactivated by the switch.", isStateChange: true)
-    } else if (cmd.event == 0x08) {
-			motionEvent(255, result)
+      break;
+    case 8:
+      motionEvent(255, result)
+      break;
+      default :
+      logger("Unknown event ${cmd.event}", "error")
+      result << createEvent(descriptionText: "Unknown event ${cmd.event}", isStateChange: true)
+      break;
     }
   } else {
-    result << createEvent(descriptionText: cmd.toString(), isStateChange: true)
+    result << createEvent("Unknown notification type ${cmd.notificationType}", isStateChange: true)
   }
 
   /*
@@ -478,7 +485,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
   logger("$device.displayName $cmd")
-
   result << createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true)
 }
 
@@ -541,13 +547,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
 def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferScene cmd, result) {
   logger("$device.displayName $cmd")
-
   result << createEvent(descriptionText: "$device.displayName told to CtrlReplicationTransferScene: $cmd", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.transportservicev1.CommandSubsequentFragment cmd, result) {
   logger("$device.displayName $cmd")
-
   result << createEvent(descriptionText: "$device.displayName told to CommandSubsequentFragment: $cmd", displayed: true)
 }
 
@@ -558,7 +562,6 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
-
   result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd")
 }
 
@@ -597,11 +600,12 @@ private askIt()
 def refresh() {
   log.debug "refresh() is called"
   state.refresh = false
-  createEvent(descriptionText: "refresh will be called during next wakeup", displayed: true)
+  sendEvent(descriptionText: "refresh will be called during next wakeup", displayed: true)
 }
 
 def configure() {
-  state.configured = false
+  state.isConfigured = false
+  sendEvent(name: "Configured", value: "false", isStateChange: true)
 }
 
 /*****************************************************************************************************************
@@ -659,8 +663,6 @@ private logger(msg, level = "trace") {
     case "error":
     if (state.loggingLevelIDE >= 1) {
       log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
       sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
     }
     break
@@ -668,8 +670,6 @@ private logger(msg, level = "trace") {
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     break

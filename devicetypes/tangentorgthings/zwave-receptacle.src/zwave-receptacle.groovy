@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.41"
+  return "v4.45"
 }
 
 def getIndicatorParam() {
@@ -31,7 +31,6 @@ metadata {
     capability "Button"
     capability "Energy Meter"
     capability "Indicator"
-    capability "Outlet"
     capability "Polling"
     capability "Refresh"
     capability "Sensor"
@@ -122,9 +121,9 @@ metadata {
   }
 
   preferences {
-    input "ledIndicator", "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options:["on": "When On", "off": "When Off", "never": "Never"]
-    input "disbableDigitalOff", "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
-    input "debugLevel", "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options:["on": "When On", "off": "When Off", "never": "Never"]
+    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
   // tile definitions
@@ -145,7 +144,7 @@ metadata {
       state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
     }
 
-    valueTile("driverVersion", "device.driverVersion", inactiveLabel: false, decoration: "flat", width: 1, height: 1) {
+    valueTile("driverVersion", "device.driverVersion", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
       state "driverVersion", label:'${currentValue}'
     }
 
@@ -153,7 +152,7 @@ metadata {
       state "default", label: '${currentValue}'
     }
 
-    valueTile("setScene", "device.setScene", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
+    valueTile("setScene", "device.setScene", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
       state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
@@ -171,13 +170,15 @@ metadata {
     }
 
     main "switch"
-    details(["switch","indicator", "driverVersion", "energy", "reset", "refresh"])
+    details(["switch", "indicator", "driverVersion", "energy", "reset", "refresh"])
   }
 }
 
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 def deviceCommandClasses() {
-  switch (device.currentValue("MSR")) {
+  String msr = device.currentValue("MSR")
+  
+  switch (msr) {
     case "011A-0101-0603":
     return [
     0x20: 1,  // Basic
@@ -200,7 +201,7 @@ def deviceCommandClasses() {
     ]
     break;
     case "0063-4952-3133": // Alcove Lamp    
-    case "0184-4447-3031":
+    case "0184-4447-3031": // PA-110 aka Dragon
     return [
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
@@ -258,17 +259,10 @@ def parse(String description) {
     def cmd = zwave.parse(description, deviceCommandClasses())
 
     if (cmd) {
-      def cmds_result = []
-      def cmds = checkConfigure()
-
-      if (cmds) {
-        result << response( delayBetween ( cmds ))
-      }
       zwaveEvent(cmd, result)
 
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger("zwave.parse() failed for: ${description}", "error")
     }
   }
 
@@ -435,13 +429,9 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     state.manufacturer = String.format("Unknown Vendor %04X", cmd.manufacturerId)
   }
 
-  state.manufacturerId = cmd.manufacturerId
-  state.productTypeId = cmd.productTypeId
-  state.productId= cmd.productId
-
   def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
-  updateDataValue("manufacturer", state.manufacturer)
+  updateDataValue("manufacturer", "${state.manufacturer}")
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", displayed: true, isStateChange: true)
 
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", displayed: true, isStateChange: true)
@@ -452,14 +442,12 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
       zwave.associationV2.associationGroupingsGet().format(),
     ]))
-    return
     break;
     case "011A-0101-0103":
     result << response(delayBetween([
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
       zwave.associationV1.associationGet(groupingIdentifier: 1).format(),
       ]))
-    return
     break;
     case "0063-4952-3031":
     case "0063-4952-3133":
@@ -469,12 +457,10 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
       ]))
     break;
-    return
     default:
+      result << response(zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)))
     break;
   }
-
-  result << response(zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.dcpconfigv1.DcpListSupportedReport cmd, result) {
@@ -493,8 +479,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
   logger("$device.displayName $cmd")
-  state.reset = true
-  result << createEvent(name: "DeviceReset", value: state.reset, descriptionText: cmd.toString(), isStateChange: true, displayed: true)
+  result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
@@ -694,23 +679,18 @@ def reset() {
   }
 }
 
-def checkConfigure() {
-  return []
-}
-
 def prepDevice() {
   [
-    zwave.switchBinaryV1.switchBinaryGet(),
+    // zwave.switchBinaryV1.switchBinaryGet(),
     zwave.versionV1.versionGet(),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
-    // zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
 def installed() {
   log.info("$device.displayName installed()")
-  state.loggingLevelIDE = 4
+  state.loggingLevelIDE = 3
 
   /*
   if (device.rawDescription) {
@@ -721,12 +701,6 @@ def installed() {
     }
   }
   */
-
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
-  sendEvent(name: "DeviceReset", value: "false", isStateChange: true, displayed: true)
-
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   sendCommands(prepDevice())
@@ -736,34 +710,30 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${debugLevel}")
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  state.loggingLevelIDE = debugLevel ? debugLevel : 3
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
 
-  /*
-  if (device.rawDescription) {
-    def zwInfo = getZwaveInfo()
-    if ($zwInfo) {
-      log.debug("$device.displayName $zwInfo")
-      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+  if (0) {
+    if (device.rawDescription) {
+      def zwInfo = getZwaveInfo()
+      if ($zwInfo) {
+        log.debug("$device.displayName $zwInfo")
+        sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+      }
     }
   }
-  */
 
   // Check in case the device has been changed
   //state.manufacturer = null
   //updateDataValue("MSR", "000-000-000")
   //updateDataValue("manufacturer", "")
 
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   sendCommands(prepDevice())
-
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
@@ -838,18 +808,14 @@ private logger(msg, level = "trace") {
     case "error":
     if (state.loggingLevelIDE >= 1) {
       log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
+      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: true)
     }
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: true)
     }
     break
 

@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.88"
+  return "v6.89"
 }
 
 metadata {
@@ -86,8 +86,8 @@ metadata {
 
     // 0 0 0x2001 0 0 0 a 0x30 0x71 0x72 0x86 0x85 0x84 0x80 0x70 0xEF 0x20
     // zw:L type:1101 mfr:0184 prod:4447 model:3034 ver:5.14 zwv:4.24 lib:03 cc:5E,86,72,5A,85,59,73,26,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8600 ui:8600
-    fingerprint type: "1101", mfr: "000C", prod: "4447", model: "3034", deviceJoinName: "HS-WD100+ In-Wall Dimmer" //, cc: "5E, 86, 72, 5A, 85, 59, 73, 26, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B", deviceJoinName: "HS-WD100+ In-Wall Dimmer"
-    fingerprint type: "1101", mfr: "0184", prod: "4447", model: "3034", deviceJoinName: "WD100+ In-Wall Dimmer" // , cc: "5E, 86, 72, 5A, 85, 59, 73, 26, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B", deviceJoinName: "WD100+ In-Wall Dimmer"
+    fingerprint mfr: "000C", prod: "4447", model: "3034", deviceJoinName: "HS-WD100+ In-Wall Dimmer" //, cc: "5E, 86, 72, 5A, 85, 59, 73, 26, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B", deviceJoinName: "HS-WD100+ In-Wall Dimmer"
+    fingerprint mfr: "0184", prod: "4447", model: "3034", deviceJoinName: "WD100+ In-Wall Dimmer" // , cc: "5E, 86, 72, 5A, 85, 59, 73, 26, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B", deviceJoinName: "WD100+ In-Wall Dimmer"
   }
 
   simulator {
@@ -280,28 +280,20 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelS
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
-  logger("$device.displayName $cmd (duplicate)")
-  if (0) {
-    dimmerEvents(cmd, true)
-  }
+  logger("$device.displayName $cmd")
 
   [
-    createEvent(descriptionText: "$device.displayName basic duplicate.", isStateChange: false, displayed: false),
-    createEvent(name: "switch", value: level ? "on" : "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true ) ,
+    createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "physical") ,
   ]
 }
 
 // physical device events ON/OFF
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
   logger("$device.displayName $cmd")
-  dimmerEvents(cmd)
-}
-
-// This should not happen, but it does.
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
-  logger("$device.displayName $cmd (duplicate)")
-  //dimmerEvents(cmd, true)
-  [ createEvent(descriptionText: "$device.displayName basic binary duplicate.") ]
+  
+  [
+    createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "digital") ,
+  ]
 }
 
 def buttonEvent(button, held, buttonType = "physical") {
@@ -876,7 +868,6 @@ def installed() {
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-  sendEvent(name: "DeviceReset", value: "false", isStateChange: true, displayed: true)
 
   sendCommands( prepDevice() + setDimRatePrefs(), 2000 )
 }
@@ -913,8 +904,8 @@ def updated() {
     return
   }
 
-  log.info("$device.displayName updated() debug: ${debugLevel}")
   state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)

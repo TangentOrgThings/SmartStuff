@@ -50,10 +50,14 @@ metadata {
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
-    attribute "WakeUp", "string"
-    attribute "WirelessConfig", "string"
 
-    attribute "sensorlevels", "string"
+    attribute "WakeUp", "string"
+    attribute "WakeUpInterval", "number"
+    attribute "WakeUpNode", "number"
+    
+    attribute "LastActive", "string"
+    attribute "LastAwake", "string"
+    attribute "MotionTimeout", "number"
 
     /*
       vendorId: 265 (00:15)
@@ -68,33 +72,16 @@ metadata {
   }
 
   preferences {
-    input "primaryDisplayType", "enum", options: ["Motion", "Temperature"], title: "Primary Display", defaultValue: "Motion",
-    description: "Sensor to show in primary display",
-    required: false, displayDuringSetup: true
-    input "pirTimeout", "number", title: "Motion Sensor Idle Time (minutes)", defaultValue: 3,
-    description: "Inactivity time before reporting no motion",
-    required: false, displayDuringSetup: true, range: "1..255"
-    input "pirSensitivity", "number", title: "Motion Sensor Sensitivity (1 high - 7 low)", defaultValue: 3,
-    description: "1 is most sensitive, 7 is least sensitive",
-    required: false, displayDuringSetup: true, range: "1..7"
-    input "tempAlert", "number", title: "Temperature reporting level (1/10th °C)", defaultValue: 10,
-    description: "Minimum temperature change to trigger temp updates",
-    required: false, displayDuringSetup: true, range: "1..50"
-    input "humidityAlert", "number", title: "Humidity reporting level", defaultValue: 50,
-    description: "Minimum humidity level change to trigger updates",
-    required: false, displayDuringSetup: true, range: "1..50"
-    input "illumSensorAlerts", "enum", options: ["Enabled", "Disabled"], title: "Enable Illumination Sensor Updates", defaultValue: "Disabled",
-    description: "Enables illumination update events",
-    required: false, displayDuringSetup: true
-    input "illumAlert", "number", title: "Illumination reporting level", defaultValue: 50,
-    description: "Minumum illumination level change to trigger updates",
-    required: false, displayDuringSetup: true, range: "5..50"
-    input "ledMode", "number", title: "LED Mode", defaultValue: 3,
-    description: "1 LED Off, 2 - Always on (drains battery), 3 - Blink LED",
-    required: false, displayDuringSetup: true, range: "1..3"
-    input "wakeInterval", "number", title: "Wake Interval (minutes)", defaultValue: 60,
-    description: "Interval (in minutes) for polling configuration and sensor values, shorter interval reduces battery life.",
-    required: false, displayDuringSetup: true, range: "10..10080"
+    input name: "primaryDisplayType", type: "enum", options: ["Motion", "Temperature"], title: "Primary Display", defaultValue: "Motion", description: "Sensor to show in primary display", required: false, displayDuringSetup: true
+    input name: "pirTimeout", type: "number", title: "Motion Sensor Idle Time (minutes)", defaultValue: 3, description: "Inactivity time before reporting no motion", required: false, displayDuringSetup: true, range: "1..255"
+    input name: "pirSensitivity", type: "number", title: "Motion Sensor Sensitivity (1 high - 7 low)", defaultValue: 3, description: "1 is most sensitive, 7 is least sensitive", required: false, displayDuringSetup: true, range: "1..7"
+    input name: "tempAlert", type: "number", title: "Temperature reporting level (1/10th °C)", defaultValue: 10, description: "Minimum temperature change to trigger temp updates", required: false, displayDuringSetup: true, range: "1..50"
+    input name: "humidityAlert", type: "number", title: "Humidity reporting level", defaultValue: 50, description: "Minimum humidity level change to trigger updates", required: false, displayDuringSetup: true, range: "1..50"
+    input name: "illumSensorAlerts", type: "enum", options: ["Enabled", "Disabled"], title: "Enable Illumination Sensor Updates", defaultValue: "Disabled", description: "Enables illumination update events", required: false, displayDuringSetup: true
+    input name: "illumAlert", type: "number", title: "Illumination reporting level", defaultValue: 50, description: "Minumum illumination level change to trigger updates", required: false, displayDuringSetup: true, range: "5..50"
+    input name: "ledMode", type: "number", title: "LED Mode", defaultValue: 3, description: "1 LED Off, 2 - Always on (drains battery), 3 - Blink LED", required: false, displayDuringSetup: true, range: "1..3"
+    input name: "wakeInterval", type: "number", title: "Wake Interval (minutes)", defaultValue: 60, description: "Interval (in minutes) for polling configuration and sensor values, shorter interval reduces battery life.", required: false, displayDuringSetup: true, range: "10..10080"
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
   simulator {
@@ -169,23 +156,23 @@ metadata {
    }
  }
 
- def getCommandClassVersions() {
+ def getCommandClassVersions() { // cc:5E,98,86,72,5A,85,59,73,80,71,31,70,84,7A role:06 ff:8C07 ui:8C07
   [
-    0x20: 1,  // Basic
-    0x30: 2,  // Sensor Binary Command Class (V2)
+    // 0x20: 1,  // Basic
+    // 0x30: 2,  // Sensor Binary Command Class (V2)
     0x31: 5,  // Sensor Multilevel (V4)
     0x59: 1,  // Association Grp Info
     0x5A: 1,  // Device Reset Locally
     0x70: 1,  // Configuration
-    0x71: 3,  //
+    0x71: 3,  // Notification
     0x72: 2,  // Manufacturer Specific
     // 0x73: 1, // Powerlevel
     0x7A: 2,  // Firmware Update Md
-    0x80: 1,  //
-    0x84: 2,  //
+    0x80: 1,  // Battery
+    0x84: 2,  // Wake Up
     0x85: 2,  // Association  0x85  V1 V2
     0x86: 1,  // Version 2?
-    0x98: 1,  //
+    0x98: 1,  // Security
   ]
 }
 
@@ -253,13 +240,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   update_current_properties(cmd)
   log.debug "${device.displayName} parameter '${cmd.parameterNumber}' with a byte size of '${cmd.size}' is set to '${cmd2Integer(cmd.configurationValue)}'"
   [ createEvent(descriptionText: "ConfigurationReport() Unable to extract encapsulated from $cmd") ]
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
-  logger("$device.displayName $cmd")
-
-  state.wakeInterval = cmd.seconds
-  createEvent(value: description, descriptionText: description)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
@@ -347,33 +327,32 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     return result
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
+  logger("$device.displayName $cmd")
+  
+  def result = []
+  
+  state.wakeInterval = cmd.seconds
+
+  result << createEvent(name: "WakeUpNode", value: cmd.nodeid, isStateChange: true, displayed: true)
+  result << createEvent(name: "WakeUpInterval", value: cmd.seconds, isStateChange: true, displayed: true)
+}
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("$device.displayName $cmd")
 
   def result = []
+  def cmds = []
 
-  result << createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)
+  if (!state.lastbat || (new Date().time) - state.lastbat > 53*60*60*1000) {
+    cmds << zwave.batteryV1.batteryGet().format()
+  }
 
-  if (0) {
-    def cmds = readSensors()
+  state.lastActive = new Date().time
+  result << createEvent(name: "LastAwake", value: state.lastActive, descriptionText: "${device.displayName} woke up", isStateChange: false)
 
-    // read the battery level every day
-    logger("battery ${state.batteryReadTime} ${new Date().time}", "debug")
-
-    if (!state.lastBatteryReport || (now() - state.lastBatteryReport) / 60000 >= 60 * 24) {
-      cmds << zwave.batteryV1.batteryGet().format()
-    }
-
-    if (state.configRequired) {
-      // send pending configure commands
-      cmds += configCmds()
-      state.configRequired = false
-      sendEvent(name:"needUpdate", value: "Synced")
-    }
-    cmds << zwave.wakeUpV2.wakeUpNoMoreInformation().format()
-
-    result << response(delayBetween(cmds, 600))
+  if (cmds) {
+    result << response( delayBetween ( cmds ))
   }
 
   return result
@@ -650,8 +629,8 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${debugLevel}")
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  state.loggingLevelIDE = debugLevel ? debugLevel : 3
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -688,9 +667,9 @@ def updated() {
       state.motionText = "No Motion"
   }
 
-  sendEvent(name: "sensorlevels", value: "${state.motionText}   Humidity:${state.humidity}%   Light:${state.illuminance}  Temperature:${state.realTemperature}")
-
   sendEvent(name:"motion", value: state.motion, descriptionText: "$state.motionText")
+  
+  sendEvent(name: "sensorlevels", value: "")
 
   if (!device.currentState("ManufacturerCode")) {
     sendCommands([

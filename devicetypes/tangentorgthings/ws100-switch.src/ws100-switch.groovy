@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.24"
+  return "v6.25"
 }
 
 metadata {
@@ -61,6 +61,8 @@ metadata {
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
+    attribute "WakeUp", "string"
+    attribute "WirelessConfig", "string"
 
     attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
@@ -74,8 +76,8 @@ metadata {
     attribute "SwitchAll", "string"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
-    fingerprint type: "1001", mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
-    fingerprint type: "1001", mfr: "000C", prod: "4447", model: "3033", deviceJoinName: "HS-WS100+" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
+    fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
+    fingerprint mfr: "000C", prod: "4447", model: "3033", deviceJoinName: "HS-WS100+" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
   }
 
   // simulator metadata
@@ -211,7 +213,7 @@ private switchEvents(Short value, boolean isPhysical = true) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
-  log.debug("$device.displayName $cmd (duplicate)")
+  logger("$device.displayName $cmd (duplicate)")
   if (0) {
     return switchEvents(cmd.value, true);
   }
@@ -219,22 +221,22 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
-  log.debug("$device.displayName $cmd -- BEING CONTROLLED")
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
   return switchEvents(cmd.value, true);
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
-  log.debug("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
   return switchEvents(cmd.value, false);
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd) {
-  log.debug("$device.displayName $cmd -- BEING CONTROLLED")
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
   return switchEvents(cmd.switchValue, false)
 }
 
 def buttonEvent(button, held, buttonType = "physical") {
-  log.debug("buttonEvent: $button  held: $held  type: $buttonType")
+  logger("buttonEvent: $button  held: $held  type: $buttonType")
 
   button = button as Integer
   String heldType = held ? "held" : "pushed"
@@ -243,7 +245,7 @@ def buttonEvent(button, held, buttonType = "physical") {
 
 // A scene command was received -- it's probably scene 0, so treat it like a button release
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd) {
-  log.debug("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
   buttonEvent(cmd.sceneId, false, "digital")
   [
     createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true),
@@ -251,7 +253,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd) {
-  log.debug("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
 
   // HomeSeer (ST?) does not implement this scene
   if (cmd.sceneId == 0) {
@@ -354,7 +356,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   def manufacturerCode = String.format("%04X", cmd.manufacturerId)
   def productTypeCode = String.format("%04X", cmd.productTypeId)
   def productCode = String.format("%04X", cmd.productId)
-  def wirelessConfig = "ZWP"
 
   sendEvent(name: "ManufacturerCode", value: manufacturerCode)
   sendEvent(name: "ProduceTypeCode", value: productTypeCode)
@@ -856,7 +857,7 @@ private sendCommands(cmds, delay=200) {
  *    messages by sending events for the device's logMessage attribute and lastError attribute.
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
-private logger(msg, level = "debug") {
+private logger(msg, level = "trace") {
   switch(level) {
     case "error":
     if (state.loggingLevelIDE >= 1) {

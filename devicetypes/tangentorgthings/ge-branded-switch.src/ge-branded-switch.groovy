@@ -14,17 +14,16 @@
  */
 
 def getDriverVersion() {
-  return "v3.83"
+  return "v3.87"
 }
 
 metadata {
   definition (name: "GE Branded Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
-    // capability "Health Check"
+    capability "Health Check"
     capability "Indicator"
     capability "Switch"
-    capability "Polling"
     capability "Refresh"
     capability "Sensor"
 
@@ -121,7 +120,7 @@ def prepDevice() {
     zwave.switchBinaryV1.switchBinaryGet(),
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
     zwave.versionV1.versionGet(),
-    zwave.firmwareUpdateMdV1.firmwareMdGet(),
+    zwave.firmwareUpdateMdV2.firmwareMdGet(),
     // zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: 1, level: 255, override: true),
     // zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: 2, level: 0, override: true),
     zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
@@ -137,8 +136,8 @@ def prepDevice() {
 }
 
 def updated() {
-  log.info("$device.displayName updated() debug: ${debugLevel}")
   state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -151,7 +150,7 @@ def updated() {
   }
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
   // Check in case the device has been changed
   state.manufacturer = null
@@ -179,7 +178,8 @@ def installed() {
   }
 
   // Device-Watch simply pings if no device events received for 86220 (one day minus 3 minutes)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
@@ -236,17 +236,21 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
   logger ("$device.displayName $cmd")
-  [ createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical") ]
+  def result = []
+  
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
   if (cmd.value == 255) {
-    createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "Double-tap up (button 1) on $device.displayName", isStateChange: true, type: "physical")
+    result << createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "Double-tap up (button 1) on $device.displayName", isStateChange: true, type: "physical")
   } else if (cmd.value == 0) {
-    createEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "Double-tap down (button 2) on $device.displayName", isStateChange: true, type: "physical")
+    result << createEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "Double-tap down (button 2) on $device.displayName", isStateChange: true, type: "physical")
   }
+  
+  return result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd) {
   logger("$device.displayName $cmd")
-  return [ createEvent(name: "switch", value: cmd.switchValue ? "on" : "off", type: "physical") ]
+  [ createEvent(name: "switch", value: cmd.switchValue ? "on" : "off", type: "physical") ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
@@ -346,9 +350,9 @@ def buttonEvent(button, held, buttonType) {
 
   button = button as Integer
   if (held) {
-    createEvent(name: "button", value: "held", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+    sendEvent(name: "button", value: "held", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
   } else {
-    createEvent(name: "button", value: "pushed", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+    sendEvent(name: "button", value: "pushed", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
   }
 }
 
@@ -615,8 +619,7 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("$device.displayName $cmd")
-  state.reset = true
-  [ createEvent(name: "DeviceReset", value: state.reset, descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
+  [ createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true) ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd) {
@@ -660,14 +663,6 @@ def off() {
   ])
 }
 
-def setIlluminance (level) {
-  if (level > 8) {
-    sendEvent(name: "illuminance", value: 300, unit: "lux")
-  } else {
-    sendEvent(name: "illuminance", value: 8, unit: "lux")
-  }
-}
-
 /**
  * PING is used by Device-Watch in attempt to reach the Device
  * */
@@ -676,13 +671,14 @@ def ping() {
 }
 
 def poll() {
-  zwave.switchBinaryV1.switchBinaryGet().format()
+  response(zwave.switchBinaryV1.switchBinaryGet().format())
 }
 
 def refresh() {
-  log.debug ("refresh()")
+  logger("refresh()")
+  
   def cmds = [
-  zwave.switchBinaryV1.switchBinaryGet()
+    zwave.switchBinaryV1.switchBinaryGet()
   ]
 
   if ( state.productId == 0x3032 || state.productId == 3036 ) {
@@ -699,17 +695,6 @@ def refresh() {
   if (device.currentState('firmwareVersion') == null) {
     cmds << zwave.versionV1.versionGet()
   }
-
-  /*
-  if (state.productId == 0x3032 || state.productId == 0x3031) {
-  if (state.nodeLocation == null) {
-  cmds << zwave.nodeNamingV1.nodeNamingNodeLocationGet()
-  }
-  if (state.nodeName == null) {
-  cmds << zwave.nodeNamingV1.nodeNamingNodeNameGet()
-  }
-  }
-   */
 
   return sendCommands(cmds)
 }
@@ -799,8 +784,6 @@ private logger(msg, level = "trace") {
     case "error":
     if (state.loggingLevelIDE >= 1) {
       log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
       sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
     }
     break
@@ -808,8 +791,6 @@ private logger(msg, level = "trace") {
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     break
