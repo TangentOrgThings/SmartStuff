@@ -15,7 +15,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.93"
+  return "v2.95"
 }
 
 def getAssociationGroup() {
@@ -106,11 +106,9 @@ metadata {
 			state "default", label:'reset kWh', action:"reset"
 		}
 
-    /*
 		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
-    */
 
 		valueTile("driverVersion", "device.driverVersion", width:2, height:2, inactiveLabel: true, decoration: "flat") {
 			state "default", label: '${currentValue}'
@@ -234,14 +232,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   return result
 }
 
-// def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd) {
 def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
   logger("$device.displayName: $cmd");
-
-  if (cmd.meterType != 1) {
-    result << createEvent(descriptionText: "$device.displayName replied with bad meterType: ${cmd.meterType}")
-    return
-  }
 
   switch (cmd.scale) {
     case 0x00:
@@ -251,8 +243,8 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
     result << createEvent(name: "energy", value: cmd.scaledMeterValue, unit: "kVAh")
     break;    
     case 0x02:
-    Integer power_value = cmd.scaledMeterValue ? Math.round(cmd.scaledMeterValue) : 0
-    result << createEvent(name: "power", value: cmd.scaledMeterValue ? Math.round(cmd.scaledMeterValue) : 0, unit: "W", isStateChange: false)
+    result << createEvent(name: "power", value: Math.round(cmd.scaledMeterValue), unit: "W")
+    result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledMeterValue) > getWattMin() ) ? "active" : "inactive")
     break;
     default:
     result << createEvent(descriptionText: "$device.displayName scale not implemented: $cmd")
@@ -266,10 +258,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv3.SensorMultilevelR
   switch (cmd.sensorType) {
     case 4:
     if (cmd.scale == 0) {
-      Integer power_value = cmd.scaledSensorValue ? Math.round(cmd.scaledSensorValue) : 0
-      map.value = power_value
-      result << createEvent(name: "power", value: power_value, unit: "W", descriptionText: "$device.displayName ${cmd.scaledSensorValue}")
-      result << createEvent(name: "acceleration", value: ( power_value > getWattMin() ) ? "active" : "inactive")
+      result << createEvent(name: "power", value: Math.round(cmd.scaledSensorValue), unit: "W", descriptionText: "$device.displayName ${cmd.scaledSensorValue}")
+      result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive")
       return
     }
     logger("$device.displayName: SensorMultilevelReport Unknown power scale ${cmd.scale}", "error")
@@ -285,21 +275,24 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName: $cmd");
 
   result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
-  result << response(zwave.meterV2.meterGet(scale:0))
+  result << response("delay 1200")
+  result << response(zwave.sensorMultilevelV3.sensorMultilevelGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName: $cmd");
 
   result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
-  result << response(zwave.meterV2.meterGet(scale:0))
+  result << response("delay 1200")
+  result << response(zwave.sensorMultilevelV3.sensorMultilevelGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName: $cmd");
 
   result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "digital")
-  result << response(zwave.meterV2.meterGet(scale:0))
+  result << response("delay 1200")
+  result << response(zwave.sensorMultilevelV3.sensorMultilevelGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
@@ -312,9 +305,7 @@ def on() {
 
   delayBetween([
 		zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-        zwave.switchBinaryV1.switchBinaryGet().format(),
-        zwave.meterV2.meterGet(scale: 0x02),
-	], 1000)
+	])
 }
 
 def off() {
@@ -327,11 +318,8 @@ def off() {
   }
 
   delayBetween([
-    // Lets not turn off the Dryer or the Washer by accident
-    // zwave.basicV1.basicSet(value: 0x00),
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format(),
-  ], 2000)
+  ])
 }
 
 def ping() {
@@ -348,6 +336,7 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
   logger("$device.displayName: $cmd");
 
   result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: true)
+  result << response(zwave.switchBinaryV1.switchBinaryGet())
   result << response(zwave.meterV2.meterGet(scale: 0x00))
 }
 
@@ -432,8 +421,8 @@ def refresh() {
   logger("$device.displayName: refresh()");
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
+    zwave.sensorMultilevelV3.sensorMultilevelGet().format(),
     zwave.meterV2.meterGet(scale: 0x00).format(),
-    zwave.meterV2.meterGet(scale: 0x02).format(),
     ])
 }
 
@@ -441,8 +430,8 @@ def reset() {
   logger("$device.displayName: reset()");
   sendCommands([
 		zwave.meterV2.meterReset(),
-		zwave.meterV2.meterGet(scale: 0x00),
-        zwave.meterV2.meterGet(scale: 0x02),
+        zwave.sensorMultilevelV3.sensorMultilevelGet(),
+        zwave.meterV2.meterGet(scale: 0x00),
 	])
 }
 
@@ -462,8 +451,8 @@ private prepDevice() {
     zwave.configurationV1.configurationSet(parameterNumber: 103, size: 4, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 113, size: 4, scaledConfigurationValue: 0),
     zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.sensorMultilevelV3.sensorMultilevelGet(),
     zwave.meterV2.meterGet(scale: 0x00),
-    zwave.meterV2.meterGet(scale: 0x02),
     zwave.switchAllV1.switchAllGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
