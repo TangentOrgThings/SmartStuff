@@ -43,7 +43,7 @@ def getDriverVersion() {
 metadata {
   definition (name: "WD-100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
-    // capability "Health Check"
+    capability "Health Check"
     capability "Button"
     // capability "Light"
     capability "Polling"
@@ -283,7 +283,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
   logger("$device.displayName $cmd")
 
   [
-    createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "physical") ,
+    createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "physical", isStateChange: true, displayed: true) ,
   ]
 }
 
@@ -292,7 +292,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
   logger("$device.displayName $cmd")
   
   [
-    createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "digital") ,
+    createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "digital", isStateChange: true, displayed: true) ,
   ]
 }
 
@@ -863,7 +863,7 @@ def installed() {
    */
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
@@ -910,7 +910,6 @@ def updated() {
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
 
-
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
@@ -924,7 +923,7 @@ def updated() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
   // sendCommands( prepDevice() + setDimRatePrefs(), 2000 )
   sendCommands( prepDevice(), 2000 )

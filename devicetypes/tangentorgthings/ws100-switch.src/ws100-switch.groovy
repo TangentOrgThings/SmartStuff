@@ -29,16 +29,15 @@
  */
 
 def getDriverVersion () {
-  return "v6.25"
+  return "v6.29"
 }
 
 metadata {
   definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
-    // capability "Health Check"
+    capability "Health Check"
     capability "Button"
     capability "Indicator"
-    capability "Light"
     capability "Polling"
     capability "Refresh"
     capability "Sensor"
@@ -209,7 +208,7 @@ private switchEvents(Short value, boolean isPhysical = true) {
     return createEvent(descriptionText: "$device.displayName returned Unknown for status.", displayed: true)
   }
 
-  return [ createEvent(name: "switch", value: value ? "on" : "off", type: isPhysical ? "physical" : "digital") ]
+  [ createEvent(name: "switch", value: value ? "on" : "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true) ]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
@@ -217,7 +216,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
   if (0) {
     return switchEvents(cmd.value, true);
   }
-  [ createEvent(descriptionText: "$device.displayName basic duplicate.", isStateChange: false, displayed: false) ]
+  return switchEvents(cmd.value, true);
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
@@ -416,7 +415,8 @@ def on() {
   }
 
   delayBetween([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
     // zwave.switchBinaryV1.switchBinaryGet().format(),
   ])
 }
@@ -432,12 +432,13 @@ def off() {
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    return zwave.switchBinaryV1.switchBinaryGet().format()
+    sendEvent(name: "switch", value: "on", type: "digital", isStateChange: true, displayed: true)
+    return response(zwave.switchBinaryV1.switchBinaryGet())
   }
 
   delayBetween([
-    // zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
+    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format(),
     // zwave.switchBinaryV1.switchBinaryGet().format(),
   ])
 }
@@ -452,10 +453,7 @@ def ping() {
 
 def refresh() {
   logger("refresh()")
-  if (0) {
   response( zwave.switchBinaryV1.switchBinaryGet() )
-  }
-  zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
 def poll() {
@@ -753,7 +751,7 @@ def installed() {
   }
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   indicatorWhenOff()
@@ -799,6 +797,9 @@ def updated() {
     break
   }
   }
+  
+  // Device-Watch simply pings if no device events received for 32min(checkInterval)
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
