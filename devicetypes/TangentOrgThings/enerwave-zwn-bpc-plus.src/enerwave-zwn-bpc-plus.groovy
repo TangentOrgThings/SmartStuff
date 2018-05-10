@@ -17,7 +17,7 @@
 
 
 def getDriverVersion() {
-  return "v3.21"
+  return "v3.24"
 }
 
 def getDefaultMotionTimeout() {
@@ -66,6 +66,8 @@ metadata {
 
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
+    attribute "zWaveProtocolVersion", "string"
+    attribute "Power", "string"
     attribute "FirmwareMdReport", "string"
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
@@ -152,8 +154,9 @@ private deviceCommandClasses() {
       0x70: 1,  // Configuratin
       0x71: 3,  //     Notification0x8
       0x72: 2,  // Manufacturer Specific
+      0x73: 1, // Powerlevel
       0x80: 1, // Battery
-      0x84: 1, // Wake Up
+      0x84: 2, // Wake Up
       0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class
@@ -290,21 +293,8 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd, r
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
   logger("$device.displayName $cmd")
-
-  def cmds = []
-
-  if (!state.lastbat || (new Date().time) - state.lastbat > 53*60*60*1000) {
-    cmds << zwave.batteryV1.batteryGet().format()
-  }
-
   state.lastActive = new Date().time
   result << createEvent(name: "LastAwake", value: state.lastActive, descriptionText: "${device.displayName} woke up", isStateChange: false)
-
-  if (cmds) {
-    result << response( delayBetween ( cmds ))
-  }
-
-  return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result) {
@@ -439,12 +429,21 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   result << createEvent(descriptionText: "$device.displayName assoc: ${cmd.groupingIdentifier}", displayed: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
+  logger("zwaveEvent(): Powerlevel Report received: ${cmd}","trace")
+  def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}","info")
+  result << createEvent(name: "Power", value: device_power_level)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName $cmd")
 
   def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
+  def zWaveProtocolVersion = "${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
-  result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", displayed: true, isStateChange: true)
+  result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
+  result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
@@ -489,7 +488,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
   int parameterNumber
 
@@ -540,6 +539,7 @@ def checkConfigure() {
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
         cmds << zwave.configurationV1.configurationGet(parameterNumber: getParamater()).format()
+        cmds << zwave.powerlevelV1.powerlevelGet().format()
         // cmds << zwave.configurationV2.configurationGet(parameterNumber: getParamater()).format()
       } else {
         cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
@@ -577,11 +577,11 @@ def installed() {
   state.loggingLevelIDE = 4
 
   if (0) {
-  def zwInfo = getZwaveInfo()
-  if ($zwInfo) {
-    log.debug("$device.displayName $zwInfo")
-    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  }
+    def zwInfo = getZwaveInfo()
+    if ($zwInfo) {
+      log.debug("$device.displayName $zwInfo")
+      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+    }
   }
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
@@ -610,11 +610,11 @@ def updated() {
   sendEvent(name: "logMessage", value: "", displayed: false)
 
   if (0) {
-  def zwInfo = getZwaveInfo()
-  if ($zwInfo) {
-    log.debug("$device.displayName $zwInfo")
-    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  }
+    def zwInfo = getZwaveInfo()
+    if ($zwInfo) {
+      log.debug("$device.displayName $zwInfo")
+      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+    }
   }
 
   state.isAssociated = false
