@@ -17,7 +17,7 @@
 
 
 def getDriverVersion () {
-  return "v1.31"
+  return "v1.33"
 }
 
 metadata {
@@ -80,7 +80,7 @@ def getCommandClassVersions() {
     0x72: 1,  // Manufacturer Specific
     // 0x77: 1,  // Node Naming
     0x82: 1,  // Hail
-    0x85: 1,  // Association  0x85  V1 V2
+    0x85: 2,  // Association  0x85  V1 V2
     0x86: 1,  // Version
     // Note: Controlled but not supported
     //    0x2B: 1,  // SceneActivation
@@ -156,10 +156,9 @@ def tapThat() {
   buttonEvent("tapThat()", 1, false, "digital")
 }
 
-def buttonEvent(String exec_cmd, Integer button, held, buttonType = "physical") {
-  logger("buttonEvent: $button  held: $held  type: $buttonType")
+def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
+  logger("buttonEvent: $button  held: $held  type: $buttonType exec: $exec_cmd")
 
-  button = button as Integer
   String heldType = held ? "held" : "pushed"
 
   if (button > 0) {
@@ -187,14 +186,14 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
-  Integer set_sceen = ((cmd.sceneId + 1) / 2) as Integer
-  buttonEvent("SceneActivationSet", set_sceen, false, "digital")
+  buttonEvent("SceneActivationSet", cmd.sceneId, false, "physical")
+  result <<  createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true, displayed: true)
   result <<  createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
   logger("$device.displayName $cmd")
-  buttonEvent("SceneActuatorConfGet", cmd.sceneId, false, "digital")
+  buttonEvent("SceneActuatorConfGet", cmd.sceneId, false, "physical")
 
   result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
 }
@@ -209,22 +208,25 @@ def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd) {
   result <<  createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationGroupingsReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
   def cmds = []
 
   if (cmd.supportedGroupings) {
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
-      cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
       cmds << zwave.associationV1.associationGet(groupingIdentifier: x).format()
     }
   }
 
-  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings, isStateChange: true, displayed: true)
+  for (def x = 1; x <= 2; x++) {
+    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
+  }
+
+  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings * 2, isStateChange: true, displayed: true)
   result << response( delayBetween(cmds, 2000) )
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
   Integer[] associate =  []
@@ -237,7 +239,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationReport cmd,
   String event_descriptionText
 
   String string_of_assoc
-  cmd.nodeid.each {
+  cmd.nodeId.each {
     string_of_assoc += "${it}, "
   }
 
@@ -248,14 +250,14 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationReport cmd,
   isStateChange = state.isAssociated ?: false
 
   state.isAssociated = true
-  if (! cmd.nodeid.any { it == zwaveHubNodeId }) {
+  if (! cmd.nodeId.any { it == zwaveHubNodeId }) {
     isStateChange = true
     associate += zwaveHubNodeId
     state.isAssociated = false
     event_descriptionText = "Hub is not associated"
   }
 
-  if ( associatedDevice  && ! cmd.nodeid.any { it == associatedDevice }) {
+  if ( associatedDevice  && ! cmd.nodeId.any { it == associatedDevice }) {
     associate += associatedDevice
     state.isAssociated = false
   }
@@ -366,7 +368,7 @@ def updated() {
   state.manufacturer = null
   updateDataValue("MSR", null)
   updateDataValue("Manufacturer", null)
-  // sendEvent(name: "numberOfButtons", value: 1, displayed: false)
+  sendEvent(name: "numberOfButtons", value: 2, displayed: false)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
