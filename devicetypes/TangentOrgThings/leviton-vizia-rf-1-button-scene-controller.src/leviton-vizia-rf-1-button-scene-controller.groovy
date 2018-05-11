@@ -17,7 +17,7 @@
 
 
 def getDriverVersion () {
-  return "v1.33"
+  return "v1.34"
 }
 
 metadata {
@@ -26,6 +26,7 @@ metadata {
     capability "Button"
     capability "Health Check"
     capability "Momentary"
+    capability "Switch"
 
     command "tapThat"
 
@@ -137,23 +138,47 @@ def parse(String description) {
 }
 
 def push () {
-  log.debug("$device.displayName push()")
-  def result = []
-
-  result += sendHubCommand(new physicalgraph.device.HubAction(zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: 1).format()))
-
-  return result
+  logger("$device.displayName push()")
+  tapThat()
 }
 
 def tapThat() {
-  log.debug("$device.displayName tapThat()")
+  logger("$device.displayName tapThat()")
 
-  response(sendCommands( [
-    zwave.basicV1.basicSet(value: 0xFF).format(),
-    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: 1),
-  ]))
+  if (device.currentValue("Scene")) {
+    Integer current_scene = device.currentValue("Scene").toInteger()
 
-  buttonEvent("tapThat()", 1, false, "digital")
+    Integer activate_scene = current_scene == 1 ? current_scene : 2;
+    sendCommands([ 
+      zwave.basicV1.basicSet(value: activate_scene == 1 ? 0xFF : 0x00),
+      zwave.sceneControllerConfV1.sceneControllerConfReport(dimmingDuration: 255 , groupId: activate_scene, sceneId: activate_scene),
+    ])
+  }
+
+  if (0) {
+    sendCommands( [
+      zwave.basicV1.basicSet(value: 0xFF),
+      // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: 1),
+    ])
+  }
+}
+
+def on() {
+  logger("$device.displayName on()")
+  sendCommands([
+    zwave.basicV1.basicSet(value: 0xFF),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0),
+    // zwave.sceneControllerConfV1.sceneControllerConfReport(dimmingDuration: 255, groupId: 1, sceneId: 1),
+  ])
+}
+
+def off() {
+  logger("$device.displayName off()")
+  sendCommands([
+    zwave.basicV1.basicSet(value: 0x00),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0),
+    // zwave.sceneControllerConfV1.sceneControllerConfReport(dimmingDuration: 255, groupId: 2, sceneId: 2),
+  ])
 }
 
 def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
@@ -166,6 +191,8 @@ def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "phy
   } else {
     sendEvent(name: "button", value: "default", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true, type: "$buttonType")
   }
+
+  // sendCommands([zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 255, level: 255, sceneId: 0)])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
@@ -186,9 +213,19 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
-  buttonEvent("SceneActivationSet", cmd.sceneId, false, "physical")
-  result <<  createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true, displayed: true)
-  result <<  createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  if (state.lastScene == cmd.sceneId && (state.repeatCount < 4) && (now() - state.repeatStart < 2000)) {
+    logger("Button was repeated")
+    state.repeatCount = state.repeatCount + 1
+  } else {
+    state.lastScene = cmd.sceneId
+    state.lastLevel = 0
+    state.repeatCount = 0
+    state.repeatStart = now()
+
+    buttonEvent("SceneActivationSet", cmd.sceneId, false, "physical")
+    result <<  createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true, displayed: true)
+    result <<  createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
@@ -238,14 +275,14 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   String event_value
   String event_descriptionText
 
-  String string_of_assoc
+  def string_of_assoc = ""
   cmd.nodeId.each {
     string_of_assoc += "${it}, "
   }
+  def lengthMinus2 = string_of_assoc.length() - 2
+  String final_string = string_of_assoc.getAt(0..lengthMinus2)
 
-  // def lengthMinus2 = string_of_assoc.length() - 3
-  // String final_string = string_of_assoc.getAt(0..lengthMinus2)
-  event_value = string_of_assoc
+  event_value = final_string
 
   isStateChange = state.isAssociated ?: false
 
@@ -255,15 +292,16 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     associate += zwaveHubNodeId
     state.isAssociated = false
     event_descriptionText = "Hub is not associated"
+
+    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
   if ( associatedDevice  && ! cmd.nodeId.any { it == associatedDevice }) {
     associate += associatedDevice
     state.isAssociated = false
-  }
+    isStateChange = true
 
-  if (! state.isAssociated ) {
-    // sendCommands( [ zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associate) ] )
+    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice) )
   }
 
   result << createEvent(name: "Associated",

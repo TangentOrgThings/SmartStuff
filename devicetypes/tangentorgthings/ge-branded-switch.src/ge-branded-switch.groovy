@@ -1,6 +1,6 @@
 // vim :set ts=2 sw=2 sts=2 expandtab smarttab :
 /**
- *  Copyright 2017 SmartThings
+ *  Copyright 2017-2018 SmartThings
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v3.87"
+  return "v3.89"
 }
 
 metadata {
@@ -25,6 +25,7 @@ metadata {
     capability "Indicator"
     capability "Switch"
     capability "Refresh"
+    capability "Polling"
     capability "Sensor"
 
     attribute "DeviceReset", "enum", ["false", "true"]
@@ -641,7 +642,6 @@ def on() {
 
   delayBetween([
     // zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: 1).format(),
     zwave.switchBinaryV1.switchBinaryGet().format(),
   ])
 }
@@ -671,7 +671,7 @@ def ping() {
 }
 
 def poll() {
-  response(zwave.switchBinaryV1.switchBinaryGet().format())
+  response(zwave.switchBinaryV1.switchBinaryGet())
 }
 
 def refresh() {
