@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v3.27"
+  return "v3.29"
 }
 
 def getAssociationGroup() {
@@ -122,6 +122,7 @@ metadata {
 
   preferences {
     input name: "wakeupInterval", type: "number", title: "Wakeup Interval", description: "Interval in seconds for the device to wakeup", range: "240..68400"
+    input name: "associatedDevice", type: "number", title: "Associated Device", description: "... ", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 }
@@ -495,10 +496,17 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 			state.isAssociated = false
 			result << createEvent(name: "isAssociated", value: "false")
 			result << response(delayBetween([
-				zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format(),
-				zwave.associationV1.associationGet(groupingIdentifier: getAssociationGroup()).format(),
+				zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
+				zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
 			]))
 		}
+
+    if ( associatedDevice  && ! cmd.nodeId.any { it == associatedDevice }) {
+      associate += associatedDevice
+      state.isAssociated = false
+
+      result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice) )
+    }
 	}
 
 	String final_string
