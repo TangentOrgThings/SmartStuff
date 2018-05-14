@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.89"
+  return "v6.91"
 }
 
 metadata {
@@ -406,7 +406,7 @@ private dimmerEvents(physicalgraph.zwave.Command cmd, boolean isPhysical = false
   def result = []
 
   // state.lastLevel = cmd.value
-  if (cmd.value && cmd.value <= 100) {
+  if (cmd.value && level <= 100) {
     result << createEvent(name: "switch", value: "on", type: isPhysical ? "physical" : "digital", displayed: true )
     result << createEvent(name: "level", value: level, unit: "%", displayed: true)
   } else if (level == 0) {
