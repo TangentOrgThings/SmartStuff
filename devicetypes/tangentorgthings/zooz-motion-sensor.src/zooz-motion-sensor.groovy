@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v3.29"
+  return "v3.31"
 }
 
 def getAssociationGroup() {
