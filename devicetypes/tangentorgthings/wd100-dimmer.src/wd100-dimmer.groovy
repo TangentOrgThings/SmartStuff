@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.91"
+  return "v6.92"
 }
 
 metadata {
@@ -45,7 +45,7 @@ metadata {
     capability "Actuator"
     capability "Health Check"
     capability "Button"
-    // capability "Light"
+    capability "Light"
     capability "Polling"
     capability "Refresh"
     capability "Sensor"

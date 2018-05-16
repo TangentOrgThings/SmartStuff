@@ -29,15 +29,16 @@
  */
 
 def getDriverVersion () {
-  return "v6.41"
+  return "v6.43"
 }
 
 metadata {
   definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
-//    capability "Health Check"
+    capability "Health Check"
     capability "Button"
     capability "Indicator"
+    capability "Light"    
     capability "Polling"
     capability "Refresh"
     capability "Sensor"
@@ -115,7 +116,7 @@ metadata {
     }
 
     valueTile("setScene", "device.setScene", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
+      state "Set", label: '${name}', nextState: "Setting"
       state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
 
@@ -454,7 +455,7 @@ def off() {
  * PING is used by Device-Watch in attempt to reach the Device
  * */
 def ping() {
-  log.debug "ping()"
+  logger "ping()"
   zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
