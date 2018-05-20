@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.43"
+  return "v6.46"
 }
 
 metadata {
@@ -95,6 +95,7 @@ metadata {
     input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options: ["When Off", "When On", "Never"]
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
@@ -423,9 +424,9 @@ def on() {
   }
 
   response ( delayBetween([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
-    // zwave.switchBinaryV1.switchBinaryGet().format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
   ]) )
 }
 
@@ -444,11 +445,16 @@ def off() {
     return response(zwave.switchBinaryV1.switchBinaryGet())
   }
 
-  response( delayBetween([
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
-    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format(),
-    // zwave.switchBinaryV1.switchBinaryGet().format(),
-  ]))
+  def cmds = []
+  if (delayOff) {
+    cmds << "delay 3000"
+  }
+
+  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format()
+  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+
+  response( delayBetween( cmds ))
 }
 
 /**
@@ -805,7 +811,7 @@ def updated() {
   }
   
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 

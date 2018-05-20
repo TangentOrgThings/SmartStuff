@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v3.89"
+  return "v3.91"
 }
 
 metadata {
@@ -23,10 +23,11 @@ metadata {
     capability "Button"
     capability "Health Check"
     capability "Indicator"
-    capability "Switch"
-    capability "Refresh"
+    capability "Light"    
     capability "Polling"
+    capability "Refresh"
     capability "Sensor"
+    capability "Switch"
 
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
@@ -47,8 +48,6 @@ metadata {
     attribute "LifeLine", "string"
     attribute "AssociationSet", "string"
     attribute "DoubleTap", "string"
-
-    attribute "reset", "enum", ["false", "true"]
 
     attribute "invertedStatus", "enum", ["false", "true"]
 
@@ -114,6 +113,25 @@ metadata {
     main("switch")
     details(["switch", "indicator", "driverVersion", "refresh"])
   }
+}
+
+def getCommandClassVersions() {
+  [
+    0x20: 1,  // Basic
+    0x25: 1,  // Switch Binary
+    0x27: 1,  // Switch All
+    0x2B: 1,  // SceneActivation
+    0x2C: 1,  // Scene Actuator Conf
+    0x59: 1,  // Association Grp Info
+    0x5A: 1,  // Device Reset Locally
+    0x56: 1,  // Crc16Encap
+    0x70: 1,  // Configuration
+    0x72: 2,  // Manufacturer Specific
+    0x73: 1, // Powerlevel
+    0x7A: 2,  // Firmware Update Md
+    0x85: 2,  // Association  0x85  V1 V2
+    0x86: 1,  // Version
+  ]
 }
 
 def prepDevice() {
@@ -422,7 +440,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
       cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x01);
       cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x);
-      cmds << zwave.associationV2.associationGet(groupingIdentifier: x);
     }
 
     sendCommands(cmds, 2000)
@@ -438,7 +455,13 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd) {
   logger("$device.displayName $cmd")
-  [ createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true) ]
+
+  def name = new String(cmd.name as byte[])
+  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+
+  def result = []
+  result << createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true)
+  result << response( zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd) {
@@ -575,7 +598,7 @@ private setManufacturerSpecificReport(manufacturerId, productTypeId, productId, 
 def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) {
   logger("$device.displayName $cmd")
 
-  def versions = commandClassVersions
+  def versions = getCommandClassVersions()
   def version = versions[cmd.commandClass as Integer]
   def ccObj = version ? zwave.commandClass(cmd.commandClass, version) : zwave.commandClass(cmd.commandClass)
   def encapsulatedCommand = ccObj?.command(cmd.command)?.parse(cmd.data)
@@ -638,10 +661,12 @@ def on() {
   logger("$device.displayName on()")
 
   state.lastActive = new Date().time
-  buttonEvent(1, false, "digital")
+  if (0) {
+    buttonEvent(1, false, "digital")
+  }
 
   delayBetween([
-    // zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
     zwave.switchBinaryV1.switchBinaryGet().format(),
   ])
 }
@@ -650,7 +675,10 @@ def off() {
   logger("$device.displayName off()")
 
   state.lastActive = new Date().time
-  buttonEvent(2, false, "digital")
+  if (0) {
+    buttonEvent(2, false, "digital")
+  }
+
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
