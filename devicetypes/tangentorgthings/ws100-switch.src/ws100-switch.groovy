@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.46"
+  return "v6.48"
 }
 
 metadata {
@@ -63,7 +63,6 @@ metadata {
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
-    attribute "WakeUp", "string"
 
     attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
@@ -101,7 +100,7 @@ metadata {
 
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
-      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+      tileAttribute ("device.Light", key: "PRIMARY_CONTROL") {
         attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
         attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
@@ -409,6 +408,11 @@ def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport 
   result << createEvent(name: "FirmwareMdReport", value: firmware_report, descriptionText: "$device.displayName FIRMWARE_REPORT: $firmware_report", displayed: true, isStateChange: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
+}
+
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
   result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
@@ -441,7 +445,6 @@ def off() {
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    sendEvent(name: "switch", value: "on", type: "digital", isStateChange: true, displayed: true)
     return response(zwave.switchBinaryV1.switchBinaryGet())
   }
 
@@ -625,7 +628,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     def cmds = []
     for (def x = cmd.supportedGroupings; x <= cmd.supportedGroupings; x++) {
       cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x);
-      cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x01);
+      cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00);
+      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x);
     }
 
     sendCommands(cmds, 2000)
@@ -647,6 +651,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
   result << createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true)
   result << response( zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(descriptionText: "$device.displayName AssociationGroupCommandListReport: $cmd", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
