@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.92"
+  return "v6.94"
 }
 
 metadata {
@@ -548,6 +548,11 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelS
   [ createEvent(name:"switch", value:"on", isStateChange: true, displayed: true), response(zwave.switchMultilevelV1.switchMultilevelGet()) ]
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd) {
+  logger("$device.displayName $cmd")
+  [createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)]
+}
+
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
   logger("$device.displayName command not implemented: $cmd", "error")
   [ createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true) ]
@@ -780,7 +785,16 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd) {
   logger("$device.displayName $cmd")
-  [ createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", isStateChange: true, displayed: true) ]
+  
+  def result = []
+
+  def name = new String(cmd.name as byte[])
+  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+
+  result << createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true)
+  result << response( zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
+  
+  return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd) {
@@ -795,8 +809,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd)
     cmd.nodeId.each {
       string_of_assoc += "${it}, "
     }
-    def lengthMinus2 = string_of_assoc.length() - 2
-    String final_string = string_of_assoc.getAt(0..lengthMinus2)
+    def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
+    def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       isStateChange = state.isAssociated ?: false

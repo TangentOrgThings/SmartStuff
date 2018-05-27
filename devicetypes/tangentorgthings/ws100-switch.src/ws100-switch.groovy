@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.48"
+  return "v6.51"
 }
 
 metadata {
@@ -429,8 +429,9 @@ def on() {
 
   response ( delayBetween([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format(),
+//    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+//    zwave.switchBinaryV1.switchBinaryGet().format(),
+    zwave.basicV1.basicGet().format(),
   ]) )
 }
 
@@ -445,7 +446,10 @@ def off() {
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    return response(zwave.switchBinaryV1.switchBinaryGet())
+    if (0) {
+      return response(zwave.switchBinaryV1.switchBinaryGet())
+    }
+    return response(zwave.basicV1.basicGet())
   }
 
   def cmds = []
@@ -454,8 +458,11 @@ def off() {
   }
 
   cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format()
-  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  if (0) {
+    cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
+    cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  }
+  cmds << zwave.basicV1.basicGet().format()
 
   response( delayBetween( cmds ))
 }
@@ -465,20 +472,30 @@ def off() {
  * */
 def ping() {
   logger "ping()"
-  zwave.switchBinaryV1.switchBinaryGet().format()
+  if (0) {
+    zwave.switchBinaryV1.switchBinaryGet().format()
+  }
+  zwave.basicV1.basicGet().format()
 }
 
 def refresh() {
   logger("refresh()")
-  response( zwave.switchBinaryV1.switchBinaryGet() )
+  if (0) {
+    response( zwave.switchBinaryV1.switchBinaryGet() )
+  }
+  response( zwave.basicV1.basicGet() )
 }
 
 def poll() {
   logger("poll()")
-  response( zwave.switchBinaryV1.switchBinaryGet() )
+  if (0) {
+    response( zwave.switchBinaryV1.switchBinaryGet() )
+  }
   if (0) {
     zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0x00).format()
   }
+
+  response ( zwave.basicV1.basicGet() )
 }
 
 void indicatorWhenOn() {
@@ -626,7 +643,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
 
   if (cmd.supportedGroupings) {
     def cmds = []
-    for (def x = cmd.supportedGroupings; x <= cmd.supportedGroupings; x++) {
+    for (def x = 1; x <= cmd.supportedGroupings; x++) {
       cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x);
       cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00);
       cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x);
@@ -671,8 +688,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     cmd.nodeId.each {
       string_of_assoc += "${it}, "
     }
-    def lengthMinus2 = string_of_assoc.length() - 2
-    String final_string = string_of_assoc.getAt(0..lengthMinus2)
+    def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
+    def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       isStateChange = state.isAssociated ?: false
