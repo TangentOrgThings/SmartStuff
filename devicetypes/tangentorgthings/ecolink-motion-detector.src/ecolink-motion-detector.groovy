@@ -47,7 +47,7 @@ metadata {
     capability "Sensor"
     capability "Tamper Alert"
     capability "Temperature Measurement"
-    
+
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last Error  messages.
@@ -130,7 +130,7 @@ metadata {
     valueTile("lastActive", "device.LastActive", width:2, height:2, inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
-    
+
     standardTile("reset", "device.DeviceReset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
       state "false", label:'', backgroundColor:"#ffffff"
       state "true", label:'reset', backgroundColor:"#e51426"
@@ -158,8 +158,8 @@ private deviceCommandClasses() {
       0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class
-      0x25: 1,  // 
-      0x31: 1,  // 
+      0x25: 1,  //
+      0x31: 1,  //
     ]
   } else {
     return [
@@ -218,11 +218,11 @@ def parse(String description) {
 
 def followupStateCheck() {
   logger("$device.displayName followupStateCheck")
-  
+
   if (state.isHappening) { // No lock checking, this is not a critical operation
     def now = new Date().time
     def last = state.lastActive + 300
-  
+
     log.debug("$device.displayName ... $last < $now")
     if (state.lastActive + 300 < now) {
       sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on followupStateCheck", isStateChange: followupCheck, displayed: true)
@@ -236,19 +236,19 @@ def sensorValueEvent(Boolean happening, result) {
   if (happening) {
     state.lastActive = new Date().time
     sendEvent(name: "LastActive", value: state.lastActive, displayed: false)
-    
+
     runIn(360, followupStateCheck)
   }
-    
+
   result << createEvent(name: "motion", value: happening ? "motion" : "inactive", descriptionText: "$device.displayName active", isStateChange: true, displayed: true)
   state.isHappening = happening
-  
+
   return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
-  
+
   if (! isLifeLine()) {
     sensorValueEvent((Boolean)cmd.value, result)
   } else {
@@ -258,7 +258,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
-  
+
   if (! isLifeLine()) {
     sensorValueEvent((Boolean)cmd.value, result)
   } else {
@@ -268,7 +268,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
-  
+
   if (! isLifeLine()) {
     sensorValueEvent((Boolean)cmd.value, result)
   } else {
@@ -315,7 +315,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
   if (cmd.notificationType == 7) {
     Boolean current_status = cmd.notificationStatus == 255 ? true : false
-    
+
     switch (cmd.event) {
       case 3:
         sendEvent(name: "tamper", value: current_status ? "detected" : "clear", descriptionText: "$device.displayName covering was removed", isStateChange: true, displayed: true)
@@ -366,7 +366,7 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   log.debug("$device.displayName $cmd")
-  
+
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit:"dF", isStateChange: true, displayed: true)
   } else if (cmd.sensorType == 7) {
@@ -379,7 +379,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
   logger("$device.displayName $cmd")
-  
+
   result << createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)
 
   if (state.tamper == "clear") {
@@ -415,7 +415,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
-  
+
   def manufacturerCode = String.format("%04X", cmd.manufacturerId)
   def productTypeCode = String.format("%04X", cmd.productTypeId)
   def productCode = String.format("%04X", cmd.productId)
@@ -528,7 +528,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       Boolean isStateChange = state.isAssociated ?: false
       state.isLifeLine = true
       result << createEvent(name: "Lifeline",
-          value: "${final_string}", 
+          value: "${final_string}",
           descriptionText: "${final_string}",
           displayed: true,
           isStateChange: isStateChange)
@@ -549,7 +549,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       Boolean isStateChange = state.isAssociated ?: false
       result << createEvent(name: "Repeated",
-      value: "${final_string}", 
+      value: "${final_string}",
       displayed: true,
       isStateChange: isStateChange)
       if (isLifeLine()) {
@@ -566,14 +566,14 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     }
   } else {
     result << createEvent(descriptionText: "$device.displayName unknown association: $cmd", isStateChange: true, displayed: true)
-    // Error 
+    // Error
   }
 
   if (! state.isAssociated ) {
     cmds << zwave.associationV2.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format()
     cmds << zwave.associationV2.associationGet(groupingIdentifier: getAssociationGroup()).format()
   }
-  
+
   if (cmds.size()) {
     result << response(delayBetween(cmds, 500))
   }
@@ -640,7 +640,7 @@ def updated() {
   }
   state.loggingLevelIDE = debugLevel ? debugLevel : 3
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
-  
+
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
@@ -650,13 +650,13 @@ def updated() {
   }
 
   sendEvent(name: "tamper", value: "clear")
-  
+
   state.isAssociated = false
   state.isConfigured = false
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
   // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on update", isStateChange: true, displayed: true)
   sendCommands(prepDevice())
-  
+
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
@@ -664,7 +664,7 @@ def updated() {
 def installed() {
   log.debug "$device.displayName installed()"
   state.loggingLevelIDE = 4
-  
+
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
