@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.45"
+  return "v4.47"
 }
 
 def getIndicatorParam() {
@@ -482,6 +482,11 @@ def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLoca
   result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -641,6 +646,8 @@ def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result
 }
 
 def on() {
+  logger("$device.displayName on()")
+  
   delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
     zwave.switchBinaryV1.switchBinaryGet().format()
@@ -648,6 +655,8 @@ def on() {
 }
 
 def off() {
+  logger("$device.displayName off()")
+  
   delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
     zwave.switchBinaryV1.switchBinaryGet().format()
@@ -655,6 +664,8 @@ def off() {
 }
 
 def poll() {
+  logger("$device.displayName poll()")
+  
   zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
@@ -662,14 +673,20 @@ def poll() {
   * PING is used by Device-Watch in attempt to reach the Device
 **/
 def ping() {
+  logger("$device.displayName ping()")
+  
   zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
 def refresh() {
+  logger("$device.displayName refresh()")
+ 
   zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
 def reset() {
+  logger("$device.displayName reset()")
+
   if (state.hasMeter) {
 	return response(delayBetween([
 		zwave.meterV2.meterReset().format(),
@@ -734,6 +751,7 @@ def updated() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   sendCommands(prepDevice())
+  
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
