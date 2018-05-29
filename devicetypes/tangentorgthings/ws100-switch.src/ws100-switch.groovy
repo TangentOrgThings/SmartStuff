@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.51"
+  return "v6.55"
 }
 
 metadata {
@@ -100,7 +100,7 @@ metadata {
 
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
-      tileAttribute ("device.Light", key: "PRIMARY_CONTROL") {
+      tileAttribute ("device.Switch", key: "PRIMARY_CONTROL") {
         attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
         attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
@@ -413,13 +413,25 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy 
   result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandCommandClassNotSupported cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
+}
+
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
   result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
 
 def on() {
-  log.debug("$device.displayName on()")
+  logger("$device.displayName on()")
+
+  def result = []
 
   state.lastActive = new Date().time
 
@@ -427,16 +439,20 @@ def on() {
     buttonEvent("on()", 1, false, "digital")
   }
 
-  response ( delayBetween([
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  result << delayBetween([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
-//    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-//    zwave.switchBinaryV1.switchBinaryGet().format(),
+    zwave.basicV1.basicSet(value: 0xFF).format(),
     zwave.basicV1.basicGet().format(),
-  ]) )
+  ])
+
+  return result
 }
 
 def off() {
   log.debug("$device.displayName off()")
+
+  def result = []
 
   state.lastActive = new Date().time
 
@@ -444,27 +460,26 @@ def off() {
     buttonEvent("off()", 2, false, "digital")
   }
 
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    if (0) {
-      return response(zwave.switchBinaryV1.switchBinaryGet())
-    }
     return response(zwave.basicV1.basicGet())
   }
 
   def cmds = []
-  if (delayOff) {
-    cmds << "delay 3000"
+  if (settings.delayOff) {
+    cmds << zwave.versionV1.versionGet().format()
   }
 
-  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format()
-  if (0) {
-    cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
-    cmds << zwave.switchBinaryV1.switchBinaryGet().format()
-  }
+  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format()
+  cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << zwave.basicV1.basicGet().format()
 
-  response( delayBetween( cmds ))
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  result << delayBetween( cmds, settings.delayOff ? 3000 : 600 )
+
+  return result
 }
 
 /**
@@ -480,10 +495,15 @@ def ping() {
 
 def refresh() {
   logger("refresh()")
+  
   if (0) {
     response( zwave.switchBinaryV1.switchBinaryGet() )
   }
-  response( zwave.basicV1.basicGet() )
+  
+  delayBetween([
+  	zwave.basicV1.basicGet().format(),
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0).format()
+  ])
 }
 
 def poll() {
@@ -584,7 +604,9 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       case 0:
       buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
+      result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
       result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
+      result << response( zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0) )
       break;
       case 3:
       // 2 Times
@@ -606,7 +628,9 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       case 0:
       buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
+      result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
       result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
+      result << response( zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0) )
       break;
       case 3:
       // 2 Times

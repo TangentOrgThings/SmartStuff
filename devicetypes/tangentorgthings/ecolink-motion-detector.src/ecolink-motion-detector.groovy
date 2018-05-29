@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.38"
+  return "v4.41"
 }
 
 def isPlus() {
@@ -43,30 +43,30 @@ metadata {
   definition (name: "Ecolink Motion Detector", namespace: "TangentOrgThings", author: "Brian Aker", ocfDeviceType: "x.com.st.d.sensor.motion") {
     capability "Battery"
     capability "Motion Sensor"
-    capability "Refresh"
     capability "Sensor"
     capability "Tamper Alert"
     capability "Temperature Measurement"
 
-    attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last Error  messages.
 
-    // String attribute with name "firmwareVersion"
-    attribute "firmwareVersion", "string"
-    attribute "driverVersion", "string"
+    // Device Specific
     attribute "Lifeline", "string"
     attribute "Repeated", "string"
     attribute "BasicReport", "enum", ["Unconfigured", "On", "Off"]
+
+    // String attribute with name "firmwareVersion"
+    attribute "firmwareVersion", "string"
+    attribute "zWaveProtocolVersion", "string"
+    attribute "driverVersion", "string"
     attribute "MSR", "string"
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
+
     attribute "WakeUp", "string"
-    attribute "firmwareVersion", "string"
     attribute "LastActive", "string"
-    attribute "isLifeline", "enum", ["false", "true"]
 
     attribute "NIF", "string"
     attribute "SupportedSensors", "string"
@@ -82,8 +82,9 @@ metadata {
   }
 
   preferences {
-    input "newModel", "bool", title: "Newer model", description: "... ", required: false
-    input "followupCheck", "bool", title: "Newer model", description: "... ", required: false
+    input name :"newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
+    input name :"followupCheck", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
   }
 
   tiles {
@@ -123,21 +124,12 @@ metadata {
       state("detected", label: "detected", backgroundColor:"#e51426")
     }
 
-    standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
-      state "default", label:'', action: "refresh.refresh", icon: "st.secondary.refresh"
-    }
-
     valueTile("lastActive", "device.LastActive", width:2, height:2, inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
 
-    standardTile("reset", "device.DeviceReset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-      state "false", label:'', backgroundColor:"#ffffff"
-      state "true", label:'reset', backgroundColor:"#e51426"
-    }
-
     main "motion"
-    details(["motion", "battery", "tamper", "driverVersion", "temperature", "associated", "lastActive", "reset", "refresh"])
+    details(["motion", "battery", "tamper", "driverVersion", "temperature", "associated", "lastActive"])
   }
 }
 
@@ -577,15 +569,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   if (cmds.size()) {
     result << response(delayBetween(cmds, 500))
   }
-
-  return result
-}
-
-def refresh() {
-  logger "$device.displayName refresh"
-
-  state.isAssociated = false
-  state.isConfigured = false
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
@@ -597,7 +580,7 @@ def checkConfigure() {
   def cmds = []
 
   if (device.currentValue("Configured") && device.currentValue("Configured").toBoolean() == false) {
-    if (!state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
+    if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
       state.lastConfigure = new Date().time
 
       if (isPlus()) {
@@ -651,11 +634,14 @@ def updated() {
 
   sendEvent(name: "tamper", value: "clear")
 
+  // We don't send the prepDevice() because we don't know if the device is awake
+  if (0) {
+    sendCommands(prepDevice())
+  }
   state.isAssociated = false
   state.isConfigured = false
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
   // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on update", isStateChange: true, displayed: true)
-  sendCommands(prepDevice())
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
