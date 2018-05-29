@@ -17,7 +17,7 @@
 
 
 def getDriverVersion () {
-  return "v1.36"
+  return "v1.39"
 }
 
 metadata {
@@ -27,8 +27,6 @@ metadata {
     capability "Health Check"
     capability "Momentary"
     capability "Switch"
-
-    command "tapThat"
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
@@ -45,6 +43,8 @@ metadata {
     attribute "Associated", "string"
 
     attribute "Scene", "number"
+    attribute "setScene", "enum", ["Set", "Setting"]
+
     attribute "Scene_1", "number"
     attribute "Scene_1_Duration", "number"
     attribute "Scene_2", "number"
@@ -67,7 +67,7 @@ metadata {
 
     tiles {
       standardTile("tap", "device.button", width: 2, height: 2, decoration: "flat") {
-        state "default", label: "TAP", backgroundColor: "#ffffff", action: "tapThat", icon: "st.Home.home30"
+        state "default", label: "TAP", backgroundColor: "#ffffff", action: "Momentary.push", icon: "st.Home.home30"
         state "button 1", label: "1", backgroundColor: "#79b821", icon: "st.Home.home30"
       }
 
@@ -145,13 +145,8 @@ def parse(String description) {
   return result
 }
 
-def push () {
+def push() {
   logger("$device.displayName push()")
-  tapThat()
-}
-
-def tapThat() {
-  logger("$device.displayName tapThat()")
 
   if (device.currentValue("Scene")) {
     Integer current_scene = device.currentValue("Scene").toInteger()
@@ -212,6 +207,11 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
   logger("$device.displayName $cmd")
   result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
+  result << createEvent(name: "Group Scene ${cmd.groupId}", value:  "${cmd.sceneId}", isStateChange: true, displayed: true);
+
+  if (cmd.sceneId && cmd.groupId) {
+    result <<  createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true, displayed: true)
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
@@ -241,13 +241,17 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   logger("$device.displayName $cmd")
   buttonEvent("SceneActuatorConfGet", cmd.sceneId, false, true, result)
 
+  result <<  createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
+
   result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
 }
 
+/*
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
   logger("$device.displayName $cmd")
   result <<  createEvent(ndescriptionText: "$cmd", isStateChange: true, displayed: true)
 }
+*/
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
@@ -288,8 +292,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   cmd.nodeId.each {
     string_of_assoc += "${it}, "
   }
-  def lengthMinus2 = string_of_assoc.length() - 2
-  String final_string = string_of_assoc.getAt(0..lengthMinus2)
+  def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
+  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
   event_value = final_string
 
@@ -351,16 +355,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   result << response(zwave.versionV1.versionGet())
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
-}
-
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   log.error("$device.displayName no implementation of $cmd")
   result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
@@ -376,15 +370,43 @@ def zwaveEvent(physicalgraph.zwave.commands.networkmanagementprimaryv1.Controlle
   result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
 
+/**
+ * PING is used by Device-Watch in attempt to reach the Device
+ * */
+def ping() {
+  logger ("$device.displayName ping()")
+  delayBetween([
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
+  ])
+}
+
+def refresh () {
+  logger ("$device.displayName refresh()")
+  delayBetween([
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
+  ])
+}
+
+def poll() {
+  logger ("$device.displayName poll()")
+  response( delayBetween([
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
+  ]))
+}
+
 def prepDevice() {
   [
     zwave.associationV1.associationGroupingsGet(),
     // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:1, sceneId:1),
     // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:2, sceneId:2),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0),
     // zwave.versionV1.versionGet(),
     // zwave.associationV1.associationGet(groupingIdentifier: 0x01),
-    // zwave.zwaveCmdClassV1.requestNodeInfo(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
@@ -427,25 +449,6 @@ def updated() {
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
-
-/**
- * PING is used by Device-Watch in attempt to reach the Device
- * */
-def ping() {
-  logger ("$device.displayName ping()")
-  zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
-}
-
-def refresh () {
-  logger ("$device.displayName refresh()")
-  zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
-}
-
-def poll() {
-  logger ("$device.displayName poll()")
-  zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
-}
-
 
 /*****************************************************************************************************************
  *  Private Helper Functions:
