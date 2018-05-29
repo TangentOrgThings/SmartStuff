@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.94"
+  return "v6.95"
 }
 
 metadata {
@@ -566,17 +566,23 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd) {
 def on() {
   logger("$device.displayName on()")
 
+  def result = []
+
   state.lastActive = new Date().time
 
   if (0) { // Add option to have digital commands execute buttons
     buttonEvent(1, false, "digital")
   }
 
-  sendEvent(name: "Scene", value: 1, displayed: true)
-  delayBetween([
+  result << createEvent(name: "Scene", value: 1, displayed: true)
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+
+  result << delayBetween([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: fastDuration ? 0x00 : 0xFF, sceneId: 1).format(),
     zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 5000)
+
+  return result
 }
 
 def off() {
@@ -588,11 +594,15 @@ def off() {
     buttonEvent(2, false, "digital")
   }
 
-  sendEvent(name: "Scene", value: 2, displayed: true)
-  delayBetween([
+  result << createEvent(name: "Scene", value: 2, displayed: true)
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+
+  result << delayBetween([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: fastDuration ? 0x00 : 0xFF, sceneId: 2).format(),
     zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 5000)
+
+  return result
 }
 
 def setLevel (value) {

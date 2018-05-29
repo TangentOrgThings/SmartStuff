@@ -439,7 +439,9 @@ def on() {
     buttonEvent("on()", 1, false, "digital")
   }
 
+  result << createEvent(name: "Scene", value: 1, displayed: true)
   result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+
   result << delayBetween([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
     zwave.basicV1.basicSet(value: 0xFF).format(),
@@ -460,8 +462,6 @@ def off() {
     buttonEvent("off()", 2, false, "digital")
   }
 
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
     return response(zwave.basicV1.basicGet())
@@ -472,11 +472,13 @@ def off() {
     cmds << zwave.versionV1.versionGet().format()
   }
 
+  result << createEvent(name: "Scene", value: 2, displayed: true)
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+
   cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format()
   cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << zwave.basicV1.basicGet().format()
 
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
   result << delayBetween( cmds, settings.delayOff ? 3000 : 600 )
 
   return result
