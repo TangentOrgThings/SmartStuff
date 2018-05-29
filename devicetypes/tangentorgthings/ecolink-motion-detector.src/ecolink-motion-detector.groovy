@@ -2,7 +2,7 @@
 /**
  *  Ecolink Motion Sensor
  *
- *  Copyright 2016-207 Brian Aker
+ *  Copyright 2016-2018 Brian Aker
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -16,11 +16,11 @@
  */
 
 def getDriverVersion() {
-  return "v4.41"
+  return "v4.42"
 }
 
 def isPlus() {
-  return newModel || state.newModel
+  return settings.newModel || state.newModel
 }
 
 def isLifeLine() {
@@ -82,8 +82,8 @@ metadata {
   }
 
   preferences {
-    input name :"newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
-    input name :"followupCheck", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
+    input name: "newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
+    input name: "followupCheck", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
   }
 
@@ -463,7 +463,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     result << createEvent(name: "BasicReport", value: "Unconfigured", displayed: false)
   }
 
-  if ( zwaveHubNodeId != 1 && ! state.newModel && device.currentValue("MSR")) {
+  if ( zwaveHubNodeId != 1 && ! isPlus() && device.currentValue("MSR")) {
     if (! state.isConfigured) {
       result << response(delayBetween([
         zwave.configurationV1.configurationSet(parameterNumber: 0x63, scaledConfigurationValue: 0xFF, size: 1).format(),
