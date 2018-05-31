@@ -154,7 +154,7 @@ def getCommandClassVersions() {
     0x5B: 1,  // Central Scene
     0x70: 2,  // Configuration
     0x72: 2,  // Manufacturer Specific
-    0x73: 1, // Powerlevel
+    0x73: 1,  // Powerlevel
     0x7A: 2,  // Firmware Update Md
     0x86: 1,  // Version
     0x85: 2,  // Association  0x85  V1 V2
@@ -276,7 +276,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
   result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
   result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
   result << response(cmds)
 }
 
@@ -431,30 +430,24 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 def on() {
   logger("$device.displayName on()")
 
-  def result = []
-
   state.lastActive = new Date().time
 
   if (0) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
-  result << createEvent(name: "Scene", value: 1, displayed: true)
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  result << delayBetween([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format(),
-    zwave.basicV1.basicSet(value: 0xFF).format(),
-    zwave.basicV1.basicGet().format(),
-  ])
-
-  return result
+  def cmds = []
+  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1);
+  cmds << zwave.basicV1.basicSet(value: 0xFF);
+  cmds << zwave.basicV1.basicGet();
+  
+  return sendCommands(cmds)
 }
 
 def off() {
-  log.debug("$device.displayName off()")
-
-  def result = []
+  logger("$device.displayName off()")
 
   state.lastActive = new Date().time
 
@@ -469,19 +462,16 @@ def off() {
 
   def cmds = []
   if (settings.delayOff) {
-    cmds << zwave.versionV1.versionGet().format()
+    cmds << zwave.versionV1.versionGet()
   }
 
-  result << createEvent(name: "Scene", value: 2, displayed: true)
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format()
-  cmds << zwave.basicV1.basicSet(value: 0x00).format()
-  cmds << zwave.basicV1.basicGet().format()
+  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2);
+  cmds << zwave.basicV1.basicSet(value: 0x00);
+  cmds << zwave.basicV1.basicGet();
 
-  result << delayBetween( cmds, settings.delayOff ? 3000 : 600 )
-
-  return result
+  return sendCommands( cmds, settings.delayOff ? 3000 : 600 )
 }
 
 /**
@@ -596,6 +586,8 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
   }
   state.sequenceNumber= cmd.sequenceNumber
 
+  def cmds = []
+  
   state.lastActive = new Date().time
 
   switch (cmd.sceneNumber) {
@@ -652,11 +644,20 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     log.debug ("unexpected scene: $cmd.sceneNumber")
   }
 
+  if (0) {
   result << createEvent(name: "keyAttributes", value: cmd.keyAttributes, isStateChange: true, displayed: true)
   result << createEvent(name: "Scene", value: cmd.sceneNumber, isStateChange: true, displayed: true)
+  }
 
   if ( 0 ) { // cmd.keyAttributes ) {
     result << response(zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: cmd.sceneNumber))
+  }
+  
+  cmds << "delay 2000"
+  cmds << zwave.basicV1.basicGet().format()
+
+  if (cmds.size) {
+    result << response(delayBetween(cmds))
   }
 
   return result
@@ -796,7 +797,7 @@ def prepDevice() {
     zwave.centralSceneV1.centralSceneSupportedGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.powerlevelV1.powerlevelGet(),
-    // zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0x00),
+    // zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
     // zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: 1, dimmingDuration: 0, level: 255, override: true),
     // zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: 2, dimmingDuration: 0, level: 0, override: true),
     zwave.zwaveCmdClassV1.requestNodeInfo(),

@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v3.91"
+  return "v3.95"
 }
 
 metadata {
@@ -651,6 +651,11 @@ def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd) {
   [ createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true) ]
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd) {
+  logger("$device.displayName $cmd")
+  [ createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)]
+}
+
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
   log.error "$cmd"
   logger("$device.displayName command not implemented: $cmd", "error")
@@ -659,35 +664,42 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 
 def on() {
   logger("$device.displayName on()")
-
+  
   state.lastActive = new Date().time
   if (0) {
     buttonEvent(1, false, "digital")
   }
+  
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)  
 
-  delayBetween([
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format(),
+  return sendCommands([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 1),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF),
+    zwave.switchBinaryV1.switchBinaryGet(),
   ])
 }
 
 def off() {
   logger("$device.displayName off()")
-
+  
   state.lastActive = new Date().time
   if (0) {
     buttonEvent(2, false, "digital")
   }
 
-
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
     return zwave.switchBinaryV1.switchBinaryGet().format()
   }
+  
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  delayBetween([
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format(),
+  return sendCommands([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00),
+    zwave.switchBinaryV1.switchBinaryGet(),
   ])
 }
 

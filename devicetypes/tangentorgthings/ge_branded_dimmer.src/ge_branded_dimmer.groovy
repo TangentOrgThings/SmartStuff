@@ -15,19 +15,21 @@
  */
 
 def getDriverVersion() {
-  return "v2.73"
+  return "v2.78"
 }
 
 metadata {
   definition (name: "GE Branded Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
-    capability "Switch Level"
     capability "Actuator"
     capability "Button"
+    capability "Health Check"
+    capability "Indicator"
     capability "Light"
-    capability "Switch"
+    capability "Polling"
     capability "Refresh"
     capability "Sensor"
-    capability "Health Check"
+    capability "Switch Level"
+    capability "Switch"
 
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
@@ -57,7 +59,10 @@ metadata {
 
     attribute "SwitchAll", "string"
 
-    fingerprint mfr:"0063", prod:"4944", model:"3031", deviceJoinName: "GE In-Wall Dimmer"
+    fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE In-Wall Dimmer" // model:"3031", 
+		fingerprint mfr:"0063", prod:"4457", deviceJoinName: "GE 4457 Z-Wave Wall Dimmer"
+		fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE 4944 Z-Wave Wall Dimmer"
+		fingerprint mfr:"0063", prod:"5044", deviceJoinName: "GE 5044 Z-Wave Plug-In Dimmer"
   }
 
   simulator {
@@ -79,16 +84,17 @@ metadata {
   }
 
   preferences {
-    input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: true, options:["on": "When On", "off": "When Off", "never": "Never"]
-    input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "Invert switch? ", required: true
-    input name: "zwaveSteps", type: "number", title: "Z-Wave Dim Steps (1-99)", description: "Z-Wave Dim Steps ", required: true, range: "1..99"
-    input name: "zwaveDelay", type: "number", title: "Z-Wave Dim Delay (10ms Increments, 1-255)", description: "Z-Wave Dim Delay (10ms Increments) ", required: true, range: "1..255"
-    input name: "manualSteps", type: "number", title: "Manual Dim Steps (1-99)", description: "Manual Dim Steps ", required: true, range: "1..99"
-    input name: "manualDelay", type: "number", title: "Manual Dim Delay (10ms Increments, 1-255)", description: "Manual Dim Delay (10ms Increments) ", required: true, range: "1..255"
-    input name: "allonSteps", type: "number", title: "All-On/All-Off Dim Steps (1-99)", description: "All-On/All-Off Dim Steps ", required: true, range: "1..99"
-    input name: "allonDelay", type: "number", title: "All-On/All-Off Dim Delay (10ms Increments, 1-255)", description: "All-On/All-Off Dim Delay (10ms Increments) ", required: true, range: "1..255"
-    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
-    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: true, options:["on": "When On", "off": "When Off", "never": "Never"], defaultValue: "off"
+    input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "Invert switch? ", required: true, defaultValue: false
+    input name: "zwaveSteps", type: "number", title: "Z-Wave Dim Steps (1-99)", description: "Z-Wave Dim Steps ", required: true, range: "1..99", defaultValue: 1
+    input name: "zwaveDelay", type: "number", title: "Z-Wave Dim Delay (10ms Increments, 1-255)", description: "Z-Wave Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
+    input name: "manualSteps", type: "number", title: "Manual Dim Steps (1-99)", description: "Manual Dim Steps ", required: true, range: "1..99", defaultValue: 1
+    input name: "manualDelay", type: "number", title: "Manual Dim Delay (10ms Increments, 1-255)", description: "Manual Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
+    input name: "allonSteps", type: "number", title: "All-On/All-Off Dim Steps (1-99)", description: "All-On/All-Off Dim Steps ", required: true, range: "1..99", defaultValue: 1
+    input name: "allonDelay", type: "number", title: "All-On/All-Off Dim Delay (10ms Increments, 1-255)", description: "All-On/All-Off Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
+    input name: "fastDuration", type: "bool", title: "Fast Duration", description: "Where to quickly change light state", required: false, defaultValue: true
+    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: true
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3 
   }
 
   tiles(scale: 2) {
@@ -102,19 +108,38 @@ metadata {
       tileAttribute ("device.level", key: "SLIDER_CONTROL") {
         attributeState "level", action:"switch level.setLevel"
       }
+      tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
+        attributeState("when off", label:'${currentValue}', icon:"st.indicators.lit-when-off")
+        attributeState("when on", label:'${currentValue}', icon:"st.indicators.lit-when-on")
+        attributeState("never", label:'${currentValue}', icon:"st.indicators.never-lit")
+      }
+    }
+
+    standardTile("indicator", "device.indicatorStatus", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "when off", action:"indicator.indicatorWhenOn", icon:"st.indicators.lit-when-off"
+      state "when on", action:"indicator.indicatorNever", icon:"st.indicators.lit-when-on"
+      state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
+    }
+
+    valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
+      state "default", label: '${currentValue}'
+    }
+
+    valueTile("setScene", "device.setScene", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
+      state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
+      state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
 
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
     }
-
     
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
 
     main "switch"
-    details(["switch", "driverVersion", "refresh"])
+    details(["switch", "scene", "setScene", "indicator", "driverVersion", "refresh"])
     // details(["switch", "level", "refresh"])
   }
 }
@@ -165,6 +190,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   dimmerEvents(cmd.value, false, result);
 }
 
+// Physical press of the switch
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -219,8 +245,6 @@ private dimmerEvents(Integer dimmer_level, boolean isPhysical, result) {
   if (dimmer_level && dimmer_level <= 100) {
     result << createEvent(name: "level", value: dimmer_level, unit: "%", isStateChange: true, displayed: true)
   }
-
-  return result
 }
 
 
@@ -448,41 +472,30 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 def on() {
   logger("$device.displayName on()")
 
-  def result = []
-
   state.lastActive = new Date().time
 
-  result << createEvent(name: "Scene", value: 1, displayed: true)
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  result << delayBetween([
-    // zwave.basicV1.basicSet(value: 0xFF).format(),
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: 1).format(),
-    zwave.switchMultilevelV2.switchMultilevelGet().format(),
+  return sendCommands([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: 1),
+    zwave.switchMultilevelV1.switchMultilevelGet(),
   ])
-
-  return result
 }
 
 def off() {
   logger("$device.displayName off()")
 
-  def result = []
-
   if (settings.disbableDigitalOff) {
     log.debug "..off() disabled"
-    return response(zwave.switchBinaryV1.switchBinaryGet())
+    return response(zwave.switchMultilevelV1.switchMultilevelGet())
   }
 
-  result << createEvent(name: "Scene", value: 2, displayed: true)
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  result << delayBetween([
-    zwave.basicV1.basicSet(value: 0x00).format(),
-    zwave.switchMultilevelV2.switchMultilevelGet().format(),
+  return sendCommands([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
+    zwave.switchMultilevelV1.switchMultilevelGet(),
   ])
-
-  return result
 }
 
 def setLevel (value) {
@@ -490,49 +503,29 @@ def setLevel (value) {
   def valueaux = value as Integer
   def level = Math.max(Math.min(valueaux, 99), 0)
 
-  def result = []
-
-  if (level > 0) {
-    result << createEvent(name: "switch", value: "on")
-    result << createEvent(name: "Scene", value: 1, displayed: true)
-    result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-  } else {
-    result << createEvent(name: "switch", value: "off")
-    result << createEvent(name: "Scene", value: 2, displayed: true)
-    result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-  }
-
-  result << createEvent(name: "level", value: level, unit: "%")
-  result << delayBetween ([
+  return delayBetween([
     zwave.switchMultilevelV2.switchMultilevelSet(value: level).format(),
-    zwave.switchMultilevelV2.switchMultilevelGet().format()
+    zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 5000)
-
-  return result
 }
 
 
 def setLevel(value, duration) {
-  log.debug "setLevel >> value: $value, duration: $duration"
+  logger("setLevel >> value: $value, duration: $duration")
 
   def valueaux = value as Integer
   def level = Math.max(Math.min(valueaux, 99), 0)
   def dimmingDuration = duration < 128 ? duration : 128 + Math.round(duration / 60)
   def getStatusDelay = duration < 128 ? (duration*1000)+2000 : (Math.round(duration / 60)*60*1000)+2000
 
-  if (level > 0) {
-    sendEvent(name: "switch", value: "on")
-  } else {
-    sendEvent(name: "switch", value: "off")
-  }
-
-  delayBetween ([
+  delayBetween([
     zwave.switchMultilevelV2.switchMultilevelSet(value: level, dimmingDuration: dimmingDuration).format(),
-    zwave.switchMultilevelV2.switchMultilevelGet().format()
+    zwave.switchMultilevelV2.switchMultilevelGet().format(),
   ], getStatusDelay)
 }
 
 def poll() {
+  logger("poll()")
   zwave.switchMultilevelV2.switchMultilevelGet().format()
 }
 
@@ -540,26 +533,25 @@ def poll() {
  * PING is used by Device-Watch in attempt to reach the Device
  * */
 def ping() {
+  logger("ping()")
   zwave.switchMultilevelV2.switchMultilevelGet().format()
 }
 
 def refresh() {
-  logger "refresh() is called"
+  logger("refresh()")
 
   def commands = []
 
   commands << zwave.switchMultilevelV2.switchMultilevelGet().format()
 
-  if (getDataValue("MSR") == null) {
-    commands << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
+  if (0) {
+    commands << zwave.configurationV1.configurationGet(parameterNumber: 3).format()
+    commands << zwave.configurationV1.configurationGet(parameterNumber: 4).format()
+    commands << zwave.configurationV1.configurationGet(parameterNumber: 7).format()
+    commands << zwave.configurationV1.configurationGet(parameterNumber: 8).format()
+    commands << zwave.configurationV1.configurationGet(parameterNumber: 9).format()
+    commands << zwave.configurationV1.configurationGet(parameterNumber: 10).format()
   }
-
-  commands << zwave.configurationV1.configurationGet(parameterNumber: 3).format()
-  commands << zwave.configurationV1.configurationGet(parameterNumber: 4).format()
-  commands << zwave.configurationV1.configurationGet(parameterNumber: 7).format()
-  commands << zwave.configurationV1.configurationGet(parameterNumber: 8).format()
-  commands << zwave.configurationV1.configurationGet(parameterNumber: 9).format()
-  commands << zwave.configurationV1.configurationGet(parameterNumber: 10).format()
 
   delayBetween(commands)
 }
@@ -588,13 +580,8 @@ def invertSwitch(invert=true) {
 }
 
 def prepDevice() {
-  [
-    // zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.versionV1.versionGet(),
-    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
-    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
-    zwave.associationV2.associationGroupingsGet(),
+  if (0) {
+    [
     // zwave.configurationV1.configurationSet(configurationValue: [ledIndicator == "on" ? 1 : ledIndicator == "never" ? 2 : 0], parameterNumber: 3, size: 1),
     zwave.configurationV1.configurationSet(configurationValue: [invertSwitch == true ? 1 : 0], parameterNumber: 4, size: 1),
     zwave.configurationV1.configurationSet(configurationValue: [zwaveSteps], parameterNumber: 7, size: 1),
@@ -611,9 +598,17 @@ def prepDevice() {
     zwave.configurationV1.configurationGet(parameterNumber: 10),
     zwave.configurationV1.configurationGet(parameterNumber: 11),
     zwave.configurationV1.configurationGet(parameterNumber: 12),
-    zwave.firmwareUpdateMdV2.firmwareMdGet(),
-    zwave.zwaveCmdClassV1.requestNodeInfo(),
     ]
+  }
+  [
+    // zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
+    zwave.associationV2.associationGroupingsGet(),
+    zwave.firmwareUpdateMdV2.firmwareMdGet(),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
+  ]
 }
 
 def installed() {
@@ -636,8 +631,12 @@ def installed() {
 }
 
 def updated() {
-  log.info("$device.displayName updated() debug: ${debugLevel}")
+  if ( state.updatedDate && ((Calendar.getInstance().getTimeInMillis() - state.updatedDate)) < 5000 ) {
+    return
+  }
+
   state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -658,6 +657,9 @@ def updated() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
   sendEvent(name: "numberOfButtons", value: 4, displayed: false)
   sendCommands(prepDevice())
+
+  // Avoid calling updated() twice
+  state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
 
 /*****************************************************************************************************************

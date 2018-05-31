@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.47"
+  return "v4.49"
 }
 
 def getIndicatorParam() {
@@ -241,8 +241,7 @@ def parse(String description) {
   def result = []
 
   if (description && description.startsWith("Err")) {
-    log.error "parse error: ${description}"
-    result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
+    logger("parse error: ${description}", "error")
 
     if (description.startsWith("Err 106")) {
       result << createEvent(
@@ -254,15 +253,20 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, deviceCommandClasses())
 
     if (cmd) {
       zwaveEvent(cmd, result)
-
     } else {
-      logger("zwave.parse() failed for: ${description}", "error")
+      cmd = zwave.parse(description, [ 0x71: 3])
+      
+      if (cmd) {
+        zwaveEvent(cmd, result)
+      } else {
+        logger("zwave.parse() failed for: ${description}", "error")
+      }
     }
   }
 
@@ -293,10 +297,35 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   result << createEvent(name: "switch", value: cmd.switchValuevalue ? "on" : "off", type: "digital")
 }
 
-def buttonEvent(button, held, buttonType = "physical") {
+// NotificationReport
+def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  if (cmd.notificationType == 7) {
+    Boolean current_status = cmd.notificationStatus == 255 ? true : false
+
+    switch (cmd.event) {
+      case 8:
+      sendCommands([
+        zwave.basicV1.basicSet(value: 0xFF),
+        zwave.basicV1.basicGet(),
+      ]) 
+      break;
+      case 0:
+      sendCommands([
+        zwave.basicV1.basicSet(value: 0x00),
+        zwave.basicV1.basicGet(),
+      ]) 
+      break;
+      default:
+      logger("$device.displayName unknown event for notification 7: $cmd", "error")
+    }
+  }
+}
+
+def buttonEvent(Integer button, Boolean held, String buttonType = "physical") {
   logger("buttonEvent: $button  held: $held  type: $buttonType")
 
-  button = button as Integer
   String heldType = held ? "held" : "pushed"
   if (button > 0) {
     sendEvent(name: "button", value: "$heldType", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
@@ -342,7 +371,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
   result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
   result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
 
   if (cmds) {
     result << response(delayBetween(cmds, 1000))
@@ -350,8 +378,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
   return result
 }
-
-
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")

@@ -198,10 +198,14 @@ def parse(String description) {
         result << response( delayBetween ( cmds ))
       }
       zwaveEvent(cmd, result)
-
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger("zwave.parse(deviceCommandClasses()) failed for: ${description}", "error")
+      
+      cmd = zwave.parse(description)
+      if (cmd) {
+      } else {
+        logger("zwave.parse() failed for: ${description}", "error")
+      }
     }
   }
 
