@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.99"
+  return "v7.01"
 }
 
 metadata {
@@ -125,9 +125,9 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "on", label:'${name}', action:"disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
-        attributeState "turningOn", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "turningOn", label:'${name}', action:"disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
       }
 
@@ -210,8 +210,7 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    logger("$device.displayName parse() called with NULL description", "info")
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger("$device.displayName parse() called with NULL description", "warn")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -219,13 +218,14 @@ def parse(String description) {
       zwaveEvent(cmd, result)
 
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger("zwave.parse(getCommandClassVersions()) failed for: ${description}", "error")
       // Try it without check for classes
       cmd = zwave.parse(description)
 
       if (cmd) {
         zwaveEvent(cmd, result)
+      } else {
+        logger("zwave.parse() failed for: ${description}", "error")
       }
     }
   }
@@ -292,10 +292,9 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   result << createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "digital", isStateChange: true, displayed: true)
 }
 
-def buttonEvent(button, held, buttonType = "physical") {
+def buttonEvent(Integer button, Boolean held, String buttonType = "physical") {
   logger("buttonEvent: $button  held: $held  type: $buttonType")
 
-  button = button as Integer
   String heldType = held ? "held" : "pushed"
 
   if (button > 0) {
@@ -634,6 +633,7 @@ def disconnect(Boolean physical = true) {
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
     zwave.basicV1.basicSet(value: 0x00),
     zwave.switchMultilevelV1.switchMultilevelGet(),
+    zwave.basicV1.basicGet(),
   ], 2000)
 }
 
@@ -726,6 +726,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     switch (cmd.keyAttributes) {
       case 2:
       case 0:
+      result << createEvent(name: "switch", value: "on", type: "physical", isStateChange: true, displayed: true)
       buttonEvent(cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
       break;
@@ -747,6 +748,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     switch (cmd.keyAttributes) {
       case 2:
       case 0:
+      result << createEvent(name: "switch", value: "off", type: "physical", isStateChange: true, displayed: true)
       buttonEvent(cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
       break;
@@ -764,11 +766,6 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     default:
     // unexpected case
     log.error ("unexpected scene: $cmd.sceneNumber")
-  }
-
-  if (0) {
-  result << createEvent(name: "keyAttributes", value: cmd.keyAttributes, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneNumber, isStateChange: true, displayed: true)
   }
 
   if (cmd.keyAttributes == 2 || cmd.keyAttributes == 0) {

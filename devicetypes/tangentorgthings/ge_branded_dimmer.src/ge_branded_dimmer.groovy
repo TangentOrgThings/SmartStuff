@@ -15,7 +15,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.81"
+  return "v2.82"
 }
 
 metadata {
@@ -102,9 +102,9 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "on", label:'${name}', action:"disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
-        attributeState "turningOn", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "turningOn", label:'${name}', action:"disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
       }
       tileAttribute ("device.level", key: "SLIDER_CONTROL") {
@@ -149,7 +149,7 @@ metadata {
 def getCommandClassVersions() { // 26, 27, 2B, 2C, 59, 5A, 5B, 5E, 70, 72, 73, 7A, 85, 86
 [
   0x20: 1,  // Basic
-  0x26: 2,  // SwitchMultilevel
+  0x26: 3,  // SwitchMultilevel
   0x27: 1,  // Switch All
   0x2B: 1,  // SceneActivation
   0x2C: 1,  // Scene Actuator Conf
@@ -539,6 +539,7 @@ def disconnect(Boolean physical = true) {
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
     zwave.basicV1.basicSet(value: 0x00),
     zwave.switchMultilevelV1.switchMultilevelGet(),
+    zwave.basicV1.basicGet(),
   ])
 }
 
