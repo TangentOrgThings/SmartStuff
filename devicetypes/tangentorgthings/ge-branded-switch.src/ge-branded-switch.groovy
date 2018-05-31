@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v3.95"
+  return "v3.99"
 }
 
 metadata {
@@ -62,6 +62,8 @@ metadata {
 
     attribute "SwitchAll", "string"
 
+    command "disconnect"
+
     fingerprint mfr:"0063", prod: "4952", model:"3031", deviceJoinName: "Jasco/GE 12721 In-Wall Duplex Receptacle" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x75, 0x77, 0x86" // OUTLET has CC PROTECTION
     fingerprint mfr:"0063", prod: "4952", model:"3032", deviceJoinName: "Jasco/GE 12722 In-Wall On/Off Switch" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x77, 0x86"
     fingerprint mfr:"0063", prod: "4952", model:"3036", deviceJoinName: "Jasco/GE 14291 In-Wall On/Off Switch"
@@ -80,10 +82,10 @@ metadata {
   }
 
   preferences {
-    input name: "reverseSwitch", type: "bool", title: "Reverse Switch",  defaultValue: false, required: false
     input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options:["off": "When Off", "on": "When On", "never": "Never"]
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "Invert switch? ", required: false
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
@@ -91,7 +93,7 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
+        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
         attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
     }
@@ -364,8 +366,8 @@ def zwaveEvent(physicalgraph.zwave.commands.nodenamingv1.NodeNamingNodeLocationR
     isStateChange: true) ]
 }
 
-def buttonEvent(button, held, buttonType) {
-  logger("buttonEvent: $button  held: $held  type: $buttonType")
+def buttonEvent(String exec_caller, Integer button, Boolean held, String buttonType) {
+  logger("$exec_caller buttonEvent: $button  held: $held  type: $buttonType")
 
   button = button as Integer
   if (held) {
@@ -377,7 +379,7 @@ def buttonEvent(button, held, buttonType) {
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd) {
   logger("$device.displayName $cmd")
-  buttonEvent(cmd.sceneId, false, "digital")
+  buttonEvent("SceneActuatorConfGet", cmd.sceneId, false, "digital")
 
   response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
 }
@@ -422,6 +424,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   return result
 }
 
+/*
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd) {
   logger("$device.displayName $cmd")
 
@@ -429,6 +432,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
   Boolean held = !(cmd.sceneId % 2)
   buttonEvent(button, held, "digital")
 }
+*/
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd) {
   logger("$device.displayName $cmd")
@@ -665,42 +669,56 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 def on() {
   logger("$device.displayName on()")
   
-  state.lastActive = new Date().time
-  if (0) {
-    buttonEvent(1, false, "digital")
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
   }
+  state.lastBounce = new Date().time
   
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)  
 
-  return sendCommands([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 1),
-    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF),
-    zwave.switchBinaryV1.switchBinaryGet(),
+	delayBetween([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 1).format(),
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
   ])
 }
 
 def off() {
   logger("$device.displayName off()")
-  
-  state.lastActive = new Date().time
-  if (0) {
-    buttonEvent(2, false, "digital")
-  }
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
     return zwave.switchBinaryV1.switchBinaryGet().format()
   }
+
+  trueOff(false)
+}
+
+def disconnect() {
+  logger("$device.displayName disconnect()")
   
+  trueOff(true)
+}
+
+private trueOff(Boolean physical = true) {
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
+  
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("off()", 2, false, "digital")
+  }
+
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  return sendCommands([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
-    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00),
-    zwave.switchBinaryV1.switchBinaryGet(),
-  ])
+	delayBetween([
+    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2).format(),
+    zwave.basicV1.basicSet(value: 0x00).format(),
+		zwave.basicV1.basicGet().format(),
+  ], settings.delayOff ? 3000 : 600)
 }
 
 /**

@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v6.98"
+  return "v6.99"
 }
 
 metadata {
@@ -83,6 +83,8 @@ metadata {
     attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
+    
+    command "disconnect"
 
     // 0 0 0x2001 0 0 0 a 0x30 0x71 0x72 0x86 0x85 0x84 0x80 0x70 0xEF 0x20
     // zw:L type:1101 mfr:0184 prod:4447 model:3034 ver:5.14 zwv:4.24 lib:03 cc:5E,86,72,5A,85,59,73,26,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8600 ui:8600
@@ -109,22 +111,23 @@ metadata {
   }
 
   preferences {
-    input "startMax", "bool", title: "Start at Max", description: "Always Start at Max Power", required: false,  defaultValue: true
-    input "fastDuration", "bool", title: "Lights Instantly", description: "Turn on lights instantly", required: false,  defaultValue: true
-    input "invertSwitch", "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
-    input "localStepDuration", "number", title: "Local Ramp Rate: Duration of each level (1-255)(1=10ms) [default: 3]", range: "1..255", required: false
-    input "localStepSize", "number", title: "Local Ramp Rate: Dim level % to change each duration (1-99) [default: 1]", range: "1..99", required: false
-    input "remoteStepDuration", "number", title: "Remote Ramp Rate: Duration of each level (1-255)(1=10ms) [default: 3]", range: "1..255", required: false
-    input "remoteStepSize", "number", title: "Remote Ramp Rate: Dim level % to change each duration (1-99) [default: 1]", range: "1..99", required: false
-    input "debugLevel", "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "startMax", type: "bool", title: "Start at Max", description: "Always Start at Max Power", required: false,  defaultValue: true
+    input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
+    input name: "localStepDuration", type: "number", title: "Local Ramp Rate: Duration of each level (1-255)(1=10ms) [default: 3]", range: "1..255", required: false
+    input name: "localStepSize", type: "number", title: "Local Ramp Rate: Dim level % to change each duration (1-99) [default: 1]", range: "1..99", required: false
+    input name: "remoteStepDuration", type: "number", title: "Remote Ramp Rate: Duration of each level (1-255)(1=10ms) [default: 3]", range: "1..255", required: false
+    input name: "remoteStepSize", type: "number", title: "Remote Ramp Rate: Dim level % to change each duration (1-99) [default: 1]", range: "1..99", required: false
+    input name: "fastDuration", type: "bool", title: "Fast Duration", description: "Where to quickly change light state", required: false, defaultValue: true
+    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: false
+    input name: "debugLevel", "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "on", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
-        attributeState "turningOn", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "turningOn", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
       }
 
@@ -581,7 +584,11 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
 def on() {
   logger("$device.displayName on()")
 
-  state.lastActive = new Date().time
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
 
   if (0) { // Add option to have digital commands execute buttons
     buttonEvent(1, false, "digital")
@@ -599,10 +606,25 @@ def on() {
 
 def off() {
   logger("$device.displayName off()")
+  
+  if (settings.disbableDigitalOff) {
+    logger("..off() disabled")
+    return zwave.switchMultilevelV1.switchMultilevelGet().format();
+  }
+  
+  disconnect(false)
+}
 
-  state.lastActive = new Date().time
-
-  if (0) { // Add option to have digital commands execute buttons
+def disconnect(Boolean physical = true) {
+  logger("$device.displayName disconnect($physical)")
+   
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
+  
+  if (physical) { // Add option to have digital commands execute buttons
     buttonEvent(2, false, "digital")
   }
 
@@ -610,7 +632,7 @@ def off() {
 
   return sendCommands([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
-    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
+    zwave.basicV1.basicSet(value: 0x00),
     zwave.switchMultilevelV1.switchMultilevelGet(),
   ], 2000)
 }
@@ -661,8 +683,7 @@ def ping() {
 
 def refresh() {
   logger("$device.displayName refresh()")
-
-  response(zwave.switchMultilevelV1.switchMultilevelGet())
+  zwave.switchMultilevelV1.switchMultilevelGet().format()
 }
 
 def poll() {
@@ -707,7 +728,6 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       case 0:
       buttonEvent(cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
-      result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
       break;
       case 3:
       // 2 Times
@@ -729,7 +749,6 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       case 0:
       buttonEvent(cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
-      result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
       break;
       case 3: // 2 Times
       buttonEvent(4, false, "physical")
@@ -940,14 +959,6 @@ def updated() {
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
 
-  if (0) {
-    def zwInfo = getZwaveInfo()
-    if ($zwInfo) {
-      log.debug("$device.displayName $zwInfo")
-      //   sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-    }
-  }
-
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
@@ -955,8 +966,16 @@ def updated() {
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
   sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
-  // sendCommands( prepDevice() + setDimRatePrefs(), 2000 )
-  sendCommands( prepDevice(), 2000 )
+  sendCommands( prepDevice() + setDimRatePrefs(), 2000 )
+  // sendCommands( prepDevice(), 2000 )
+  
+  if (1) {
+    def zwInfo = getZwaveInfo()
+    if ($zwInfo) {
+      log.debug("$device.displayName $zwInfo")
+      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+    }
+  }
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()

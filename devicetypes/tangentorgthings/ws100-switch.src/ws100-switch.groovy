@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.55"
+  return "v6.58"
 }
 
 metadata {
@@ -74,6 +74,8 @@ metadata {
     attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
+    
+    command "disconnect"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
     fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
@@ -100,10 +102,11 @@ metadata {
 
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
-      tileAttribute ("device.Switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
+      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
         attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
+
       tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
         attributeState("when off", label:'${currentValue}', icon:"st.indicators.lit-when-off")
         attributeState("when on", label:'${currentValue}', icon:"st.indicators.lit-when-on")
@@ -204,7 +207,6 @@ def parse(String description) {
 private switchEvents(Short value, boolean isPhysical, result) {
   if (value == 254) {
     logger("$device.displayName returned Unknown for status.", "warn")
-    result << createEvent(descriptionText: "$device.displayName returned Unknown for status.", displayed: true)
     return
   }
 
@@ -212,7 +214,7 @@ private switchEvents(Short value, boolean isPhysical, result) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$device.displayName $cmd (duplicate)")
+  logger("$device.displayName $cmd")
   switchEvents(cmd.value, true, result);
 }
 
@@ -429,8 +431,12 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 
 def on() {
   logger("$device.displayName on()")
-
-  state.lastActive = new Date().time
+  
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
 
   if (0) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
@@ -449,15 +455,29 @@ def on() {
 def off() {
   logger("$device.displayName off()")
 
-  state.lastActive = new Date().time
-
-  if (0) { // Add option to have digital commands execute buttons
-    buttonEvent("off()", 2, false, "digital")
-  }
-
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    return response(zwave.basicV1.basicGet())
+    return zwave.basicV1.basicGet().format()
+  }
+  
+  trueOff(false)
+}
+
+def disconnect() {
+  logger("$device.displayName disconnect()")
+  
+  trueOff(true)
+}
+
+private trueOff(Boolean physical = true) {
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
+  
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("off()", 2, false, "digital")
   }
 
   def cmds = []
@@ -596,11 +616,9 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     switch (cmd.keyAttributes) {
       case 2:
       case 0:
+      result << createEvent(name: "switch", value: "on", type: "physical", isStateChange: true, displayed: true)
       buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
-      result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-      result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
-      result << response( zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0) )
       break;
       case 3:
       // 2 Times
@@ -620,11 +638,9 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     switch (cmd.keyAttributes) {
       case 2:
       case 0:
+      result << createEvent(name: "switch", value: "off", type: "physical", isStateChange: true, displayed: true)
       buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
-      result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-      result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical")
-      result << response( zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0) )
       break;
       case 3:
       // 2 Times
@@ -645,22 +661,18 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
   }
 
   if (0) {
-  result << createEvent(name: "keyAttributes", value: cmd.keyAttributes, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneNumber, isStateChange: true, displayed: true)
+    result << createEvent(name: "keyAttributes", value: cmd.keyAttributes, isStateChange: true, displayed: true)
+    result << createEvent(name: "Scene", value: cmd.sceneNumber, isStateChange: true, displayed: true)
   }
 
   if ( 0 ) { // cmd.keyAttributes ) {
-    result << response(zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0, sceneId: cmd.sceneNumber))
+    cmds << "delay 2000"
+    cmds << zwave.basicV1.basicGet().format()
   }
-  
-  cmds << "delay 2000"
-  cmds << zwave.basicV1.basicGet().format()
 
   if (cmds.size) {
     result << response(delayBetween(cmds))
   }
-
-  return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {

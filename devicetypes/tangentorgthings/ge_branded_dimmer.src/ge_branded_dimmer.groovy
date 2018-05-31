@@ -15,7 +15,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.78"
+  return "v2.81"
 }
 
 metadata {
@@ -58,11 +58,13 @@ metadata {
     attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
+    
+    command "disconnect"
 
     fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE In-Wall Dimmer" // model:"3031", 
-		fingerprint mfr:"0063", prod:"4457", deviceJoinName: "GE 4457 Z-Wave Wall Dimmer"
-		fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE 4944 Z-Wave Wall Dimmer"
-		fingerprint mfr:"0063", prod:"5044", deviceJoinName: "GE 5044 Z-Wave Plug-In Dimmer"
+    fingerprint mfr:"0063", prod:"4457", deviceJoinName: "GE 4457 Z-Wave Wall Dimmer"
+    fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE 4944 Z-Wave Wall Dimmer"
+    fingerprint mfr:"0063", prod:"5044", deviceJoinName: "GE 5044 Z-Wave Plug-In Dimmer"
   }
 
   simulator {
@@ -93,16 +95,16 @@ metadata {
     input name: "allonSteps", type: "number", title: "All-On/All-Off Dim Steps (1-99)", description: "All-On/All-Off Dim Steps ", required: true, range: "1..99", defaultValue: 1
     input name: "allonDelay", type: "number", title: "All-On/All-Off Dim Delay (10ms Increments, 1-255)", description: "All-On/All-Off Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
     input name: "fastDuration", type: "bool", title: "Fast Duration", description: "Where to quickly change light state", required: false, defaultValue: true
-    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: true
+    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3 
   }
 
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
+        attributeState "on", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
-        attributeState "turningOn", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
+        attributeState "turningOn", label:'${name}', action:"switch.disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
         attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
       }
       tileAttribute ("device.level", key: "SLIDER_CONTROL") {
@@ -144,6 +146,27 @@ metadata {
   }
 }
 
+def getCommandClassVersions() { // 26, 27, 2B, 2C, 59, 5A, 5B, 5E, 70, 72, 73, 7A, 85, 86
+[
+  0x20: 1,  // Basic
+  0x26: 2,  // SwitchMultilevel
+  0x27: 1,  // Switch All
+  0x2B: 1,  // SceneActivation
+  0x2C: 1,  // Scene Actuator Conf
+  0x56: 1,  // Crc16 Encap V1
+  0x59: 1,  // Association Grp Info
+  0x5A: 1,  // Device Reset Locally
+  // 0x5E: 2,  // 
+  0x70: 2,  // Configuration V1
+  0x72: 2,  // Manufacturer Specific
+  0x73: 1, // Powerlevel
+  0x7A: 2,  // Firmware Update Md
+  0x85: 2,  // Association  0x85  V1 V2
+  0x86: 1,  // Version V2
+  0x01: 1,  // Z-wave command class
+]
+}
+
 def parse(String description) {
   def result = []
 
@@ -164,19 +187,20 @@ def parse(String description) {
     logger("$device.displayName parse() called with NULL description", "info")
     result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
-    def cmd = zwave.parse(description) //, getCommandClassVersions())
+    def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (cmd) {
       zwaveEvent(cmd, result)
 
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger("zwave.parse(getCommandClassVersions()) failed for: ${description}", "error")
       // Try it without check for classes
       cmd = zwave.parse(description)
 
       if (cmd) {
         zwaveEvent(cmd, result)
+      } else {
+        logger("zwave.parse(description) failed for: ${description}", "error")
       }
     }
   }
@@ -309,12 +333,19 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   updateDataValue("productId", productCode)
   updateDataValue("productTypeId", productTypeCode)
 
+  Integer[] parameters = [ 10, 11, 12, 3, 4, 7, 8, 9 ]
+
+  def cmds = []
+  parameters.each {
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
+  }
+  
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
-  // result << response(delayBetween(cmds, 1000))
+  result << response(delayBetween(cmds, 1000))
   result << response( zwave.versionV1.versionGet() )
 }
 
@@ -487,13 +518,26 @@ def off() {
 
   if (settings.disbableDigitalOff) {
     log.debug "..off() disabled"
-    return response(zwave.switchMultilevelV1.switchMultilevelGet())
+    return zwave.switchMultilevelV1.switchMultilevelGet().format();
   }
+    
+  disconnect(false)
+}
+
+def disconnect(Boolean physical = true) {
+  logger("$device.displayName disconnect($physical)")
+   
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
 
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
   return sendCommands([
     zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
+    zwave.basicV1.basicSet(value: 0x00),
     zwave.switchMultilevelV1.switchMultilevelGet(),
   ])
 }
