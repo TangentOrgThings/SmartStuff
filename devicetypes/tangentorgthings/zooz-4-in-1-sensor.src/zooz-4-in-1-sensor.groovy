@@ -18,7 +18,7 @@
 
 
 def getDriverVersion() {
-  return "v1.57"
+  return "v1.58"
 }
 
 metadata {
@@ -202,14 +202,12 @@ def parse(String description) {
       result = zwaveEvent(cmd)
 
       if (! result) {
-        log.warn "zwaveEvent() failed to return a value for command ${cmd}"
-        result = createEvent(name: "lastError", value: "$cmd", descriptionText: description)
+        logger("zwaveEvent() failed to return a value for command ${cmd}", "error")
       } else {
         // If we displayed the result
       }
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result = createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger("zwave.parse() failed for: ${description}", "error")
     }
   }
 
@@ -330,6 +328,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
   logger("$device.displayName $cmd")
   
+  sendCommands(configCmds());
   def result = []
   
   state.wakeInterval = cmd.seconds
@@ -748,15 +747,16 @@ def configCmds() {
   log.debug "configure, pirSensitivityPref:${pirSensitivityPref} ledModePref:${ledModePref}"
   log.debug "configure, wakeIntervalPref:${wakeIntervalPref}"
   def cmds = [
-    zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: tempAlertPref, parameterNumber: 2).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: humidityAlertPref, parameterNumber: 3).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: illumAlertPref, parameterNumber: 4).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: pirTimeoutPref, parameterNumber: 5).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: pirSensitivityPref, parameterNumber: 6).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: ledModePref, parameterNumber: 7).format(),
-    zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid: 0x01).format(),
-    // zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid:zwaveHubNodeId).format()
+    zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: 1, parameterNumber: 1),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: tempAlertPref, parameterNumber: 2),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: humidityAlertPref, parameterNumber: 3),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: illumAlertPref, parameterNumber: 4),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: pirTimeoutPref, parameterNumber: 5),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: pirSensitivityPref, parameterNumber: 6),
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: ledModePref, parameterNumber: 7),
+    zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid: 0x01),
+    // zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeIntervalPref, nodeid:zwaveHubNodeId)
   ]
   return cmds
 }
