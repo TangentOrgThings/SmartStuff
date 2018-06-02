@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.62"
+  return "v6.63"
 }
 
 metadata {
@@ -479,7 +479,8 @@ private trueOff(Boolean physical = true) {
 
   def cmds = []
   if (settings.delayOff) {
-    cmds << zwave.versionV1.versionGet()
+    // cmds << zwave.versionV1.versionGet()
+    cmds << zwave.zwaveCmdClassV1.zwaveCmdNop()
   }
 
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
@@ -732,7 +733,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
-  result << createEvent(name: "Lifeline",
+  // result << createEvent(name: "Lifeline",
+  sendEvent(name: "Lifeline",
       value: event_value,
       descriptionText: event_descriptionText,
       displayed: true,
