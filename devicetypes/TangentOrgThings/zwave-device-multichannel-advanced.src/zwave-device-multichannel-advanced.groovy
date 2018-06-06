@@ -533,7 +533,9 @@ private encapWithDelay(commands, endpoint, delay=200) {
 
 def prepDevice() {
   [
+    zwave.basicV1.basicGet(),
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
+    zwave.associationV2.associationGroupingsGet(),
   ]
 }
 
