@@ -29,7 +29,14 @@
  */
 
 def getDriverVersion () {
-  return "v6.69"
+  return "v6.79"
+}
+
+def getConfigurationOptions(Integer model) {
+  if ( model == 12341 ) {
+    return [ 13, 14, 21, 3, 31, 4 ]
+  }
+  return [ 3, 4 ]
 }
 
 metadata {
@@ -75,11 +82,19 @@ metadata {
     attribute "SwitchAll", "string"
     attribute "Power", "string"
     
+    attribute "statusMode", "enum", ["default", "status"]
+    attribute "defaultLEDColor", "enum", ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"]    
+    attribute "statusLEDColor", "enum", ["Off", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan", "White"]
+    attribute "blinkFrequency", "number"
+    
+    
+    command "connect"
     command "disconnect"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
     fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
     fingerprint mfr: "000C", prod: "4447", model: "3033", deviceJoinName: "HS-WS100+" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
+    fingerprint mfr: "000C", prod: "4447", model: "3035", deviceJoinName: "HS-WS200+" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
   }
 
   // simulator metadata
@@ -104,7 +119,7 @@ metadata {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
         attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
 
       tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
@@ -155,12 +170,16 @@ def getCommandClassVersions() {
     0x59: 1,  // Association Grp Info
     0x5A: 1,  // Device Reset Locally
     0x5B: 1,  // Central Scene
+    // 0x5E: 2, //
+    // 0x6C: 2, // Supervision
     0x70: 1,  // Configuration
     0x72: 2,  // Manufacturer Specific
     0x73: 1,  // Powerlevel
-    0x7A: 2,  // Firmware Update Md
+    0x7A: 2,  // Firmware Update Md HS-200 V4
+    0x85: 2,  // Association  0x85  V1 V2    
     0x86: 1,  // Version
-    0x85: 2,  // Association  0x85  V1 V2
+    // 0x55: 1,  // Transport Service Command Class
+    // 0x9F: 1,  // Security 2 Command Class  
   ]
 }
 
@@ -292,32 +311,116 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (cmd.parameterNumber == 3) {
-    def value = "when off"
+  switch (cmd.parameterNumber) {
+    case 3:
+    if (1) {
+      def value = "when off"
 
-    if (cmd.configurationValue[0] == 0) {
-      value = "when on"
-    } else if (cmd.configurationValue[0] == 1) {
-      value = "when on"
-    } else if (cmd.configurationValue[0] == 2) {
-      value = "never"
+      if (cmd.configurationValue[0] == 0) {
+        value = "when on"
+      } else if (cmd.configurationValue[0] == 1) {
+        value = "when on"
+      } else if (cmd.configurationValue[0] == 2) {
+        value = "never"
+      }
+
+      result << createEvent(name: "indicatorStatus", value: value, display: false)
+      return
     }
+    break;
+    case 4:
+    if (1) {
+      if ( cmd.configurationValue[0] != invertSwitch) {
+        return response( [
+          zwave.configurationV1.configurationSet(scaledConfigurationValue: invertSwitch ? 1 : 0, parameterNumber: cmd.parameterNumber, size: 1).format(),
+          zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+        ])
+      }
 
-    result << createEvent(name: "indicatorStatus", value: value, display: false)
+      result << createEvent(name: "invertedState", value: invertedStatus, display: true)
+      return
+    } 
+    break;
+    case 13: // Display mode
+    result << createEvent(name: "statusMode", value: cmd.configurationValue[0] ? "status" : "default")
     return
-  } else if (cmd.parameterNumber == 4) {
-    if ( cmd.configurationValue[0] != invertSwitch) {
-      return response( [
-        zwave.configurationV1.configurationSet(scaledConfigurationValue: invertSwitch ? 1 : 0, parameterNumber: cmd.parameterNumber, size: 1).format(),
-        zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
-      ])
+    break;
+    case 14: // Sets the default LED color
+    if (1) {
+      String color
+      switch (cmd.configurationValue[0]) {
+        case 0: // White
+        color = "White";
+        break;
+        case 1:
+        color = "Red";
+        break;
+        case 2:
+        color = "Green"
+        break;
+        case 3:
+        color = "Blue"
+        break; 
+        case 4:
+        color = "Magenta"
+        break;
+        case 5:
+        color = "Yellow"
+        break;
+        case 6:
+        color = "Cyan"
+        break;    
+        default:
+        logger("Unknown default color ${cmd.configurationValue[0]}", "error")
+        return;
+        break;
+      }
+      result << createEvent(name: "defaultLEDColor", value: color);
     }
-
-    result << createEvent(name: "invertedState", value: invertedStatus, display: true)
-    return
+    break;
+    case 21: // Sets the Color of the LED indicator in Status mode
+    if (1) {
+      String color
+      switch (cmd.configurationValue[0]) {
+        case 0: // Off
+        color = "Off";
+        break;
+        case 1:
+        color = "Red";
+        break;
+        case 2:
+        color = "Green"
+        break;
+        case 3:
+        color = "Blue"
+        break; 
+        case 4:
+        color = "Magenta"
+        break;
+        case 5:
+        color = "Yellow"
+        break;
+        case 6:
+        color = "Cyan"
+        break; 
+        case 7:
+        color = "White"
+        break;    
+        default:
+        logger("Unknown status color ${cmd.configurationValue[0]}", "error")
+        return
+        break;
+      }
+      result << createEvent(name: "statusLEDColor", value: color);
+    }
+    break;
+    case 31: // Sets Blink Frequency of LED in Status mode
+    result << createEvent(name: "blinkFrequency", value: cmd.configurationValue[0])
+    break;
+    default:
+    logger("$device.displayName has unknown configuration parameter $cmd.parameterNumber : $cmd.configurationValue[0]", "error")
+    break;
   }
-
-  logger("$device.displayName has unknown configuration parameter $cmd.parameterNumber : $cmd.configurationValue[0]", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
@@ -356,7 +459,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", "${state.manufacturer}")
 
-  Integer[] parameters = [ 3, 4 ]
+  Integer[] parameters = getConfigurationOptions(cmd.productId)
 
   def cmds = []
   parameters.each {
@@ -424,16 +527,25 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
 }
 
+def connect() {
+  logger("$device.displayName connect()")
+  
+  trueOn(true)
+}
+
 def on() {
   logger("$device.displayName on()")
-  
+  trueOn(false)
+}
+
+private trueOn(Boolean physical = true) {
   if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
     logger("$device.displayName bounce", "warn")
     return
   }
   state.lastBounce = new Date().time
 
-  if (0) { // Add option to have digital commands execute buttons
+  if (physical) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
@@ -441,7 +553,7 @@ def on() {
 
   def cmds = []
   cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format();
-  cmds << zwave.basicV1.basicSet(value: 0xFF).format();
+  cmds << physical ? zwave.basicV1.basicSet(value: 0xFF).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format();
   cmds << zwave.switchBinaryV1.switchBinaryGet().format();
   
   delayBetween(cmds)
@@ -486,7 +598,7 @@ private trueOff(Boolean physical = true) {
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
   cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
-  cmds << zwave.basicV1.basicSet(value: 0x00).format();
+  cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
   cmds << zwave.switchBinaryV1.switchBinaryGet().format();
 
   delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
@@ -505,7 +617,7 @@ def refresh() {
   
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0).format(),
+    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0).format(),
   ])
 }
 
@@ -516,7 +628,7 @@ def poll() {
     zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0x00).format()
   }
 
-  response( zwave.switchBinaryV1.switchBinaryGet() )
+  zwave.switchBinaryV1.switchBinaryGet().format()
 }
 
 void indicatorWhenOn() {

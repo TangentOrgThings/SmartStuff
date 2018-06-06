@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.42"
+  return "v4.44"
 }
 
 def isPlus() {
@@ -54,6 +54,7 @@ metadata {
     attribute "Lifeline", "string"
     attribute "Repeated", "string"
     attribute "BasicReport", "enum", ["Unconfigured", "On", "Off"]
+    attribute "Plus", "enum", ["Unconfigured", "No", "Yes"]
 
     // String attribute with name "firmwareVersion"
     attribute "firmwareVersion", "string"
@@ -104,6 +105,10 @@ metadata {
     valueTile("associated", "device.Associated", inactiveLabel: false, decoration: "flat") {
       state("device.Associated", label: '${currentValue}')
     }
+    
+    valueTile("Plus", "device.Plus", inactiveLabel: false, decoration: "flat") {
+      state("device.Plus", label: '${currentValue}')
+    }
 
     valueTile("temperature", "device.temperature", width: 2, height: 2) {
       state("temperature", label:'${currentValue}', unit:"dF",
@@ -129,7 +134,7 @@ metadata {
     }
 
     main "motion"
-    details(["motion", "battery", "tamper", "driverVersion", "temperature", "associated", "lastActive"])
+    details(["motion", "battery", "tamper", "driverVersion", "temperature", "associated", "Plus", "lastActive"])
   }
 }
 
@@ -156,7 +161,7 @@ private deviceCommandClasses() {
   } else {
     return [
       0x20: 1,  // Basic
-      0x70: 1,  // Configuration
+      0x70: 2,  // Configuration V1
       0x71: 3,  // Notification v2
       0x72: 2,  // Manufacturer Specific V1
       0x80: 1,  // Battery
@@ -426,8 +431,11 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   }
 
   def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  updateDataValue("MSR", msr)
 
   state.newModel = cmd.productId == 4 ? true : false
+  
+  result << createEvent(name: "Plus", value: isPlus())
 
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
@@ -637,6 +645,9 @@ def updated() {
   }
 
   sendEvent(name: "tamper", value: "clear")
+  sendEvent(name: "lastError", value: "")
+  sendEvent(name: "logMessage", value: "")
+  
 
   // We don't send the prepDevice() because we don't know if the device is awake
   if (0) {
