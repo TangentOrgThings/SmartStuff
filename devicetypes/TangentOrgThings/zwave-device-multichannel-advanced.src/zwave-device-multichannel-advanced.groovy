@@ -76,9 +76,21 @@ metadata {
       }
     }
     childDeviceTiles("endpoints")
-    /*standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+
+    valueTile("firmwareVersion", "device.firmwareVersion", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
+      state "default", label: '${currentValue}'
+    }
+
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, inactiveLabel: true, decoration: "flat") {
+      state "default", label: '${currentValue}'
+    }
+
+    standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
-      }*/
+    }
+
+    main "switch"
+    details(["switch", "firmwareVersion", "driverVersion", "refresh" ])
   }
 }
 
@@ -133,11 +145,6 @@ def getCommandClassVersions() {
 def parse(String description) {
   def result = []
 
-  if (0) {
-    def print_me =  zwave.zwaveCmdClassV1.cmdAutomaticControllerUpdateStart.format()
-    logger("$print_me", "info");
-  }
-
   if (description && description.startsWith("Err")) {
     logger ( "parse error: ${description}", "error" )
 
@@ -170,6 +177,12 @@ def parse(String description) {
       }
     }
   }
+
+  if (1) {
+    def print_me =  zwave.zwaveCmdClassV1.cmdAutomaticControllerUpdateStart.format()
+    logger("$print_me", "info");
+  }
+
 
   return result
 }
