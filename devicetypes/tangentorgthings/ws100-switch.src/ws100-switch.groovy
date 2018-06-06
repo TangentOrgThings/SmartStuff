@@ -29,14 +29,14 @@
  */
 
 def getDriverVersion () {
-  return "v6.63"
+  return "v6.69"
 }
 
 metadata {
   definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
-    capability "Health Check"
     capability "Button"
+    capability "Health Check"
     capability "Indicator"
     capability "Light"    
     capability "Polling"
@@ -168,8 +168,7 @@ def parse(String description) {
   def result = []
 
   if (description && description.startsWith("Err")) {
-    log.error "parse error: ${description}"
-    result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
+    logger ( "parse error: ${description}", "error" )
 
     if (description.startsWith("Err 106")) {
       result << createEvent(
@@ -182,7 +181,6 @@ def parse(String description) {
     }
   } else if (! description) {
     logger("$device.displayName parse() called with NULL description", "info")
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -190,13 +188,14 @@ def parse(String description) {
       zwaveEvent(cmd, result)
 
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "error" )
       // Try it without check for classes
       cmd = zwave.parse(description)
 
       if (cmd) {
         zwaveEvent(cmd, result)
+      } else {
+        logger( "zwave.parse() failed for: ${description}", "error" )
       }
     }
   }
@@ -386,9 +385,9 @@ def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
-  logger("zwaveEvent(): Powerlevel Report received: ${cmd}","trace")
+  logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
   def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}","info")
+  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
   result << createEvent(name: "Power", value: device_power_level)
 }
 
@@ -423,7 +422,6 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
 
 def on() {
@@ -442,11 +440,12 @@ def on() {
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
   def cmds = []
-  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1);
-  cmds << zwave.basicV1.basicSet(value: 0xFF);
-  cmds << zwave.switchBinaryV1.switchBinaryGet();
+  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format();
+  cmds << zwave.basicV1.basicSet(value: 0xFF).format();
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format();
   
-  return sendCommands(cmds)
+  delayBetween(cmds)
+  // sendCommands(cmds)
 }
 
 def off() {
@@ -480,16 +479,17 @@ private trueOff(Boolean physical = true) {
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()
-    cmds << zwave.zwaveCmdClassV1.zwaveCmdNop()
+    // cmds << zwave.zwaveCmdClassV1.zwaveCmdNop()
+    cmds << "delay 3000";
   }
 
   sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 
-  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2);
-  cmds << zwave.basicV1.basicSet(value: 0x00);
-  cmds << zwave.switchBinaryV1.switchBinaryGet();
+  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
+  cmds << zwave.basicV1.basicSet(value: 0x00).format();
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format();
 
-  return sendCommands( cmds, settings.delayOff ? 3000 : 600 )
+  delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
 }
 
 /**
