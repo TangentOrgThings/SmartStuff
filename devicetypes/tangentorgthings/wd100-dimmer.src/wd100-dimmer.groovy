@@ -37,7 +37,11 @@
 
 
 def getDriverVersion() {
-  return "v7.01"
+  return "v7.02"
+}
+
+def getConfigurationOptions(Integer model) {
+  return [ 4, 7, 8, 9, 10 ]
 }
 
 metadata {
@@ -56,7 +60,6 @@ metadata {
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last Error  messages.
 
-    attribute "AssociationGroupings", "number"
     attribute "Lifeline", "string"
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -73,8 +76,6 @@ metadata {
 
     attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
-
-    attribute "Total Scenes", "number"
 
     attribute "Scene", "number"
     attribute "Scene_1", "number"
@@ -485,7 +486,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", "${state.manufacturer}")
 
-  Integer[] parameters = [ 4, 7, 8, 9, 10 ]
+  Integer[] parameters = getConfigurationOptions(cmd.productId)
 
   def cmds = []
   parameters.each {

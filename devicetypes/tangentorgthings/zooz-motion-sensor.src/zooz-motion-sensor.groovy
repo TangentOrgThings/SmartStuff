@@ -424,8 +424,8 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
         result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName has been activated by the switch.", isStateChange: true)
         break;
         default:
+        // ERROR: Unknown eventParameter [8] for 0
         logger("Unknown eventParameter ${cmd.eventParameter} for ${cmd.event}", "error")
-        result << createEvent(descriptionText: "Unknown event ${cmd.event}", isStateChange: true)
         break;
       }
       break;
@@ -441,11 +441,10 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
       default :
       logger("Unknown event ${cmd.event}", "error")
-      result << createEvent(descriptionText: "Unknown event ${cmd.event}", isStateChange: true)
       break;
     }
   } else {
-    result << createEvent("Unknown notification type ${cmd.notificationType}", isStateChange: true)
+    logger("Unknown notification type ${cmd.notificationType}", "error")
   }
 
   return
