@@ -51,7 +51,6 @@ metadata {
 
     attribute "invertedStatus", "enum", ["false", "true"]
 
-    attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
 
     attribute "Scene", "number"
@@ -62,6 +61,7 @@ metadata {
 
     attribute "SwitchAll", "string"
 
+    command "connect"
     command "disconnect"
 
     fingerprint mfr:"0063", prod: "4952", model:"3031", deviceJoinName: "Jasco/GE 12721 In-Wall Duplex Receptacle" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x75, 0x77, 0x86" // OUTLET has CC PROTECTION
@@ -94,7 +94,7 @@ metadata {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
         attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
     }
 
@@ -666,22 +666,37 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
   [ createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true) ]
 }
 
+def connect() {
+  logger("$device.displayName connect()")
+  
+  trueOn(true)
+}
+
 def on() {
   logger("$device.displayName on()")
+  trueOn(false)
+}
   
+private trueOn(Boolean physical = true) {
   if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
     logger("$device.displayName bounce", "warn")
     return
   }
   state.lastBounce = new Date().time
   
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)  
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("on()", 1, false, "digital")
+  }
 
-	delayBetween([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 1).format(),
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format(),
-  ])
+  def cmds = []
+  if (0) {
+    cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format()
+    cmds << physical ? zwave.basicV1.basicSet(value: 0xFF).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
+  }
+  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  
+  delayBetween(cmds)
 }
 
 def off() {
@@ -712,13 +727,20 @@ private trueOff(Boolean physical = true) {
     buttonEvent("off()", 2, false, "digital")
   }
 
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+  sendEvent(name: "switch", value: "off");
+  def cmds = []
+  if (settings.delayOff) {
+    // cmds << zwave.versionV1.versionGet()
+    // cmds << zwave.zwaveCmdClassV1.zwaveCmdNop()
+    cmds << "delay 3000";
+  }
 
-	delayBetween([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2).format(),
-    zwave.basicV1.basicSet(value: 0x00).format(),
-		zwave.basicV1.basicGet().format(),
-  ], settings.delayOff ? 3000 : 600)
+  // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
+  // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
+  cmds << zwave.basicV1.basicSet(value: 0x00).format()
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+
+  delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
 }
 
 /**

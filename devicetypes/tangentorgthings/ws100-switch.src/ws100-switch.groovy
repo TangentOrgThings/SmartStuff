@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.79"
+  return "v6.81"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -70,7 +70,6 @@ metadata {
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
-    attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
 
     attribute "Scene", "number"
@@ -133,11 +132,6 @@ metadata {
       state "default", label: '${currentValue}'
     }
 
-    valueTile("setScene", "device.setScene", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "Set", label: '${name}', nextState: "Setting"
-      state "Setting", label: '${name}' //, nextState: "Set_Scene"
-    }
-
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
     }
@@ -156,7 +150,7 @@ metadata {
     }
 
     main "switch"
-    details(["switch", "scene", "setScene", "firmwareVersion", "driverVersion", "refresh", "reset"])
+    details(["switch", "scene", "firmwareVersion", "driverVersion", "refresh", "reset"])
   }
 }
 
@@ -549,12 +543,13 @@ private trueOn(Boolean physical = true) {
     buttonEvent("on()", 1, false, "digital")
   }
 
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-
   def cmds = []
-  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format();
-  cmds << physical ? zwave.basicV1.basicSet(value: 0xFF).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format();
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format();
+  if (0) {
+    cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format()
+    cmds << physical ? zwave.basicV1.basicSet(value: 0xFF).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
+  }
+  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
   
   delayBetween(cmds)
   // sendCommands(cmds)
@@ -565,7 +560,7 @@ def off() {
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    return zwave.switchBinaryV1.switchBinaryGet().format;
+    return zwave.switchBinaryV1.switchBinaryGet().format();
   }
   
   trueOff(false)
@@ -588,6 +583,7 @@ private trueOff(Boolean physical = true) {
     buttonEvent("off()", 2, false, "digital")
   }
 
+  sendEvent(name: "switch", value: "off");
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()
@@ -595,13 +591,13 @@ private trueOff(Boolean physical = true) {
     cmds << "delay 3000";
   }
 
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-
-  cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
-  cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format();
+  // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
+  // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
+  cmds << zwave.basicV1.basicSet(value: 0x00).format()
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
 
   delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
+  // sendCommands(cmds)
 }
 
 /**
