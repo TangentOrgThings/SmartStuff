@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v7.02"
+  return "v7.07"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -47,7 +47,7 @@ def getConfigurationOptions(Integer model) {
 metadata {
   definition (name: "WD-100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
-    capability "Health Check"
+//    capability "Health Check"
     capability "Button"
     capability "Light"
     capability "Polling"
@@ -60,6 +60,7 @@ metadata {
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last Error  messages.
 
+    attribute "AssociationGroupings", "number"
     attribute "Lifeline", "string"
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -74,7 +75,6 @@ metadata {
 
     attribute "invertedStatus", "enum", ["false", "true"]
 
-    attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
 
     attribute "Scene", "number"
@@ -85,7 +85,8 @@ metadata {
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
-    
+ 
+    command "connect"
     command "disconnect"
 
     // 0 0 0x2001 0 0 0 a 0x30 0x71 0x72 0x86 0x85 0x84 0x80 0x70 0xEF 0x20
@@ -128,9 +129,9 @@ metadata {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
         attributeState "on", label:'${name}', action:"disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
-        attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+        attributeState "off", label:'${name}', action:"connect", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
         attributeState "turningOn", label:'${name}', action:"disconnect", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
-        attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+        attributeState "turningOff", label:'${name}', action:"connect", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
       }
 
       tileAttribute ("device.level", key: "SLIDER_CONTROL") {
@@ -144,15 +145,6 @@ metadata {
 
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
-    }
-
-    valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
-      state "default", label: '${currentValue}'
-    }
-
-    valueTile("setScene", "device.setScene", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
-      state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
-      state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
 
     valueTile("firmwareVersion", "device.FirmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: true) {
@@ -169,7 +161,7 @@ metadata {
     }
 
     main "switch"
-    details(["switch", "scene", "setScene", "firmwareVersion", "driverVersion", "refresh", "reset"])
+    details(["switch", "firmwareVersion", "driverVersion", "refresh", "reset"])
   }
 }
 
@@ -571,27 +563,31 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
   loggesr("$device.displayName $cmd")
 }
 
+def connect() {
+  logger("$device.displayName connect()")  
+  trueOn(true)
+}
+
 def on() {
   logger("$device.displayName on()")
+  trueOn(false)
+}
 
+private trueOn(Boolean physical = true) {
   if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
     logger("$device.displayName bounce", "warn")
     return
   }
   state.lastBounce = new Date().time
 
-  if (0) { // Add option to have digital commands execute buttons
+  if (physical) { // Add option to have digital commands execute buttons
     buttonEvent(1, false, "digital")
   }
 
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-
-  return sendCommands([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 1),
-    // zwave.basicV1.basicSet(value: 0x63),
-    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
-    zwave.switchMultilevelV1.switchMultilevelGet(),
-  ], 2000)
+  delayBetween([
+      zwave.basicV1.basicSet(value: 0xFF).format(),
+      zwave.switchMultilevelV1.switchMultilevelGet().format(),
+  ], 5000)
 }
 
 def off() {
@@ -602,12 +598,15 @@ def off() {
     return zwave.switchMultilevelV1.switchMultilevelGet().format();
   }
   
-  disconnect(false)
+  trueOff(false)
 }
 
-def disconnect(Boolean physical = true) {
-  logger("$device.displayName disconnect($physical)")
-   
+def disconnect() {
+  logger("$device.displayName disconnect()")
+  trueOff(true)
+}
+
+private trueOff(Boolean physical = true) {   
   if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
     logger("$device.displayName bounce", "warn")
     return
@@ -617,15 +616,12 @@ def disconnect(Boolean physical = true) {
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent(2, false, "digital")
   }
+  sendEvent(name: "switch", value: "off");
 
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
-
-  return sendCommands([
-    zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: settings.fastDuration ? 0x00 : 0xFF, sceneId: 2),
-    zwave.basicV1.basicSet(value: 0x00),
-    zwave.switchMultilevelV1.switchMultilevelGet(),
-    zwave.basicV1.basicGet(),
-  ], 2000)
+  delayBetween([
+    zwave.basicV1.basicSet(value: 0x00).format(),
+    zwave.switchMultilevelV1.switchMultilevelGet().format(),
+  ], 5000)
 }
 
 def setLevel (value) {
@@ -759,7 +755,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
   }
 
   if (cmd.keyAttributes == 2 || cmd.keyAttributes == 0) {
-    cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: fastDuration ? 0x00 : 0xFF, sceneId: cmd.sceneNumber).format()
+    //cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: fastDuration ? 0x00 : 0xFF, sceneId: cmd.sceneNumber).format()
   }
   
   cmds << "delay 2000"
@@ -780,9 +776,9 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   def cmds = []
   if (cmd.supportedGroupings) {
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
-      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format();
+      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format()
       cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: true, refreshCache: true).format()
-      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(groupingIdentifier: x, allowCache: false).format();
+      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(groupingIdentifier: x, allowCache: false).format()
     }
 
     result << response(delayBetween(cmds, 2000))
@@ -790,7 +786,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     return
   }
 
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupingsReport: $cmd", isStateChange: true, displayed: true)
+  logger("$device.displayName AssociationGroupingsReport: $cmd", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
@@ -846,7 +842,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   logger("Lifeline: $event_value", "info");
   // result << createEvent(name: "Lifeline",
-  sendEvent(name: "Lifeline",
+  result << createEvent(name: "Lifeline",
       value: event_value,
       descriptionText: event_descriptionText,
       displayed: true,
@@ -871,9 +867,7 @@ def prepDevice() {
     zwave.centralSceneV1.centralSceneSupportedGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.powerlevelV1.powerlevelGet(),
-    zwave.associationV1.associationSet(groupingIdentifier: 1, nodeId: 0xC0),
-    // zwave.networkManagementBasicV1.nodeInformationSend(zwaveHubNodeId, , 0),
-    // zwave.zwaveCmdClassV1.requestNodeInfo(),
+    zwave.switchMultilevelV1.switchMultilevelGet(),
   ]
 }
 
@@ -890,7 +884,7 @@ def installed() {
    */
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
+  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
@@ -931,7 +925,7 @@ def updated() {
     return
   }
 
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  state.loggingLevelIDE = debugLevel ? debugLevel : 5
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
@@ -942,7 +936,7 @@ def updated() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
   // sendCommands( prepDevice() + setDimRatePrefs(), 2000 )
   sendCommands( prepDevice(), 2000 )

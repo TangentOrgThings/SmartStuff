@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.81"
+  return "v6.83"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -43,7 +43,7 @@ metadata {
   definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
-    capability "Health Check"
+//    capability "Health Check"
     capability "Indicator"
     capability "Light"    
     capability "Polling"
@@ -84,8 +84,7 @@ metadata {
     attribute "statusMode", "enum", ["default", "status"]
     attribute "defaultLEDColor", "enum", ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"]    
     attribute "statusLEDColor", "enum", ["Off", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan", "White"]
-    attribute "blinkFrequency", "number"
-    
+    attribute "blinkFrequency", "number" 
     
     command "connect"
     command "disconnect"
@@ -522,8 +521,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 }
 
 def connect() {
-  logger("$device.displayName connect()")
-  
+  logger("$device.displayName connect()") 
   trueOn(true)
 }
 
@@ -542,17 +540,12 @@ private trueOn(Boolean physical = true) {
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
+  sendEvent(name: "switch", value: "off");
 
-  def cmds = []
-  if (0) {
-    cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 1).format()
-    cmds << physical ? zwave.basicV1.basicSet(value: 0xFF).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
-  }
-  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
-  
-  delayBetween(cmds)
-  // sendCommands(cmds)
+  delayBetween([
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
+  ], 5000)
 }
 
 def off() {
@@ -567,8 +560,7 @@ def off() {
 }
 
 def disconnect() {
-  logger("$device.displayName disconnect()")
-  
+  logger("$device.displayName disconnect()") 
   trueOff(true)
 }
 
@@ -593,7 +585,8 @@ private trueOff(Boolean physical = true) {
 
   // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
   // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
-  cmds << zwave.basicV1.basicSet(value: 0x00).format()
+  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
+  cmds << "delay 5000"
   cmds << zwave.switchBinaryV1.switchBinaryGet().format()
 
   delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
@@ -779,15 +772,17 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   if (cmd.supportedGroupings) {
     def cmds = []
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
-      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x);
-      cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00);
-      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x);
+      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format()
+      cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00).format()
+      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x).format()
     }
 
-    sendCommands(cmds, 2000)
-  } else {
-    logger("$device.displayName reported no groups", "error")
+    result << response(delayBetween(cmds, 2000))
+
+    return
   }
+
+  logger("$device.displayName AssociationGroupingsReport: $cmd", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
@@ -887,7 +882,6 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
 def prepDevice() {
   [
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    // zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
     zwave.associationV2.associationGroupingsGet(),
     zwave.centralSceneV1.centralSceneSupportedGet(),
@@ -896,7 +890,6 @@ def prepDevice() {
     // zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
     // zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: 1, dimmingDuration: 0, level: 255, override: true),
     // zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: 2, dimmingDuration: 0, level: 0, override: true),
-    zwave.associationV1.associationSet(groupingIdentifier: 1, nodeId: 0xC0),
     zwave.switchBinaryV1.switchBinaryGet(),
   ]
 }
@@ -961,7 +954,7 @@ def updated() {
   }
   
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
+  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
