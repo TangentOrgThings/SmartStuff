@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.49"
+  return "v4.51"
 }
 
 def getIndicatorParam() {
@@ -57,7 +57,6 @@ metadata {
 
     attribute "NIF", "string"
 
-    attribute "setScene", "enum", ["Set", "Setting"]
     attribute "keyAttributes", "number"
 
     attribute "Scene", "number"
@@ -67,7 +66,11 @@ metadata {
     attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
+    attribute "Power", "string"
 
+    command "connect"
+    command "disconnect"
+    
      /*
 		manufacturerId value="011a"
 		productType value="0101"
@@ -130,8 +133,8 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821"
-        attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#79b821"
+        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
       tileAttribute ("device.power", key: "SECONDARY_CONTROL") {
         attributeState "power", label:'${currentValue}', unit: "W", icon: "st.Appliances.appliances17"
@@ -150,11 +153,6 @@ metadata {
 
     valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
       state "default", label: '${currentValue}'
-    }
-
-    valueTile("setScene", "device.setScene", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "Set", label: '${name}', action:"configScene", nextState: "Setting_Scene"
-      state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
 
     valueTile("energy", "device.energy", decoration: "flat") {
@@ -383,7 +381,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
   logger("$device.displayName $cmd")
   Integer set_sceen = ((cmd.sceneId + 1) / 2) as Integer
   buttonEvent(set_sceen, false, "digital")
-  result << createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
@@ -392,7 +389,7 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
   state.hasMeter = true
 
   if (cmd.meterType != 1) {
-    result << createEvent(descriptionText: "$device.displayName bad type: $cmd", displayed: true)
+    logger("$device.displayName bad type: $cmd", "error")
     return
   }
 
@@ -403,7 +400,7 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
   } else if (cmd.scale == 2) {
     result << createEvent(name: "power", value: Math.round(cmd.scaledMeterValue), unit: "W", displayed: true, isStateChange: true)
   } else {
-    result << createEvent(descriptionText: "$device.displayName scale not implemented: $cmd", displayed: true)
+    logger("$device.displayName scale not implemented: $cmd", "error")
   }
 }
 
@@ -424,12 +421,11 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     return
   }
 
-  result << createEvent(descriptionText: "Unknown parameterNumber $cmd.parameterNumber", displayed: true)
+  logger("Unknown parameterNumber $cmd.parameterNumber", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
-  logger("$device.displayName command not implemented: $cmd")
-  result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: false)
+  logger("$device.displayName command not implemented: $cmd", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
@@ -492,7 +488,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 def zwaveEvent(physicalgraph.zwave.commands.dcpconfigv1.DcpListSupportedReport cmd, result) {
   logger("$device.displayName $cmd")
   logger("$device.displayName has not implemented: $cmd", "warn")
-  result << createEvent(descriptionText: "$device.displayName no implementation: $cmd", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
@@ -509,8 +504,7 @@ def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLoca
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
-  logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
+  logger("$device.displayName $cmd no implemented", "warn")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
@@ -560,30 +554,25 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
 
     return
   }
-
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupingsReport: $cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupCommandListReport: $cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupInfoReport: $cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
   if (cmd.groupingIdentifier != 1) { // Lifeline
-    result << createEvent(descriptionText: "$device.displayName assoc: $cmd")
+    logger("$device.displayName unknown assoc: $cmd", "error")
     return
   }
 
@@ -663,7 +652,6 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
@@ -671,8 +659,22 @@ def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result
   result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
+def connect() {
+  logger("$device.displayName connect()") 
+  trueOn(true)
+}
+
 def on() {
   logger("$device.displayName on()")
+  trueOn(false)
+}
+
+private trueOn(Boolean physical = true) {
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
   
   delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
@@ -682,6 +684,26 @@ def on() {
 
 def off() {
   logger("$device.displayName off()")
+  
+  if (settings.disbableDigitalOff) {
+    logger("..off() disabled")
+    return zwave.switchBinaryV1.switchBinaryGet().format();
+  }
+  
+  trueOff(false)
+}
+
+def disconnect() {
+  logger("$device.displayName disconnect()") 
+  trueOff(true)
+}
+
+private trueOff(Boolean physical = true) {
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = new Date().time
   
   delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
@@ -714,11 +736,11 @@ def reset() {
   logger("$device.displayName reset()")
 
   if (state.hasMeter) {
-	return response(delayBetween([
-		zwave.meterV2.meterReset().format(),
-		zwave.meterV2.meterGet(scale: 0).format(),
-        zwave.meterV2.meterGet(scale: 2).format(),
-	]))
+    return response(delayBetween([
+      zwave.meterV2.meterReset().format(),
+      zwave.meterV2.meterGet(scale: 0).format(),
+      zwave.meterV2.meterGet(scale: 2).format(),
+    ]))
   }
 }
 
