@@ -1,6 +1,8 @@
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 /**
  *  VIZIA RF 1 BUTTON SCENE CONTROLLER
+ *  VRCS1 - 1-Button Scene Controller
+ *  https://products.z-wavealliance.org/products/316
  *
  *  Copyright 2017-2018 Brian Aker
  *
