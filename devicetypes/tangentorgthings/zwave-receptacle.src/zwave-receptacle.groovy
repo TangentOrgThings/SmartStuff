@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.51"
+  return "v4.53"
 }
 
 def getIndicatorParam() {
@@ -214,7 +214,18 @@ def deviceCommandClasses() {
     0x86: 1,  // Version
     ]
     break;
-    case "0063-4952-3031":
+    case "0063-4952-3031":  // 25,27,75,73,70,86,72,77
+        return [
+    0x20: 1,  // Basic
+    0x25: 1,  // Switch Binary
+    0x27: 1,  // Switch All
+    0x70: 2,  // Configuration
+    0x72: 2,  // Manufacturer Specific ManufacturerSpecificReport
+    0x73: 1,  //
+    0x75: 1,  //
+    0x77: 1,  //
+    0x86: 1,  // Version
+    ]
     default:
     return [
     0x20: 1,  // Basic
@@ -426,6 +437,10 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
 def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd, result) {
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {

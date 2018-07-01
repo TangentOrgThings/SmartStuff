@@ -19,7 +19,7 @@
 
 
 def getDriverVersion () {
-  return "v1.39"
+  return "v1.43"
 }
 
 metadata {
@@ -44,13 +44,15 @@ metadata {
 
     attribute "Associated", "string"
 
-    attribute "Scene", "number"
-    attribute "setScene", "enum", ["Set", "Setting"]
+    attribute "hail", "string"
 
-    attribute "Scene_1", "number"
-    attribute "Scene_1_Duration", "number"
-    attribute "Scene_2", "number"
-    attribute "Scene_2_Duration", "number"
+    attribute "Scene", "number"
+    attribute "setScene", "enum", ["Unknown", "Set", "Setting"]
+
+    attribute "Group_1", "number"
+    attribute "Group_1_Duration", "number"
+    attribute "Group_2", "number"
+    attribute "Group_2_Duration", "number"
 
     attribute "NIF", "string"
 
@@ -123,23 +125,20 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger( "parse() called with NULL description", "warn")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (cmd) {
       zwaveEvent(cmd, result)
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger( "zwave.parse(CC) failed for: ${description}", "error")
 
       cmd = zwave.parse(description)
       if (cmd) {
-        log.warn "Trying ${cmd}"
         zwaveEvent(cmd, result)
       } else {
-        log.warn "zwave.parse() failed for: ${description}"
-        result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+        logger( "zwave.parse() failed for: ${description}", "error")
       }
     }
   }
@@ -203,23 +202,19 @@ def buttonEvent(String exec_cmd, Integer button, Boolean held, Boolean buttonTyp
 
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
-  result << createEvent(name: "Group Scene ${cmd.groupId}", value:  "${cmd.sceneId}", isStateChange: true, displayed: true);
 
-  if (cmd.sceneId && cmd.groupId) {
-    result <<  createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true, displayed: true)
-  }
+  String group_scene_name =  "Group_${cmd.groupId}"
+  String group_duration_name =  "Group_${cmd.groupId}_Duration"
+  result <<  createEvent(name: group_scene_name, value: cmd.sceneId, isStateChange: true, displayed: true)
+  result <<  createEvent(name: group_duration_name, value: cmd.dimmingDuration, isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
   logger("$device.displayName $cmd")
-
-  result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
@@ -248,12 +243,14 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
 }
 
-/*
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
   logger("$device.displayName $cmd")
-  result <<  createEvent(ndescriptionText: "$cmd", isStateChange: true, displayed: true)
+
+  String group_scene_name =  "Group_${cmd.groupId}"
+  String group_duration_name =  "Group_${cmd.groupId}_Duration"
+  result <<  createEvent(name: group_scene_name, value: cmd.sceneId, isStateChange: true, displayed: true)
+  result <<  createEvent(name: group_duration_name, value: cmd.dimmingDuration, isStateChange: true, displayed: true)
 }
-*/
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
@@ -339,12 +336,13 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  def manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  def productTypeCode = String.format("%04X", cmd.productTypeId)
-  def productCode = String.format("%04X", cmd.productId)
-  def manufacturerName = cmd.manufacturerName ? cmd.manufacturerName : "Leviton"
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
+  String manufacturerName = cmd.manufacturerName ? cmd.manufacturerName : "Leviton"
+  updateDataValue("Manufacturer", manufacturerName)
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
 
 
@@ -358,8 +356,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
-  log.error("$device.displayName no implementation of $cmd")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
+  logger("$device.displayName no implementation of $cmd", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
@@ -369,7 +366,6 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.networkmanagementprimaryv1.ControllerChangeStatus cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
 
 /**
@@ -379,7 +375,6 @@ def ping() {
   logger ("$device.displayName ping()")
   delayBetween([
     zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
-    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
   ])
 }
 
@@ -387,7 +382,6 @@ def refresh () {
   logger ("$device.displayName refresh()")
   delayBetween([
     zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
-    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
   ])
 }
 
@@ -395,7 +389,6 @@ def poll() {
   logger ("$device.displayName poll()")
   response( delayBetween([
     zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
-    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
   ]))
 }
 
@@ -405,10 +398,12 @@ def prepDevice() {
     // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:1, sceneId:1),
     // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:2, sceneId:2),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
-    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0),
+    // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 1),
+    // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 2),
     // zwave.versionV1.versionGet(),
     // zwave.associationV1.associationGet(groupingIdentifier: 0x01),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
+    zwave.basicV1.basicGet(),
   ]
 }
 
@@ -433,13 +428,13 @@ def updated() {
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "")
-  sendEvent(name: "logMessage", value: "")
+  sendEvent(name: "Scene", value: -1)
+  sendEvent(name: "setScene", value: "Unknown")
 
   // Check in case the device has been changed
   state.manufacturer = null
   updateDataValue("MSR", null)
   updateDataValue("Manufacturer", null)
-  sendEvent(name: "numberOfButtons", value: 2, displayed: false)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 

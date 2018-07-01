@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.65"
+  return "v4.67"
 }
 
 def isPlus() {
@@ -33,10 +33,6 @@ def getAssociationGroup () {
   }
 
   return 2
-}
-
-def getParamater() {
-  return 0x63
 }
 
 def getConfigurationOptions(Integer model) {
@@ -83,6 +79,8 @@ metadata {
 
     attribute "NIF", "string"
     attribute "SupportedSensors", "string"
+    attribute "Events Supported", "string"
+    attribute "Notifications Supported", "string"
 
     attribute "isAssociated", "enum", ["Unconfigured", "false", "true"]
     attribute "isConfigured", "enum", ["Unconfigured", "false", "true"]
@@ -208,6 +206,16 @@ def parse(String description) {
   } else if (! description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
+  
+    if (1) {
+      def cmds_result = []
+      def cmds = checkConfigure()
+
+      if (cmds) {
+        result << response( delayBetween ( cmds ))
+      }      
+    }
+    
     def cmd = zwave.parse(description, deviceCommandClasses())
 
     if (cmd) {
@@ -217,6 +225,7 @@ def parse(String description) {
       if (cmds) {
         result << response( delayBetween ( cmds ))
       }
+      
       zwaveEvent(cmd, result)
     } else {
       logger("zwave.parse(deviceCommandClasses()) failed for: ${description}", "error")
@@ -363,6 +372,16 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   }
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.notificationv3.EventSupportedReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(name: "Events Supported", value: "$cmd", isStateChange: true, displayed: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationSupportedReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(name: "Notifications Supported", value: "$cmd", isStateChange: true, displayed: true)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
   logger("$device.displayName $cmd")
 }
@@ -444,6 +463,11 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   if (isPlus()) {
     result << createEvent(name: "Lifeline Sensor Binary Report", value: "Unknown")
     result << createEvent(name: "Basic Set Off", value: "Unknown")
+    result << response(delayBetween([
+      zwave.notificationV3.eventSupportedGet(notificationType: 7).format(),
+      zwave.notificationV3.notificationSupportedGet().format(),
+    ], 700))
+    state.isLifeLine = true
   } else {
     result << createEvent(name: "Basic Report", value: "Unknown")
   }
@@ -521,8 +545,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result ) {
   logger("$device.displayName $cmd")
 
-  state.groups = cmd.supportedGroupings
-
   if (cmd.supportedGroupings) {
     def cmds = []
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
@@ -558,49 +580,33 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   }
 
   if (cmd.groupingIdentifier == 0x01) { // Lifeline
+    Boolean isStateChange = true
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      Boolean isStateChange = state.isAssociated ? false : true
+      isStateChange = state.isAssociated ? false : true
       state.isLifeLine = true
-      result << createEvent(name: "Lifeline",
-          value: "${final_string}",
-          descriptionText: "${final_string}",
-          displayed: true,
-          isStateChange: isStateChange)
-
       state.isAssociated = true
     } else {
-      Boolean isStateChange = state.isAssociated ? true : false
-      if (isLifeLine()) {
-      }
-      result << createEvent(name: "Lifeline",
-          value: "${final_string}",
-          descriptionText: "Node not found in ${final_string}",
-          displayed: true,
-          isStateChange: isStateChange)
+      isStateChange = state.isAssociated ? true : false
       if (isLifeLine()) {
         state.isAssociated = false
       }
     }
+    result << createEvent(name: "Lifeline",
+          value: "${final_string}",
+          displayed: true,
+          isStateChange: isStateChange)
   } else if (cmd.groupingIdentifier == 0x02) { // Repeated
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      Boolean isStateChange = state.isAssociated ?: false
-      result << createEvent(name: "Repeated",
-      value: "${final_string}",
-      displayed: true,
-      isStateChange: isStateChange)
       if (isLifeLine()) {
         cmds << zwave.associationV2.AssociationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format()
       } else {
         state.isAssociated = true
       }
-    } else {
-      Boolean isStateChange = state.isAssociated ? true : false
-      result << createEvent(name: "Repeated",
-      value: "${final_string}",
-      descriptionText: "Node not found in ${final_string}",
-      displayed: true,
-      isStateChange: isStateChange)
     }
+    result << createEvent(name: "Repeated",
+      value: "${final_string}",
+      displayed: true,
+      isStateChange: true)
   } else {
     logger("$device.displayName unknown association: $cmd", "error")
     return

@@ -204,6 +204,8 @@ def updated() {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd, result) {
+  logger("$device.displayName $cmd")
+
   def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   //    log.debug("UnsecuredCommand: $encapsulatedCommand")
   // can specify command class versions here like in zwave.parse
@@ -211,6 +213,8 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
     //  log.debug("UnsecuredCommand: $encapsulatedCommand")
     return zwaveEvent(encapsulatedCommand, result)
   }
+
+  logger("Unable to extract security encapsulated cmd from $cmd", "error")
 }
 
 def buttonEvent(button, held, buttonType = "physical") {
