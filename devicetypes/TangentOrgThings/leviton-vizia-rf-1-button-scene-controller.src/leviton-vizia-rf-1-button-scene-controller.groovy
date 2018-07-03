@@ -19,15 +19,15 @@
 
 
 def getDriverVersion () {
-  return "v1.43"
+  return "v1.45"
 }
 
 metadata {
   definition (name: "Leviton Vizia RF 1 Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
-    capability "Health Check"
     capability "Momentary"
+    capability "Sensor"
     capability "Switch"
 
     attribute "logMessage", "string"        // Important log messages.
@@ -71,8 +71,9 @@ metadata {
 
     tiles {
       standardTile("tap", "device.button", width: 2, height: 2, decoration: "flat") {
-        state "default", label: "TAP", backgroundColor: "#ffffff", action: "Momentary.push", icon: "st.Home.home30"
+        state "default", label: "", backgroundColor: "#ffffff", action: "Momentary.push", icon: "st.unknown.zwave.remote-controller"
         state "button 1", label: "1", backgroundColor: "#79b821", icon: "st.Home.home30"
+        state "button 2", label: "2", backgroundColor: "#6721b8", icon: "st.Home.home30"
       }
 
       valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -96,8 +97,8 @@ def getCommandClassVersions() {
     0x85: 2,  // Association  0x85  V1 V2
     0x86: 1,  // Version
     // Note: Controlled but not supported
-    //    0x2B: 1,  // SceneActivation
-    //    0x2C: 1,  // Scene Actuator Conf
+    0x2B: 1,  // SceneActivation
+    0x2C: 1,  // Scene Actuator Conf
     0x22: 1,  // Application Status
     //    0x56: 1,  // Crc16 Encap
     //    0x25: 1,  // Switch Binary
@@ -191,7 +192,8 @@ def buttonEvent(String exec_cmd, Integer button, Boolean held, Boolean buttonTyp
   String heldType = held ? "held" : "pushed"
 
   if (button > 0) {
-    result << createEvent(name: "button", value: "$heldType", data: [buttonNumber: button], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true, type: "$buttonType")
+    result << createEvent(name: "button", value: "button $button", data: [buttonNumber: button], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true, type: "$buttonType")
+    // result << createEvent(name: "button", value: "$heldType", data: [buttonNumber: button], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true, type: "$buttonType")
     result << createEvent(name: "switch", value: button == 1 ? "on" : "off", isStateChange: true, displayed: true)
   } else {
     result << createEvent(name: "button", value: "default", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true, type: "$buttonType")
@@ -219,7 +221,7 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
-  if (state.lastScene == cmd.sceneId && (state.repeatCount < 4) && (now() - state.repeatStart < 2000)) {
+  if (state.lastScene == cmd.sceneId && (state.repeatCount < 4) && (now() - state.repeatStart < 3000)) {
     logger("Button was repeated")
     state.repeatCount = state.repeatCount + 1
   } else {
@@ -231,6 +233,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
     buttonEvent("SceneActivationSet", cmd.sceneId, false, true, result)
     result <<  createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true, displayed: true)
     result <<  createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true)
+    result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
   }
 }
 
@@ -350,8 +353,8 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
 
-  result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  result << createEvent(name: "Manufacturer", value: "${manufacturerName}", descriptionText: "$device.displayName", isStateChange: false)
+  result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: true)
+  result << createEvent(name: "Manufacturer", value: "${manufacturerName}", descriptionText: "$device.displayName", isStateChange: true)
   result << response(zwave.versionV1.versionGet())
 }
 
