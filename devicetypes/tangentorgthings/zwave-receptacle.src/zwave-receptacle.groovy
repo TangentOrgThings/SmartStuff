@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.53"
+  return "v4.55"
 }
 
 def getIndicatorParam() {
@@ -36,7 +36,6 @@ metadata {
     capability "Sensor"
     capability "Switch"
     capability "Power Meter"
-    // capability "Health Check"
 
     command "reset"
 
@@ -269,7 +268,7 @@ def parse(String description) {
     if (cmd) {
       zwaveEvent(cmd, result)
     } else {
-      cmd = zwave.parse(description, [ 0x71: 3])
+      cmd = zwave.parse(description)
       
       if (cmd) {
         zwaveEvent(cmd, result)
@@ -430,6 +429,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     result << createEvent(name: "indicatorStatus", value: value, displayed: true)
 
     return
+  } else if (cmd.parameterNumber == 2) {
+    logger("Physical Button state ${cmd.scaledConfigurationValue}", "warn")
+    return
   }
 
   logger("Unknown parameterNumber $cmd.parameterNumber", "error")
@@ -494,6 +496,13 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
       ]))
     break;
+    case "011A-0101-0603":
+    result << response(delayBetween([
+      zwave.versionV1.versionGet.format(),
+      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
+      zwave.configurationV1.configurationGet(parameterNumber: 2).format(),
+      ]))
+    break
     default:
       result << response(zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)))
     break;
@@ -691,10 +700,10 @@ private trueOn(Boolean physical = true) {
   }
   state.lastBounce = new Date().time
   
-  delayBetween([
+  response(delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
     zwave.switchBinaryV1.switchBinaryGet().format()
-  ])
+  ]))
 }
 
 def off() {
@@ -702,7 +711,7 @@ def off() {
   
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    return zwave.switchBinaryV1.switchBinaryGet().format();
+    return response(zwave.switchBinaryV1.switchBinaryGet())
   }
   
   trueOff(false)
@@ -720,10 +729,10 @@ private trueOff(Boolean physical = true) {
   }
   state.lastBounce = new Date().time
   
-  delayBetween([
+  response(delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
     zwave.switchBinaryV1.switchBinaryGet().format()
-  ])
+  ]))
 }
 
 def poll() {
@@ -761,10 +770,10 @@ def reset() {
 
 def prepDevice() {
   [
-    // zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.versionV1.versionGet(),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
+    zwave.basicV1.basicGet(),
+    zwave.switchBinaryV1.switchBinaryGet(),
   ]
 }
 
