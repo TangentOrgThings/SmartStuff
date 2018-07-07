@@ -14,14 +14,13 @@
  */
 
 def getDriverVersion() {
-  return "v4.01"
+  return "v4.05"
 }
 
 metadata {
   definition (name: "GE Branded Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
-    // capability "Health Check"
     capability "Indicator"
     capability "Light"    
     capability "Polling"
@@ -140,7 +139,6 @@ def getCommandClassVersions() {
 def prepDevice() {
   [
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.firmwareUpdateMdV2.firmwareMdGet(),
     zwave.associationV2.associationGroupingsGet(),
     zwave.powerlevelV1.powerlevelGet(),
     zwave.switchAllV1.switchAllGet(),
@@ -153,7 +151,10 @@ def prepDevice() {
 }
 
 def updated() {
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
+    return
+  }
+  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
@@ -166,9 +167,6 @@ def updated() {
     log.debug("$device.displayName has no ZwaveInfo")
   }
 
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
-
   // Check in case the device has been changed
   state.manufacturer = null
   updateDataValue("MSR", null)
@@ -177,13 +175,15 @@ def updated() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
-  sendEvent(name: "numberOfButtons", value: 4, displayed: false)
-
   sendCommands(prepDevice())
+
+  // Avoid calling updated() twice
+  state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
 
 def installed() {
   log.debug ("installed()")
+  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
 
   def zwInfo = getZwaveInfo()
 
@@ -193,9 +193,6 @@ def installed() {
   } else {
     log.debug("$device.displayName has no ZwaveInfo")
   }
-
-  // Device-Watch simply pings if no device events received for 86220 (one day minus 3 minutes)
-  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
@@ -396,10 +393,17 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   if (cmd.sceneId == 1) {
     if (cmd.level != 255) {
       cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0xFF, level: 255, override: true).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: cmd.sceneId).format()
     }
   } else if (cmd.sceneId == 2) {
     if (cmd.level) {
       cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0xFF, level: 0, override: true).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: cmd.sceneId).format()
+    }
+  } else if (cmd.sceneId == zwaveHubNodeId) {
+    if (cmd.level || (cmd.dimmingDuration != 0x88)) {
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0x88, level: 0, override: true).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: cmd.sceneId).format()
     }
   }
 
@@ -611,9 +615,10 @@ private setManufacturerSpecificReport(manufacturerId, productTypeId, productId, 
         [
         // zwave.configurationV1.configurationGet(parameterNumber: 3),
         // zwave.configurationV1.configurationGet(parameterNumber: 4),
-        // zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
-        // zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
-        zwave.firmwareUpdateMdV1.firmwareMdGet(),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
+        zwave.firmwareUpdateMdV2.firmwareMdGet(),
         // zwave.associationV2.associationGroupingsGet(),
         ], 2000)
     }

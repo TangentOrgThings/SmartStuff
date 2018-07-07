@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.55"
+  return "v4.57"
 }
 
 def getIndicatorParam() {
@@ -53,6 +53,8 @@ metadata {
     attribute "ProductCode", "string"
 
     attribute "Lifeline", "string"
+    attribute "BasicSet control", "string"
+    attribute "Double Tap", "string"
 
     attribute "NIF", "string"
 
@@ -204,8 +206,8 @@ def deviceCommandClasses() {
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
     0x59: 1,  // Association Grp Info
-    // 0x5a: 1,  //
-    // 0x5e: 2,  //
+    0x5A: 1,  // Device Reset Locally
+    // 0x5E: 2,  //
     0x70: 2,  // Configuration V1
     0x72: 2,  // Manufacturer Specific ManufacturerSpecificReport
     0x7A: 2,  // Firmware Update Md
@@ -235,6 +237,7 @@ def deviceCommandClasses() {
     0x32: 2,  // Meter
     0x56: 1,  // Crc16Encap
     0x59: 1,  // Association Grp Info
+    0x5A: 1,  // Device Reset Locally
     0x70: 2,  // Configuration
     0x72: 2,  // Manufacturer Specific ManufacturerSpecificReport
     0x7A: 2,  // Firmware Update Md
@@ -271,6 +274,7 @@ def parse(String description) {
       cmd = zwave.parse(description)
       
       if (cmd) {
+        logger("TRYING parse() ${cmd}", "warn")
         zwaveEvent(cmd, result)
       } else {
         logger("zwave.parse() failed for: ${description}", "error")
@@ -279,6 +283,12 @@ def parse(String description) {
   }
 
   return result
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchtogglebinaryv1.SwitchToggleBinaryReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
@@ -302,7 +312,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd")
 
-  result << createEvent(name: "switch", value: cmd.switchValuevalue ? "on" : "off", type: "digital")
+  result << createEvent(name: "switch", value: cmd.switchValue ? "on" : "off", type: "digital")
 }
 
 // NotificationReport
@@ -315,14 +325,14 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     switch (cmd.event) {
       case 8:
       sendCommands([
-        zwave.basicV1.basicSet(value: 0xFF),
-        zwave.basicV1.basicGet(),
+        zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF),
+        zwave.switchBinaryV1.switchBinaryGet(),
       ]) 
       break;
       case 0:
       sendCommands([
-        zwave.basicV1.basicSet(value: 0x00),
-        zwave.basicV1.basicGet(),
+        zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF),
+        zwave.switchBinaryV1.switchBinaryGet(),
       ]) 
       break;
       default:
@@ -356,9 +366,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   // HomeSeer (ST?) does not implement this scene
   if (cmd.sceneId == 0) {
     result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
-    result << createEvent(name: "level", value: cmd.level, isStateChange: true, displayed: true)
-    result << createEvent(name: "switch", value: cmd.level == 0 ? "off" : "on", isStateChange: true, displayed: true)
-
     return
   }
 
@@ -389,8 +396,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
-  Integer set_sceen = ((cmd.sceneId + 1) / 2) as Integer
-  buttonEvent(set_sceen, false, "digital")
+  buttonEvent(cmd.sceneId, false, "digital")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
@@ -478,12 +484,14 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   switch (msr) {
     case "UNUSED":
     result << response(delayBetween([
+      zwave.versionV1.versionGet().format(),
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
       zwave.associationV2.associationGroupingsGet().format(),
     ]))
     break;
     case "011A-0101-0103":
     result << response(delayBetween([
+      zwave.versionV1.versionGet().format(),
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
       zwave.associationV1.associationGet(groupingIdentifier: 1).format(),
       ]))
@@ -492,19 +500,25 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     case "0063-4952-3133":
     case "0184-4447-3031":
     result << response(delayBetween([
+      zwave.versionV1.versionGet().format(),
       zwave.associationV2.associationGroupingsGet().format(),
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
+      zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1).format(),
+      zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format(),
+      zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format(),
       ]))
     break;
     case "011A-0101-0603":
     result << response(delayBetween([
-      zwave.versionV1.versionGet.format(),
+      zwave.versionV1.versionGet().format(),
       zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
-      zwave.configurationV1.configurationGet(parameterNumber: 2).format(),
       ]))
     break
     default:
-      result << response(zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)))
+    result << response(delayBetween([
+      zwave.versionV1.versionGet().format(),
+      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
+    ]))
     break;
   }
 }
@@ -567,7 +581,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
         cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: true, refreshCache: true).format()
         cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format()
         cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(groupingIdentifier: x, allowCache: false).format()
-        cmds << zwave.associationV2.associationGet(groupingIdentifier: x).format()
+        // cmds << zwave.associationV2.associationGet(groupingIdentifier: x).format()
       } else {
         cmds << zwave.associationV1.associationGet(groupingIdentifier: x).format()
       }
@@ -590,12 +604,19 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  def name = new String(cmd.name as byte[])
+  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+
+  result << response(delayBetween([
+    zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (cmd.groupingIdentifier != 1) { // Lifeline
+  if (cmd.groupingIdentifier > 3) { // Lifeline
     logger("$device.displayName unknown assoc: $cmd", "error")
     return
   }
@@ -610,19 +631,37 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     final_string = string_of_assoc.getAt(0..lengthMinus2)
   }
 
-  Boolean isStateChange = false
-  if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    isStateChange = state.isAssociated ? false : true
-    state.isAssociated = true
-  } else {
-    state.isAssociated = false
+  Boolean isStateChange = true
+  if (cmd.groupingIdentifier == 1) {
+    if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+      isStateChange = state.isAssociated ? false : true
+      state.isAssociated = true
+    } else {
+      state.isAssociated = false
+    }
   }
 
-  if (! state.isAssociated ) {
-    result << zwave.associationV1.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId]).format()
+  if (cmd.groupingIdentifier == 1) {
+    if (! state.isAssociated ) {
+      result << zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format()
+    }
   }
 
-  result << createEvent(name: "LifeLine",
+  String association_name = "Lifeline";
+
+  switch ( cmd.groupingIdentifier ) {
+    case 1: // Lifeline
+    break;
+    case 2:
+    association_name = "BasicSet control";
+    break;
+    case 3:
+    association_name = "Double Tap"
+    break;
+  }
+    
+
+  result << createEvent(name: "$association_name",
                         value: "${final_string}",
                         displayed: true,
                         isStateChange: isStateChange)
@@ -772,7 +811,6 @@ def prepDevice() {
   [
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
-    zwave.basicV1.basicGet(),
     zwave.switchBinaryV1.switchBinaryGet(),
   ]
 }
