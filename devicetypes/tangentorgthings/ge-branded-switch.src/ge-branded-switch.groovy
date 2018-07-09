@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.05"
+  return "v4.09"
 }
 
 metadata {
@@ -34,12 +34,15 @@ metadata {
 
     attribute "MSR", "string"
     attribute "Manufacturer", "string"
-    attribute "ManufacturerCode", "string"
+
     attribute "NIF", "string"
+
+    attribute "manufacturerId", "string"
     attribute "NodeLocation", "string"
     attribute "NodeName", "string"
-    attribute "ProduceTypeCode", "string"
-    attribute "ProductCode", "string"
+    attribute "productType", "string"
+    attribute "productId", "string"
+
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
     attribute "FirmwareMdReport", "string"
@@ -60,11 +63,11 @@ metadata {
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
+    attribute "Protection", "string"
 
     command "connect"
     command "disconnect"
 
-    fingerprint mfr:"0063", prod: "4952", model:"3031", deviceJoinName: "Jasco/GE 12721 In-Wall Duplex Receptacle" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x75, 0x77, 0x86" // OUTLET has CC PROTECTION
     fingerprint mfr:"0063", prod: "4952", model:"3032", deviceJoinName: "Jasco/GE 12722 In-Wall On/Off Switch" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x77, 0x86"
     fingerprint mfr:"0063", prod: "4952", model:"3036", deviceJoinName: "Jasco/GE 14291 In-Wall On/Off Switch"
     fingerprint mfr:"0063", prod: "4F50", model:"3032", deviceJoinName: "Jasco/GE Plug-in Outdoor Smart Switch"
@@ -118,28 +121,55 @@ metadata {
 }
 
 def getCommandClassVersions() {
-  [
-    0x20: 1,  // Basic
-    0x25: 1,  // Switch Binary
-    0x27: 1,  // Switch All
-    0x2B: 1,  // SceneActivation
-    0x2C: 1,  // Scene Actuator Conf
-    0x59: 1,  // Association Grp Info
-    0x5A: 1,  // Device Reset Locally
-    0x56: 1,  // Crc16Encap
-    0x70: 1,  // Configuration
-    0x72: 2,  // Manufacturer Specific
-    0x73: 1, // Powerlevel
-    0x7A: 2,  // Firmware Update Md
-    0x85: 2,  // Association  0x85  V1 V2
-    0x86: 1,  // Version
-  ]
+  switch (state.MSR) {
+    case "0063-4952-3032":
+    return [
+      0x20: 1,  // Basic
+      0x25: 1,  // Switch Binary
+      0x27: 1,  // Switch All
+      0x70: 1,  // Configuration
+      0x72: 2,  // Manufacturer Specific V1
+      0x73: 1,  // Powerlevel
+      0x77: 1,  // Node Naming
+      0x86: 1,  // Version
+    ]
+    break
+    case "0063-4F50-3032":
+    case "0063-4952-3036":
+    return [
+      0x20: 1,  // Basic
+      0x25: 1,  // Switch Binary
+      0x27: 1,  // Switch All
+      0x2B: 1,  // SceneActivation
+      0x2C: 1,  // Scene Actuator Conf
+      0x59: 1,  // Association Grp Info
+      0x5A: 1,  // Device Reset Locally
+      0x56: 1,  // Crc16Encap
+      0x70: 1,  // Configuration
+      0x72: 2,  // Manufacturer Specific
+      0x73: 1,  // Powerlevel
+      0x7A: 2,  // Firmware Update Md
+      0x85: 2,  // Association  0x85  V1 V2
+      0x86: 1,  // Version
+    ]
+    break
+    default:
+    return [
+      0x20: 1,  // Basic
+      0x25: 1,  // Switch Binary
+      0x27: 1,  // Switch All
+      0x70: 1,  // Configuration
+      0x72: 2,  // Manufacturer Specific V1
+      0x73: 1,  // Powerlevel
+      0x86: 1,  // Version
+    ]
+  }
 }
 
 def prepDevice() {
   [
-    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.associationV2.associationGroupingsGet(),
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    // zwave.associationV2.associationGroupingsGet(),
     zwave.powerlevelV1.powerlevelGet(),
     zwave.switchAllV1.switchAllGet(),
     // zwave.configurationV1.configurationSet(configurationValue: [ledIndicator == "on" ? 1 : ledIndicator == "never" ? 2 : 0], parameterNumber: 3, size: 1),
@@ -175,7 +205,7 @@ def updated() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
-  sendCommands(prepDevice())
+  sendCommands(prepDevice(), 3000)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -198,7 +228,7 @@ def installed() {
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
 
-  sendCommands(prepDevice())
+  sendCommands(prepDevice(), 3000)
 }
 
 def parse(String description) {
@@ -325,8 +355,51 @@ setManufacturerSpecificReport(cmd.manufacturerId, cmd.productTypeId, cmd.product
  */
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
-  setManufacturerSpecificReport(cmd.manufacturerId, cmd.productTypeId, cmd.productId, cmd.manufacturerName)
+  logger("$device.displayName $cmd")
+
+  state.manufacturerId = cmd.manufacturerId
+  state.productTypeId = cmd.productTypeId
+  state.productId = cmd.productId
+  state.manufacturerName = cmd.manufacturerName ? cmd.manufacturerName : "GE"
+
+  String manufacturerId = String.format("%04X", state.manufacturerId)
+  String productTypeId = String.format("%04X", state.productTypeId)
+  String productId = String.format("%04X", state.productId)
+
+  sendEvent(name: "manufacturerId", value: manufacturerId)
+  sendEvent(name: "productType", value: productTypeId)
+  sendEvent(name: "productId", value: productId)
+
+  if (state.productId == 0x3036) {
+    sendEvent(name: "numberOfButtons", value: 4, displayed: false)
+    sendCommands(
+      [
+      zwave.associationV2.associationGroupingsGet(),
+      ], 2000)
+    if (! state.FirmwareMdReport ) {
+      sendCommands(
+        [
+        // zwave.configurationV1.configurationGet(parameterNumber: 3),
+        // zwave.configurationV1.configurationGet(parameterNumber: 4),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
+        zwave.firmwareUpdateMdV2.firmwareMdGet(),
+        // zwave.associationV2.associationGroupingsGet(),
+        ], 2000)
+    }
+  }
+
+  String msr = String.format("%04X-%04X-%04X", state.manufacturerId, state.productTypeId, state.productId)
+  updateDataValue("MSR", msr)
+  state.MSR = "$msr"
+
+  updateDataValue("manufacturer", state.manufacturerName)
+
+  sendEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
+  [ createEvent(name: "Manufacturer", value: "${state.manufacturerName}", descriptionText: "$device.displayName", isStateChange: false) ]
 }
+
 
 def zwaveEvent(physicalgraph.zwave.commands.nodenamingv1.NodeNamingNodeNameReport cmd) {
   int length = cmd.nodeName.size()
@@ -486,7 +559,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
       cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format()
     }
     
-    result << response(delayBetween(cmds, 2000))
+    result << response(delayBetween(cmds, 3000))
 
     return result
   }
@@ -592,52 +665,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd)
   return result
 }
 
-private setManufacturerSpecificReport(manufacturerId, productTypeId, productId, manufacturerName) {
-  logger("$device.displayName $cmd")
-
-  state.manufacturerId = manufacturerId
-  state.productTypeId = productTypeId
-  state.productId = productId
-  state.manufacturerName = manufacturerName ? manufacturerName : "GE"
-
-  def manufacturerCode = String.format("%04X", manufacturerId)
-  def productTypeCode = String.format("%04X", productTypeId)
-  def productCode = String.format("%04X", productId)
-
-  sendEvent(name: "ManufacturerCode", value: manufacturerCode)
-  sendEvent(name: "ProduceTypeCode", value: productTypeCode)
-  sendEvent(name: "ProductCode", value: productCode)
-
-  if (state.productId == 0x3036) {
-    sendEvent(name: "numberOfButtons", value: 4, displayed: false)
-    if (! state.FirmwareMdReport ) {
-      sendCommands(
-        [
-        // zwave.configurationV1.configurationGet(parameterNumber: 3),
-        // zwave.configurationV1.configurationGet(parameterNumber: 4),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
-        zwave.firmwareUpdateMdV2.firmwareMdGet(),
-        // zwave.associationV2.associationGroupingsGet(),
-        ], 2000)
-    }
-  } else if (state.productId == 0x3031) {
-    sendCommands(
-      [
-      zwave.configurationV1.configurationGet(parameterNumber: 3),
-      ], 2000)
-  }
-
-  def msr = String.format("%04X-%04X-%04X", manufacturerId, productTypeId, productId)
-  updateDataValue("MSR", msr)
-
-  updateDataValue("manufacturer", state.manufacturerName)
-
-  sendEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  [ createEvent(name: "Manufacturer", value: "${state.manufacturerName}", descriptionText: "$device.displayName", isStateChange: false) ]
-}
-
 def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) {
   logger("$device.displayName $cmd")
 
@@ -680,10 +707,14 @@ def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicat
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd) {
-  logger("$device.displayName $cmd")
-
-  state.protectionState= cmd.protectionState
+def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd, result) {    
+  if (cmd.protectionState == 0) {
+    result << createEvent(name: "Protection", value: "disabled", descriptionText: "Protection Mode Disabled")
+  } else if (cmd.protectionState == 1) {
+    result << createEvent(name: "Protection", value: "sequence", descriptionText: "Protection Mode set to Sequence Control")
+  } else if (cmd.protectionState == 2) {
+    result << createEvent(name: "Protection", value: "remote", descriptionText: "Protection Mode set to Remote Only")
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd) {
@@ -802,8 +833,6 @@ def refresh() {
   if ( state.productId == 0x3032 || state.productId == 3036 ) {
     cmds << zwave.configurationV1.configurationGet(parameterNumber: 3)
     cmds << zwave.configurationV1.configurationGet(parameterNumber: 4)
-  } else if ( state.productId == 0x3031 ) {
-    cmds << zwave.configurationV1.configurationGet(parameterNumber: 3)
   }
 
   if (getDataValue("MSR") == null) {
@@ -814,7 +843,7 @@ def refresh() {
     cmds << zwave.versionV1.versionGet()
   }
 
-  return sendCommands(cmds)
+  return sendCommands(cmds, 3000)
 }
 
 void indicatorWhenOn() {

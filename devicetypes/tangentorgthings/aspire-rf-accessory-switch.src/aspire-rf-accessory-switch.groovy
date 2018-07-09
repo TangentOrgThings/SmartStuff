@@ -1,8 +1,7 @@
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 /**
- *  VIZIA RF 1 BUTTON SCENE CONTROLLER
- *  VRCS1 - 1-Button Scene Controller
- *  https://products.z-wavealliance.org/products/316
+ *  ASPIRE RF Accessory Switch (RF9517)
+ *  https://products.z-wavealliance.org/products/742
  *
  *  Copyright 2017-2018 Brian Aker
  *
@@ -22,11 +21,20 @@ def getDriverVersion () {
   return "v1.51"
 }
 
+def getConfigurationOptions(Integer model) {
+  if (1) {
+    return [ 1 ]
+  }
+  return [ 1, 2, 3, 4, 5, 6, 7 ]
+}
+
 metadata {
-  definition (name: "Leviton Vizia RF 1 Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
+  definition (name: "ASPIRE RF Accessory Switch", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
+    capability "Indicator"
     capability "Sensor"
+    capability "Switch"
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
@@ -42,21 +50,16 @@ metadata {
 
     attribute "Associated", "string"
 
-    attribute "hail", "string"
-
     attribute "Scene", "number"
     attribute "setScene", "enum", ["Unknown", "Set", "Setting"]
-
-    attribute "Group 1", "number"
-    attribute "Group 1 Duration", "number"
-    attribute "Group 2", "number"
-    attribute "Group 2 Duration", "number"
+    
+    attribute "SwitchAll", "string"
+    attribute "Power", "string"
+    attribute "Protection", "string"
 
     attribute "NIF", "string"
 
-    command "getparamState"
-
-    fingerprint mfr: "001D", prod: "0902", model: "0224", deviceJoinName: "Leviton VRCS1-1LZ Vizia RF + 1-Button Scene Controller"
+    fingerprint mfr: "001A", prod: "5352", model: "0000", deviceJoinName: "ASPIRE RF Accessory Switch"
   }
 
 
@@ -70,13 +73,23 @@ metadata {
   }
 
   tiles {
+    multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
+      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
+        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+      }
+
+      /*
+      tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
+        attributeState("when off", label:'${currentValue}', icon:"st.indicators.lit-when-off")
+        attributeState("when on", label:'${currentValue}', icon:"st.indicators.lit-when-on")
+        attributeState("never", label:'${currentValue}', icon:"st.indicators.never-lit")
+      } */
+    }
+    
     standardTile("tap", "device.button", width: 2, height: 2, decoration: "flat") {
       state "default", label: "", backgroundColor: "#D3D3D3"
       state "pushed", label: "${currentValue}", backgroundColor: "#79b821"
-    }
-
-    valueTile("tapme", "device.button", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
-      state "default", label: '${currentValue}'
     }
 
     valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -88,30 +101,26 @@ metadata {
       state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
 
-    main (["tap"])
-    details(["tap", "scene", "setScene", "tapme"])
+    main (["switch"])
+    details(["switch", "tap", "scene", "setScene"])
   }
 }
 
 def getCommandClassVersions() {
   [
     0x20: 1,  // Basic
-    0x2D: 1,  // Scene Controller Conf
-    0x72: 1,  // Manufacturer Specific
-    // 0x77: 1,  // Node Naming
-    0x82: 1,  // Hail
-    0x85: 2,  // Association  0x85  V1 V2
-    0x86: 1,  // Version
-    0x91: 1,  // Man Prop
-    // Note: Controlled but not supported
+    0x27: 1,  // Switch All
     0x2B: 1,  // SceneActivation
     0x2C: 1,  // Scene Actuator Conf
-    0x22: 1,  // Application Status
-    //    0x56: 1,  // Crc16 Encap
-    //    0x25: 1,  // Switch Binary
-    //    0x91: 1, // Manufacturer Proprietary
-    // Stray commands that show up
-    0x54: 1,  // Application Status
+    0x70: 1,  // Configuration
+    0x72: 2,  // Manufacturer Specific v1
+    0x73: 1,  // Powerlevel
+    0x75: 1,  // Protection
+    // 0x77: 1,  // Node Naming
+    0x84: 2, // Wake Up 
+    0x85: 2,  // Association  0x85  V1
+    0x86: 1,  // Version
+    0x87: 1,  // Indicator
   ]
 }
 
@@ -134,9 +143,6 @@ def parse(String description) {
     }
   } else if (! description) {
     logger( "parse() called with NULL description", "warn")
-  } else if (description.contains("command: 9100")) {
-    logger("PROP $description", "ERROR")
-    //handleManufacturerProprietary(description, result)
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -157,86 +163,6 @@ def parse(String description) {
   return result
 }
 
-def getparamState() {
-  logger("$device.displayName getparamState()")
-  // sendHubCommand(new physicalgraph.device.HubAction("91001D0D01FF01180508D3"))
-  def cmds = []
-  cmds << new physicalgraph.device.HubAction("91001D0D01FF01180508D3")
-	return response(delayBetween(cmds, 1000))
-}
-
-def handleManufacturerProprietary(String description, result) {
-  // log.debug "Handling manufacturer-proprietary command: '${description}'"
-  logger("$device.displayName $description")
-
-  switch (description) {
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 01 00 ":
-    case "1":
-    // log.debug "Turning button #1 on"
-    logger("button 1 ON")
-    updateState("currentButton", "1")
-    // result << createEvent(name: "button", value: "on", data: [button: 1, status: "on"], isStateChange: true)
-    buttonEvent("handleManufacturerProprietary", 1, false, result)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 05 00 ":
-    case "5":
-    // log.debug "Turning button #1 off"
-    logger("button 1 OFF")
-    updateState("currentButton", "1")
-    // result << createEvent(name: "button", value: "off", data: [button: 1, status: "off"], isStateChange: true)
-    buttonEvent("handleManufacturerProprietary", 2, false, result)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 02 00 ":
-    case "2":
-    // log.debug "Turning button #2 on"
-    logger("button 2 ON")
-    updateState("currentButton", "2")
-    // result << createEvent(name: "button", value: "on", data: [button: 2, status: "on"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 06 00 ":
-    case "6":
-    // log.debug "Turning button #2 off"
-    logger("button 2 OFF")
-    updateState("currentButton", "2")
-    // result << createEvent(name: "button", value: "off", data: [button: 2, status: "off"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 03 00 ":
-    case "3":
-    logger("button 3 ON")
-    // log.debug "Turning button #3 on"
-    updateState("currentButton", "3")
-    // result << createEvent(name: "button", value: "on", data: [button: 3, status: "on"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 07 00 ":        
-    case "7":
-    // log.debug "Turning button #3 off"
-    logger("button 3 OFF")
-    updateState("currentButton", "3")
-    // result << createEvent(name: "button", value: "off", data: [button: 3, status: "off"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 04 00 ":
-    case "4":
-    // log.debug "Turning button #4 on"
-    logger("button 4 ON")
-    updateState("currentButton", "4")
-    // result << createEvent(name: "button", value: "on", data: [button: 4, status: "on"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 08 00 ":
-    case "8":
-    // log.debug "Turning button #4 off"
-    logger("button 4 OFF")
-    updateState("currentButton", "4")
-    // result << createEvent(name: "button", value: "off", data: [button: 4, status: "off"], isStateChange: true)
-    break
-    default:
-    logger("Could not parse vendor hidden command: $description", "error")
-    // log.debug "Fell through to default switch case"
-    break
-  }
-
-  return result
-}
-
 def buttonEvent(String exec_cmd, Integer button, Boolean held, result) {
   logger("buttonEvent: $button  held: $held  exec: $exec_cmd")
 
@@ -249,51 +175,20 @@ def buttonEvent(String exec_cmd, Integer button, Boolean held, result) {
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
-  switch (cmd.status) {
-    case 0:
-    logger("Try again later ${cmd.waitTime}")
-    break
-    case 1:
-    logger("Try again in ${cmd.waitTime} seconds")
-    break
-    case 2:
-    logger("Request queued ${cmd.waitTime}")
-    break
-    default:
-    logger("Unknown Status ${cmd.status}", "error")
-    break
-  }
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", isStateChange: true, type: "digital")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", isStateChange: true, type: "physical")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
+
+def zwaveEvent(physicalgraph.zwave.commands.indicatorv1.IndicatorReport cmd, result) {
   logger("$device.displayName $cmd")
-
-  if (cmd.groupId == 1 && cmd.sceneId != zwaveHubNodeId) {
-    result << response(delayBetween([
-      zwave.sceneControllerConfV1.sceneControllerConfSet(groupId: cmd.groupId, sceneId: zwaveHubNodeId).format(),
-      zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: cmd.groupId).format(),
-    ]))
-  } else if (cmd.groupId == 2 && cmd.sceneId != zwaveHubNodeId +1) {
-    result << response(delayBetween([
-      zwave.sceneControllerConfV1.sceneControllerConfSet(groupId: cmd.groupId, sceneId: zwaveHubNodeId +1).format(),
-      zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: cmd.groupId).format(),
-    ]))
-  }
-
-  String group_scene_name =  "Group ${cmd.groupId}"
-  String group_duration_name =  "Group ${cmd.groupId} Duration"
-  result <<  createEvent(name: group_scene_name, value: cmd.sceneId, isStateChange: true, displayed: true)
-  result <<  createEvent(name: group_duration_name, value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
-  logger("$device.displayName $cmd")
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", isStateChange: true, type: "digital")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
@@ -322,6 +217,33 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: state.lastScene ? state.lastScene : 0))
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  // HomeSeer (ST?) does not implement this scene
+  if (cmd.sceneId == 0) {
+    result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
+    result << createEvent(name: "switch", value: cmd.level == 0 ? "off" : "on", isStateChange: true, displayed: true)
+    return
+  }
+
+  def cmds = []
+  if (cmd.sceneId == zwaveHubNodeId) {
+    if (cmd.level != 255) {
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0, level: 255, override: true).format()
+    }
+  }
+
+  state.lastScene = cmd.sceneId
+
+  String scene_name = "Scene_$cmd.sceneId"
+  String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
+
+  result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
+  result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
+  result << response(cmds)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
   result <<  createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
@@ -337,12 +259,12 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     }
   }
 
-  for (def x = 1; x <= 2; x++) {
-    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
-  }
-
   result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings, isStateChange: true, displayed: true)
   result << response( delayBetween(cmds, 2000) )
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
@@ -403,7 +325,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
   String manufacturerCode = String.format("%04X", cmd.manufacturerId)
@@ -414,6 +336,13 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
+  
+  Integer[] parameters = getConfigurationOptions(cmd.productId)
+
+  def cmds = []
+  parameters.each {
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
+  }
 
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
@@ -421,20 +350,64 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
 
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: true)
   result << createEvent(name: "Manufacturer", value: "${manufacturerName}", descriptionText: "$device.displayName", isStateChange: true)
+  result << response(delayBetween(cmds, 1000))
   result << response(zwave.versionV1.versionGet())
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
+  logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
+  def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
+  result << createEvent(name: "Power", value: device_power_level)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd, result) {    
+  if (cmd.protectionState == 0) {
+    result << createEvent(name: "Protection", value: "disabled", descriptionText: "Protection Mode Disabled")
+  } else if (cmd.protectionState == 1) {
+    result << createEvent(name: "Protection", value: "sequence", descriptionText: "Protection Mode set to Sequence Control")
+  } else if (cmd.protectionState == 2) {
+    result << createEvent(name: "Protection", value: "remote", descriptionText: "Protection Mode set to Remote Only")
+  }
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  state.switchAllModeCache = cmd.mode
+
+  def msg = ""
+  switch (cmd.mode) {
+    case 0:
+    msg = "Device is excluded from the all on/all off functionality."
+    break
+
+    case 1:
+    msg = "Device is excluded from the all on functionality but not all off."
+    break
+
+    case 2:
+    msg = "Device is excluded from the all off functionality but not all on."
+    break
+
+    default:
+    msg = "Device is included in the all on/all off functionality."
+    break
+  }
+  logger("Switch All Mode: ${msg}","info")
+
+  if (cmd.mode != 0) {
+    sendCommands([
+      zwave.switchAllV1.switchAllSet(mode: 0x00),
+      zwave.switchAllV1.switchAllGet(),
+    ])
+  } else {
+    result << createEvent(name: "SwitchAll", value: msg, isStateChange: true, displayed: true)
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName no implementation of $cmd", "error")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
-  logger("$device.displayName command not implemented: $cmd")
-  result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: false)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.networkmanagementprimaryv1.ControllerChangeStatus cmd, result) {
-  logger("$device.displayName command not implemented: $cmd", "error")
 }
 
 /**
@@ -463,14 +436,16 @@ def poll() {
 
 def prepDevice() {
   [
+    zwave.associationV1.associationSet(groupingIdentifier: 0xFF, nodeId: 0x01),
     zwave.associationV1.associationGroupingsGet(),
-    // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:1, sceneId:1),
-    // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:2, sceneId:2),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
-    // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 1),
-    // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 2),
-    // zwave.versionV1.versionGet(),
-    // zwave.associationV1.associationGet(groupingIdentifier: 0x01),
+    zwave.switchAllV1.switchAllGet(),
+    zwave.powerlevelV1.powerlevelGet(),
+    zwave.protectionV1.protectionGet(),
+    zwave.indicatorV1.indicatorGet(),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
+    // zwave.associationV1.associationGet(groupingIdentifier: 255),
     // zwave.zwaveCmdClassV1.requestNodeInfo(),
     // zwave.basicV1.basicGet(),
   ]

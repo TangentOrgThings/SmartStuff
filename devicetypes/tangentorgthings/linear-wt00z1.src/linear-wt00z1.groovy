@@ -1,7 +1,9 @@
 // vim :set ts=2 sw=2 sts=2 expandtab smarttab :
 /**
  *  Copyright 2017-2018 Brian Aker <brian@tangent.org>
- *  Original version derived from Smartthings Dimmer Device
+ *  
+ *  Linear WT00Z-1
+ *  https://products.z-wavealliance.org/products/1028
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -19,10 +21,9 @@ def getDriverVersion() {
 }
 
 metadata {
-  definition (name: "GE Branded Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
+  definition (name: "Linear WT00Z-1", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
     capability "Button"
-    capability "Health Check"
     capability "Indicator"
     capability "Light"
     capability "Polling"
@@ -31,13 +32,11 @@ metadata {
     capability "Switch Level"
     capability "Switch"
 
-    attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
 
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
-    attribute "FirmwareMdReport", "string"
     attribute "Manufacturer", "string"
     attribute "manufacturerId", "string"
     attribute "MSR", "string"
@@ -62,10 +61,7 @@ metadata {
     command "connect"
     command "disconnect"
 
-    fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE In-Wall Dimmer" // model:"3031", 
-    fingerprint mfr:"0063", prod:"4457", deviceJoinName: "GE 4457 Z-Wave Wall Dimmer"
-    fingerprint mfr:"0063", prod:"4944", deviceJoinName: "GE 4944 Z-Wave Wall Dimmer"
-    fingerprint mfr:"0063", prod:"5044", deviceJoinName: "GE 5044 Z-Wave Plug-In Dimmer"
+    fingerprint mfr: "014f", prod: "5457", model: "3033", deviceJoinName: "Linear WT00Z-1"
   }
 
   simulator {
@@ -87,16 +83,6 @@ metadata {
   }
 
   preferences {
-    input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: true, options:["on": "When On", "off": "When Off", "never": "Never"], defaultValue: "off"
-    input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "Invert switch? ", required: true, defaultValue: false
-    input name: "zwaveSteps", type: "number", title: "Z-Wave Dim Steps (1-99)", description: "Z-Wave Dim Steps ", required: true, range: "1..99", defaultValue: 1
-    input name: "zwaveDelay", type: "number", title: "Z-Wave Dim Delay (10ms Increments, 1-255)", description: "Z-Wave Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
-    input name: "manualSteps", type: "number", title: "Manual Dim Steps (1-99)", description: "Manual Dim Steps ", required: true, range: "1..99", defaultValue: 1
-    input name: "manualDelay", type: "number", title: "Manual Dim Delay (10ms Increments, 1-255)", description: "Manual Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
-    input name: "allonSteps", type: "number", title: "All-On/All-Off Dim Steps (1-99)", description: "All-On/All-Off Dim Steps ", required: true, range: "1..99", defaultValue: 1
-    input name: "allonDelay", type: "number", title: "All-On/All-Off Dim Delay (10ms Increments, 1-255)", description: "All-On/All-Off Dim Delay (10ms Increments) ", required: true, range: "1..255", defaultValue: 3
-    input name: "fastDuration", type: "bool", title: "Fast Duration", description: "Where to quickly change light state", required: false, defaultValue: true
-    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3 
   }
 
@@ -142,24 +128,17 @@ metadata {
   }
 }
 
-def getCommandClassVersions() { // 26, 27, 2B, 2C, 59, 5A, 5B, 5E, 70, 72, 73, 7A, 85, 86
+def getCommandClassVersions() {
 [
   0x20: 1,  // Basic
-  0x26: 3,  // SwitchMultilevel
+  0x25: 1,  // Switch Binary
+  0x26: 1,  // SwitchMultilevel
   0x27: 1,  // Switch All
-  0x2B: 1,  // SceneActivation
-  0x2C: 1,  // Scene Actuator Conf
-  0x56: 1,  // Crc16 Encap V1
-  0x59: 1,  // Association Grp Info
-  0x5A: 1,  // Device Reset Locally
-  // 0x5E: 2,  // 
   0x70: 2,  // Configuration V1
-  0x72: 2,  // Manufacturer Specific
-  0x73: 1, // Powerlevel
-  0x7A: 2,  // Firmware Update Md
-  0x85: 2,  // Association  0x85  V1 V2
-  0x86: 1,  // Version V2
-  0x01: 1,  // Z-wave command class
+  0x72: 2,  // Manufacturer Specific V1
+  0x85: 2,  // Association  0x85  V1
+  0x86: 1,  // Version
+  0x87: 1,  // Indicator
 ]
 }
 
@@ -224,6 +203,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   }
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.indicatorv1.IndicatorReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", isStateChange: true, type: "digital")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -236,26 +220,16 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   dimmerEvents(cmd.switchValue, true, result);
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd, result) {
   logger("$device.displayName $cmd")
 
   dimmerEvents(cmd.value, false, result)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelSet cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, result) {
   logger("$device.displayName $cmd")
 
   dimmerEvents(cmd.value, false, result)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.nodenamingv1.NodeNamingNodeNameReport cmd, result) {
-  logger("$device.displayName $cmd")
-  state.nodeName = cmd.nodeName
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.nodenamingv1.NodeNamingNodeLocationReport cmd, result) {
-  logger("$device.displayName $cmd")
-  state.nodeLocation = cmd.nodeLocation
 }
 
 private dimmerEvents(Integer dimmer_level, boolean isPhysical, result) {
@@ -275,39 +249,11 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   def value = ""
   def reportValue = cmd.configurationValue[0]
   switch (cmd.parameterNumber) {
-    case 3:
-    name = "indicatorStatus"
-    value = reportValue == 1 ? "when on" : reportValue == 2 ? "never" : "when off"
-    break
-    case 4:
-    name = "invertSwitch"
-    value = reportValue == 1 ? "true" : "false"
-    break
-    case 7:
-    name = "zwaveSteps"
-    value = reportValue
-    break
-    case 8:
-    name = "zwaveDelay"
-    value = reportValue
-    break
-    case 9:
-    name = "manualSteps"
-    value = reportValue
-    break
-    case 10:
-    name = "manualDelay"
-    value = reportValue
-    break
     default:
     break
   }
 
-  result <<  createEvent(name: name, value: value)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
-  result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: false)
+//  result <<  createEvent(name: name, value: value)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, result) {
@@ -351,7 +297,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.manufacturerId = cmd.manufacturerId
   state.productTypeId = cmd.productTypeId
   state.productId= cmd.productId
-  state.manufacturer= cmd.manufacturerName ? cmd.manufacturerName : "Jasco"
+  state.manufacturer= cmd.manufacturerName ? cmd.manufacturerName : "Linear"
 
   String manufacturerId = String.format("%04X", cmd.manufacturerId)
   String productType = String.format("%04X", cmd.productTypeId)
@@ -361,7 +307,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   updateDataValue("MSR", msr)
   updateDataValue("manufacturerName", state.manufacturer)
 
-  Integer[] parameters = [ 10, 11, 12, 3, 4, 7, 8, 9 ]
+  Integer[] parameters = [ 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21 ]
 
   def cmds = []
   parameters.each {
@@ -377,17 +323,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << response( zwave.versionV1.versionGet() )
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd, result) {
-  logger("zwaveEvent(): CRC-16 Encapsulation Command received: ${cmd}")
-
-  def encapsulatedCommand = zwave.commandClass(cmd.commandClass)?.command(cmd.command)?.parse(cmd.data)
-  if (!encapsulatedCommand) {
-    log.debug("zwaveEvent(): Could not extract command from ${cmd}")
-  } else {
-    return zwaveEvent(encapsulatedCommand)
-  }
-}
-
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -396,13 +331,6 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
   result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
-  logger("$device.displayName $cmd")
-  def firmware_report = String.format("%s-%s-%s", cmd.checksum, cmd.firmwareId, cmd.manufacturerId)
-  updateDataValue("FirmwareMdReport", firmware_report)
-  result << createEvent(name: "FirmwareMdReport", value: firmware_report, descriptionText: "$device.displayName FIRMWARE_REPORT: $firmware_report", displayed: true, isStateChange: true)
 }
 
 def buttonEvent(String exec_cmd, Integer button, held, buttonType = "physical") {
@@ -417,43 +345,6 @@ def buttonEvent(String exec_cmd, Integer button, held, buttonType = "physical") 
   }
 }
 
-// A scene command was received -- it's probably scene 0, so treat it like a button release
-def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
-  logger("$device.displayName $cmd")
-  buttonEvent("SceneActuatorConfGet()", cmd.sceneId, false, "digital")
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
-  logger("$device.displayName $cmd")
-
-  // HomeSeer (ST?) does not implement this scene
-  if (cmd.sceneId == 0) {
-    result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
-    result << createEvent(name: "switch", value: cmd.level == 0 ? "off" : "on", isStateChange: true, displayed: true)
-    return
-  }
-
-  def cmds = []
-  if (cmd.sceneId == 1) {
-    if (cmd.level != 255) {
-      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0, level: 255, override: true).format()
-    }
-  } else if (cmd.sceneId == 2) {
-    if (cmd.level) {
-      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0, level: 0, override: true).format()
-    }
-  }
-
-  String scene_name = "Scene_$cmd.sceneId"
-  String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
-
-  result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
-  result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
-  result << response(cmds)
-}
-
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -462,9 +353,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   if (cmd.supportedGroupings) {
     def cmds = []
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
-      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format()
-      cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: true, refreshCache: true).format()
-      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x).format()
+      cmds << zwave.associationV1.associationGet(groupingIdentifier: x).format()
     }
 
     result << response(delayBetween(cmds, 2000))
@@ -475,53 +364,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   logger("$device.displayName AssociationGroupingsReport: $cmd", "error")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
-  logger("$device.displayName $cmd")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
-  logger("$device.displayName $cmd")
-
-  def name = new String(cmd.name as byte[])
-  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
-
-  result << response( zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
-  logger("$device.displayName $cmd")
-}
-
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
-  logger("$device.displayName $cmd")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
-  logger("$device.displayName $cmd")
-  result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
-  logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
-  def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
-  result << createEvent(name: "Power", value: device_power_level)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
-  logger("$device.displayName $cmd")
-  result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
-  logger("$device.displayName $cmd")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
-  logger("$device.displayName $cmd")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandCommandClassNotSupported cmd, result) {
   logger("$device.displayName $cmd")
 }
 
@@ -596,7 +439,7 @@ def setLevel (value) {
   def level = Math.max(Math.min(valueaux, 99), 0)
 
   delayBetween([
-    zwave.switchMultilevelV2.switchMultilevelSet(value: level).format(),
+    zwave.switchMultilevelV1.switchMultilevelSet(value: level).format(),
     zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 5000)
 }
@@ -611,14 +454,14 @@ def setLevel(value, duration) {
   def getStatusDelay = duration < 128 ? (duration*1000)+2000 : (Math.round(duration / 60)*60*1000)+2000
 
   delayBetween([
-    zwave.switchMultilevelV2.switchMultilevelSet(value: level, dimmingDuration: dimmingDuration).format(),
-    zwave.switchMultilevelV2.switchMultilevelGet().format(),
+    zwave.switchMultilevelV1.switchMultilevelSet(value: level, dimmingDuration: dimmingDuration).format(),
+    zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], getStatusDelay)
 }
 
 def poll() {
   logger("poll()")
-  zwave.switchMultilevelV2.switchMultilevelGet().format()
+  zwave.switchMultilevelV1.switchMultilevelGet().format()
 }
 
 /**
@@ -626,7 +469,7 @@ def poll() {
  * */
 def ping() {
   logger("ping()")
-  zwave.switchMultilevelV2.switchMultilevelGet().format()
+  zwave.switchMultilevelV1.switchMultilevelGet().format()
 }
 
 def refresh() {
@@ -634,16 +477,7 @@ def refresh() {
 
   def commands = []
 
-  commands << zwave.switchMultilevelV2.switchMultilevelGet().format()
-
-  if (0) {
-    commands << zwave.configurationV1.configurationGet(parameterNumber: 3).format()
-    commands << zwave.configurationV1.configurationGet(parameterNumber: 4).format()
-    commands << zwave.configurationV1.configurationGet(parameterNumber: 7).format()
-    commands << zwave.configurationV1.configurationGet(parameterNumber: 8).format()
-    commands << zwave.configurationV1.configurationGet(parameterNumber: 9).format()
-    commands << zwave.configurationV1.configurationGet(parameterNumber: 10).format()
-  }
+  commands << zwave.switchMultilevelV1.switchMultilevelGet().format()
 
   delayBetween(commands)
 }
@@ -694,10 +528,8 @@ def prepDevice() {
   }
   [
     // zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.associationV2.associationGroupingsGet(),
-    zwave.firmwareUpdateMdV2.firmwareMdGet(),
-    zwave.powerlevelV1.powerlevelGet(),
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    zwave.associationV1.associationGroupingsGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.switchMultilevelV1.switchMultilevelGet(),
   ]

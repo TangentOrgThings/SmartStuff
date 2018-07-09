@@ -68,6 +68,7 @@ metadata {
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
+    attribute "Protection", "string"
 
     command "connect"
     command "disconnect"
@@ -97,7 +98,8 @@ metadata {
       productType value="4952"
       productId value="3031"
     */
-    fingerprint type: "1001", mfr: "0063", prod: "4952", model: "3031", deviceJoinName: "GE 12721/ZW1001"
+    fingerprint mfr:"0063", prod: "4952", model:"3031", deviceJoinName: "Jasco/GE 12721 In-Wall Duplex Receptacle" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x75, 0x77, 0x86" // OUTLET has CC PROTECTION
+    
 
     /* 14288
       Z-Wave Product ID: 0x3134
@@ -220,8 +222,8 @@ def deviceCommandClasses() {
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
-    0x70: 2,  // Configuration
-    0x72: 2,  // Manufacturer Specific ManufacturerSpecificReport
+    0x70: 2,  // Configuration V1
+    0x72: 2,  // Manufacturer Specific V1
     0x73: 1,  //
     0x75: 1,  //
     0x77: 1,  //
@@ -447,8 +449,14 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd, result) {
-  logger("$device.displayName $cmd")
+def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd, result) {    
+  if (cmd.protectionState == 0) {
+    result << createEvent(name: "Protection", value: "disabled", descriptionText: "Protection Mode Disabled")
+  } else if (cmd.protectionState == 1) {
+    result << createEvent(name: "Protection", value: "sequence", descriptionText: "Protection Mode set to Sequence Control")
+  } else if (cmd.protectionState == 2) {
+    result << createEvent(name: "Protection", value: "remote", descriptionText: "Protection Mode set to Remote Only")
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
@@ -476,6 +484,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
+  state.MSR = "$msr"
   updateDataValue("manufacturer", "${state.manufacturer}")
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", displayed: true, isStateChange: true)
 
@@ -497,6 +506,13 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       ]))
     break;
     case "0063-4952-3031":
+    result << response(delayBetween([
+      zwave.versionV1.versionGet().format(),
+      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
+      zwave.powerlevelV1.powerlevelGet().format(),
+      zwave.protectionV1.protectionGet().format(),
+      ]))
+    break
     case "0063-4952-3133":
     case "0184-4447-3031":
     result << response(delayBetween([
@@ -506,6 +522,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1).format(),
       zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format(),
       zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format(),
+      zwave.powerlevelV1.powerlevelGet().format(),
       ]))
     break;
     case "011A-0101-0603":
@@ -526,6 +543,13 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 def zwaveEvent(physicalgraph.zwave.commands.dcpconfigv1.DcpListSupportedReport cmd, result) {
   logger("$device.displayName $cmd")
   logger("$device.displayName has not implemented: $cmd", "warn")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
+  logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
+  def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
+  result << createEvent(name: "Power", value: device_power_level)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
@@ -830,7 +854,7 @@ def installed() {
   */
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
-  sendCommands(prepDevice())
+  sendCommands(prepDevice(), 3000)
 }
 
 def updated() {
@@ -860,7 +884,7 @@ def updated() {
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
-  sendCommands(prepDevice())
+  sendCommands(prepDevice(), 3000)
   
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
