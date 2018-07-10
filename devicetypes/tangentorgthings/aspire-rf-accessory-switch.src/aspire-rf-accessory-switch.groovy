@@ -68,6 +68,7 @@ metadata {
   }
 
   preferences {
+    input name: "DelayedOFF", type: "number", title: "Associated Device", description: "... ", range: "1..127", required: false
     input name: "associatedDevice", type: "number", title: "Associated Device", description: "... ", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
@@ -265,6 +266,22 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  def reportValue = cmd.configurationValue[0]
+  switch (cmd.parameterNumber) {
+    case 1:
+    logger("DelayedOFF $reportValue")
+    if (settings.DelayedOFF && settings.DelayedOFF != reportValue) {
+      result << response( delayBetween([
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.DelayedOFF], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 2000) )
+    }
+    break
+    default:
+    logger("Unknown Configuration Parameter: ${cmd.parameterNumber}")
+    break
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
@@ -437,6 +454,7 @@ def poll() {
 def prepDevice() {
   [
     zwave.associationV1.associationSet(groupingIdentifier: 0xFF, nodeId: 0x01),
+    zwave.associationV1.associationGet(groupingIdentifier: 0xFF),
     zwave.associationV1.associationGroupingsGet(),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
@@ -445,8 +463,8 @@ def prepDevice() {
     zwave.indicatorV1.indicatorGet(),
     zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
     zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
     // zwave.associationV1.associationGet(groupingIdentifier: 255),
-    // zwave.zwaveCmdClassV1.requestNodeInfo(),
     // zwave.basicV1.basicGet(),
   ]
 }

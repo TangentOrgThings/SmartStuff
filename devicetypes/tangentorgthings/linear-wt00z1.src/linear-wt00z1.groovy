@@ -17,7 +17,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.87"
+  return "v2.89"
 }
 
 metadata {
@@ -35,25 +35,19 @@ metadata {
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
 
+    attribute "MSR", "string"
+    attribute "Manufacturer", "string"
+
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
-    attribute "Manufacturer", "string"
+
     attribute "manufacturerId", "string"
-    attribute "MSR", "string"
-    attribute "productType", "string"
     attribute "productId", "string"
+    attribute "productType", "string"
 
     attribute "invertedStatus", "enum", ["false", "true"]
 
     attribute "NIF", "string"
-
-    attribute "keyAttributes", "number"
-
-    attribute "Scene", "number"
-    attribute "Scene_1", "number"
-    attribute "Scene_1_Duration", "number"
-    attribute "Scene_2", "number"
-    attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
@@ -83,6 +77,10 @@ metadata {
   }
 
   preferences {
+    input name: "DimStartLevel", type: "number", title: "Dim Start Level", description: "The WT00Z-1 can send Dim commands to Z-Wave enabled dimmers.The Dim command has a start level embedded in it. A dimmer receivingthis command will start dimming from that start level. However, thecommand can be sent so that the dimmer ignores the start level andinstead starts dimming from its current level. By default, the WT00Z-1sends the command so that the dimmer will start dimming from itscurrent dim level rather than the start level embedded in the command.To change this, simply set the conﬁguration parameter to 0.", range: "0..1", displayDuringSetup: false, defaultValue: 1
+    input name: "SuspendGroup4", type: "number", title: "Suspend Group 4", description: "You may wish to disable transmitting commands to Z-Wave devices that are in Group 4 without 'un-associating' those devices from the group. Setting a value of 1 will stop the WT00Z-1 from transmitting to devices that are 'associated' into Group 4.", range: "0..1", displayDuringSetup: false, defaultValue: 0
+    input name: "NightLight", type: "number", title: "Night Light", description: "Relationship between LED and status of devices in Group 1", range: "0..1", displayDuringSetup: false, defaultValue: 0
+    input name: "EnableShadeControlGroup2", type: "number", title: "Enable Shade Control Group 2", description: "The switch can control shade control devices if this parameter is set to 1.", range: "0..1", displayDuringSetup: false, defaultValue: 1
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3 
   }
 
@@ -110,10 +108,6 @@ metadata {
       state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
     }
 
-    valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
-      state "default", label: '${currentValue}'
-    }
-
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
     }
@@ -123,7 +117,7 @@ metadata {
     }
 
     main "switch"
-    details(["switch", "scene", "indicator", "driverVersion", "refresh"])
+    details(["switch", "indicator", "driverVersion", "refresh"])
     // details(["switch", "level", "refresh"])
   }
 }
@@ -249,6 +243,42 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   def value = ""
   def reportValue = cmd.configurationValue[0]
   switch (cmd.parameterNumber) {
+    case 1:
+    logger("Dim Start Level: ${reportValue}")
+    if (settings.DimStartLevel != reportValue) {
+      result << response( delayBetween([
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.DimStartLevel], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 2000) )
+    }
+    break
+    case 2:
+    logger("Suspend Group 4: ${reportValue}")
+    if (settings.SuspendGroup4 != reportValue) {
+      result << response( delayBetween([
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.SuspendGroup4], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 2000) )
+    }
+    break
+    case 3:
+    logger("Night Light: ${reportValue}")
+    if (settings.NightLight != reportValue) {
+      result << response( delayBetween([
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.NightLight], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 2000) )
+    }
+    break
+    case 14:
+    logger("Enable Shade Control Group 2: ${reportValue}")
+    if (settings.EnableShadeControlGroup2 != reportValue) {
+      result << response( delayBetween([
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.EnableShadeControlGroup2], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 2000) )
+    }
+    break
     default:
     break
   }
@@ -532,6 +562,7 @@ def prepDevice() {
     zwave.associationV1.associationGroupingsGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.switchMultilevelV1.switchMultilevelGet(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 

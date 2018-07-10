@@ -19,7 +19,7 @@
 
 
 def getDriverVersion () {
-  return "v1.51"
+  return "v1.53"
 }
 
 metadata {
@@ -471,8 +471,8 @@ def prepDevice() {
     // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 2),
     // zwave.versionV1.versionGet(),
     // zwave.associationV1.associationGet(groupingIdentifier: 0x01),
-    // zwave.zwaveCmdClassV1.requestNodeInfo(),
     // zwave.basicV1.basicGet(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
