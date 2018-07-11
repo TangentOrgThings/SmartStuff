@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.83"
+  return "v6.85"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -260,7 +260,7 @@ def buttonEvent(String exec_cmd, Integer button, held, buttonType = "physical") 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
   logger("$device.displayName $cmd")
   buttonEvent("SceneActuatorConfGet()", cmd.sceneId, false, "digital")
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
+  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
@@ -282,6 +282,11 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
     if (cmd.level) {
       cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0, level: 0, override: true).format()
     }
+  } else if (cmd.sceneId == zwaveHubNodeId) {
+    if (cmd.level || (cmd.dimmingDuration != 0x88)) {
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfSet(sceneId: cmd.sceneId, dimmingDuration: 0x88, level: 0, override: true).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: cmd.sceneId).format()
+    }
   }
 
   String scene_name = "Scene_$cmd.sceneId"
@@ -289,7 +294,10 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
   result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
   result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << response(cmds)
+  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
+  if (cmds.size()) {
+    result << response(delayBetween(cmds, 1000))
+  }
 }
 
 /*
@@ -535,11 +543,14 @@ private trueOn(Boolean physical = true) {
     logger("$device.displayName bounce", "warn")
     return
   }
-  state.lastBounce = new Date().time
+  state.lastBounce = Calendar.getInstance().getTimeInMillis()
 
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
+  
+  String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+  sendEvent(name: "lastActive", value: "off");
   sendEvent(name: "switch", value: "off");
 
   delayBetween([
@@ -569,7 +580,7 @@ private trueOff(Boolean physical = true) {
     logger("$device.displayName bounce", "warn")
     return
   }
-  state.lastBounce = new Date().time
+  state.lastBounce = Calendar.getInstance().getTimeInMillis()
   
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent("off()", 2, false, "digital")

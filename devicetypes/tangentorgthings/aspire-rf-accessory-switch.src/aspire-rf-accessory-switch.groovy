@@ -271,9 +271,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
   switch (cmd.parameterNumber) {
     case 1:
     logger("DelayedOFF $reportValue")
-    if (settings.DelayedOFF && settings.DelayedOFF != reportValue) {
+    if (settings.DelayedOFF != null && settings.DelayedOFF != reportValue) {
       result << response( delayBetween([
-        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.DelayedOFF], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.DelayedOFF.toInteger(), parameterNumber: cmd.parameterNumber, size: 1).format(),
         // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 2000) )
     }
