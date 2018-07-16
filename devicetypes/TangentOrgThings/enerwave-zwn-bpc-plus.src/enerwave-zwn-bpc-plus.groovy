@@ -17,11 +17,7 @@
 
 
 def getDriverVersion() {
-  return "v3.24"
-}
-
-def getDefaultMotionTimeout() {
-  return isPlus() ? 1 : 5
+  return "v3.27"
 }
 
 def getDefaultWakeupInterval() {
@@ -41,7 +37,12 @@ def getAssociationGroup () {
 }
 
 def isPlus() {
-  return true
+  // state.newerModel is set to true if we recieved a Notification packet
+  if (settings.isNewerModel || state.newerModel) {
+    return true
+  }
+
+  return false
 }
 
 metadata {
@@ -139,6 +140,7 @@ metadata {
 
   preferences {
     input name: "wakeupInterval", type: "number", title: "Wakeup Interval", description: "Interval in seconds for the device to wakeup", range: "240..68400"
+    input name: "motionTimeout", type: "number", title: "Motion Timeout", description: "Interval in seconds for the device to timeout after motion (plus model is N * Wakeup Interval", range: "1..255"
     input name: "isNewerModel", type: "bool", title: "Temp fix for model", description: "Enter true or false"
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
@@ -195,20 +197,25 @@ def parse(String description) {
   } else if (! description) {
     result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
+
+    if (1) {
+      def check_cmds = checkConfigure()
+
+      if (check_cmds) {
+        result << response( delayBetween ( check_cmds ))
+      }
+    }
+
     def cmd = zwave.parse(description, deviceCommandClasses())
+    if (! cmd) {
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "error" )
+      cmd = zwave.parse(description)
+    }
 
     if (cmd) {
-      def cmds_result = []
-      def cmds = checkConfigure()
-
-      if (cmds) {
-        result << response( delayBetween ( cmds ))
-      }
       zwaveEvent(cmd, result)
-
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger( "zwave.parse() failed for: ${description}", "error" )
     }
   }
 
@@ -216,16 +223,8 @@ def parse(String description) {
 }
 
 def configure() {
-  setMotionTimeout()
-  state.isAssociated = false
-  state.isConfigured = false
-
   sendEvent(name: "Configured", value: "false", isStateChange: true)
   sendEvent(name: "isAssociated", value: "false", isStateChange: true)
-}
-
-def setMotionTimeout() {
-
 }
 
 def sensorValueEvent(happened, result) {
@@ -253,7 +252,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cm
   logger("$device.displayName $cmd")
   sensorValueEvent(cmd.sensorValue, result)
 }
-
 
 // NotificationReport() NotificationReport(event: 8, eventParameter: [], eventParametersLength: 0, notificationStatus: 255, notificationType: 7, reserved61: 0, sequence: false, v1AlarmLevel: 0, v1AlarmType: 0, zensorNetSourceNodeId: 0)
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
@@ -375,10 +373,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   if (cmd.groupingIdentifier == getAssociationGroup()) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      state.isAssociated = true
       result << createEvent(name: "isAssociated", value: "true")
     } else {
-      state.isAssociated = false
       result << createEvent(name: "isAssociated", value: "false")
       result << response(delayBetween([
         zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format(),
@@ -453,7 +449,6 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
   logger("$device.displayName $cmd", "warn")
-  state.reset = true
   result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 }
 
@@ -475,77 +470,66 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", state.manufacturer)
-
-  if (msr == "011A-0601-0901") {
-    state.isNewer
-  }
+  state.MSR = msr
 
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
 
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
+
+  result << response(delayBetween([
+    zwave.versionV1.versionGet().format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
   int parameterNumber
 
-  if (getParamater() == cmd.parameterNumber) {
-    state.motionTimeout = cmd.scaledConfigurationValue
-    result << createEvent(name: "MotionTimeout", value: state.motionTimeout, isStateChange: true, displayed: true)
-  }
-
-  switch ( cmd.parameterNumber) {
-    case 0:
-    parameterNumber = 0
-    break;
-    case 1:
-    parameterNumber = 1
-    break;
-    default:
-    result << createEvent(descriptionText: "$device.displayName recieved unknown parameter $cmd.parameterNumber", isStateChange: false)
+  if (! state.MSR) { // Don't change an unknown 
+    result << createEvent(name: "Configured", value: "false", isStateChange: true)
     return
   }
 
-/*
-  if (cmd.configurationValue[parameterNumber] != state.motionTimeout) {
-    state.isConfigured = false
-    int MotionTimout = state.motionTimeout as Integer
-    sendHubCommand([
-      zwave.configurationV1.configurationSet(parameterNumber: getParamater(), configurationValue: [(MotionTimout)]),
-      zwave.configurationV1.configurationGet(parameterNumber: getParamater()),
-      zwave.wakeUpV1.wakeUpIntervalGet(),
-    ])
+  if (getParamater() == cmd.parameterNumber) {
+    if ( cmd.scaledConfigurationValue != settings.motionTimeout) {
+      result << createEvent(name: "Configured", value: "false", isStateChange: true)
+      return
+    }
+
+    result << createEvent(name: "Configured", value: "true", isStateChange: true, displayed: true)
   } else {
-    state.isConfigured = true
-    [createEvent(name: "Configured", value: false, isStateChange: true)]
+    logger("Unknown parameter $cmd.parameterNumber", "error")
   }
-  */
-
-   state.isConfigured = true
-
-  result << createEvent(name: "Configured", value: "true", isStateChange: true, displayed: true)
 }
 
 def checkConfigure() {
   def cmds = []
 
+  if (! state.MSR ) {
+    cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
+    return cmds
+  }
+
   if (device.currentValue("Configured") && device.currentValue("Configured").toBoolean() == false) {
     if (!state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
       state.lastConfigure = new Date().time
 
+      int MotionTimout = settings.motionTimeout as Integer
+
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
+        cmds << zwave.configurationV1.configurationSet(parameterNumber: getParamater(), configurationValue: [(MotionTimout)]).format()
         cmds << zwave.configurationV1.configurationGet(parameterNumber: getParamater()).format()
         cmds << zwave.powerlevelV1.powerlevelGet().format()
         // cmds << zwave.configurationV2.configurationGet(parameterNumber: getParamater()).format()
       } else {
         cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
+        cmds << zwave.configurationV1.configurationSet(parameterNumber: getParamater(), configurationValue: [(MotionTimout)]).format()
         cmds << zwave.configurationV1.configurationGet(parameterNumber: getParamater()).format()
       }
-      cmds << zwave.versionV1.versionGet().format()
       cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
     }
   }
@@ -567,7 +551,6 @@ def checkConfigure() {
 
 def prepDevice() {
   [
-    zwave.versionV1.versionGet(),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
   ]
 }
@@ -586,13 +569,9 @@ def installed() {
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
   sendEvent(name: "AssociationGroup", value: getAssociationGroup(), isStateChange: true)
-  sendEvent(name: "DeviceReset", value: false, isStateChange: true)
 
   state.wakeupInterval = getDefaultWakeupInterval()
-  state.motionTimeout = getDefaultMotionTimeout()
 
-  state.isAssociated = false
-  state.isConfigured = false
   sendEvent(name: "isAssociated", value: "false", isStateChange: true)
   sendEvent(name: "Configured", value: "false", isStateChange: true)
 
@@ -617,8 +596,6 @@ def updated() {
     }
   }
 
-  state.isAssociated = false
-  state.isConfigured = false
   sendEvent(name: "isAssociated", value: "false", isStateChange: true)
   sendEvent(name: "Configured", value: "false", isStateChange: true)
 

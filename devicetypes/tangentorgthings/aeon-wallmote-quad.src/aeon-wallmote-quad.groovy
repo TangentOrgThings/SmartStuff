@@ -51,6 +51,18 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
+
+    attribute "Group 1", "string"
+    attribute "Group 2", "string"
+    attribute "Group 3", "string"
+    attribute "Group 4", "string"
+    attribute "Group 5", "string"
+    attribute "Group 6", "string"
+    attribute "Group 7", "string"
+    attribute "Group 8", "string"
+    attribute "Group 9", "string"
 
     attribute "buttonPressed", "number"
     attribute "keyAttributes", "number"
@@ -209,6 +221,8 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
 
   state.manufacturer = null
   updateDataValue("MSR", null)
@@ -250,8 +264,6 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
   log.debug("$device.displayName $cmd")
 
   def cmds = []
-
-  sendEvent(name: "numberOfButtons", value: maxButton(), displayed: true, isStateChange: true)
 
   for (def x = 1; x <= cmd.supportedScenes; x++) {
     cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
@@ -306,9 +318,13 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd")
-  buttonEvent(1, false, "physical")
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, Short	endPoint, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+  buttonEvent(endPoint, false, "physical")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, Short	endPoint, result) {
+  logger("$device.displayName:${endPoint} $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
@@ -391,7 +407,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   def name = new String(cmd.name as byte[])
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
 
-  result << response( zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
+  result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
+
+  result << response(delayBetween([
+    zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format()
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
@@ -415,7 +435,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
 
   def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
-    zwaveEvent(encapsulatedCommand, result)
+    zwaveEvent(encapsulatedCommand, cmd.destinationEndPoint, result)
     return
   }
 
@@ -560,43 +580,41 @@ private sendCommands(cmds, delay=200) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-  String msg_text = (msg != null) ? "$msg" : "<null>"
-
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error "$msg_text"
-      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
-      log.warn "$msg_text"
-      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
+      log.warn msg
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
-      log.info "$msg_text"
-    }
-    break
+    if (state.loggingLevelIDE >= 3) log.info msg
+      return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
-      log.debug "$msg_textmsg"
-    }
-    break
+    if (state.loggingLevelIDE >= 4) log.debug msg
+      return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
-      log.trace "$msg_text"
-    }
-    break
+    if (state.loggingLevelIDE >= 5) log.trace msg
+      return
 
+    case "error":
     default:
-    log.debug "$msg_text"
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

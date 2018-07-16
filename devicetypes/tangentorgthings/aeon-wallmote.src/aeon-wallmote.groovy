@@ -172,6 +172,15 @@ def parse(String description) {
   return result
 }
 
+private void createChildDevices() {
+  state.oldLabel = device.label
+  for (i in 1..2) {
+    addChildDevice("Zooz Power Strip Outlet", "${device.deviceNetworkId}-ep${i}", null,
+    [completedSetup: true, label: "${device.displayName} (CH${i})",
+    isComponent: true, componentName: "ch$i", componentLabel: "Channel $i"])
+  }
+}
+
 def prepDevice() {
   [
     zwave.zwaveCmdClassV1.requestNodeInfo(),
@@ -190,6 +199,8 @@ def installed() {
   state.loggingLevelIDE = 4
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  createChildDevices()
 
   sendCommands( prepDevice(), 2000 )
 }
@@ -210,6 +221,16 @@ def updated() {
   sendEvent(name: "numberOfButtons", value: maxButton(), displayed: true, isStateChange: true)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  if (! childDevices) {
+    createChildDevices()
+  } else if (device.label != state.oldLabel) {
+    childDevices.each {
+      def newLabel = "${device.displayName} (CH${channelNumber(it.deviceNetworkId)})"
+      it.setLabel(newLabel)
+    }
+    state.oldLabel = device.label
+  }
 
   sendCommands( prepDevice(), 2000 )
 
