@@ -54,10 +54,18 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Configured", "enum", ["false", "true"]
     attribute "supportedGroupings", "string"
     attribute "Lifeline", "string"
+
+    attribute "Group 1", "string"
+    attribute "Group 2", "string"
+    attribute "Group 3", "string"
+    attribute "Group 4", "string"
+
     attribute "Sensor Basic rep", "string"
     attribute "Sensor notifi rep", "string"
     attribute "Sensor Basic SET", "string"
@@ -195,7 +203,7 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger("$device.displayName parse() called with NULL description", "info")
   } else if (description != "updated") {
 
     if (1) {
@@ -365,7 +373,15 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupNameReport: $cmd", displayed: true)
+
+  def name = new String(cmd.name as byte[])
+  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+
+  result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
+
+  result << response(delayBetween([
+    zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
@@ -587,6 +603,8 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -658,38 +676,40 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
     if (state.loggingLevelIDE >= 3) log.info msg
-      break
+      return
 
     case "debug":
     if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+      return
 
     case "trace":
     if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+      return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

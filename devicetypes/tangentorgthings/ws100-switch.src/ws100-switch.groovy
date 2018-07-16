@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.85"
+  return "v6.87"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -54,10 +54,18 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "invertedState", "enum", ["false", "true"]
 
     attribute "Lifeline", "string"
+
+    attribute "Group 1", "string"
+    attribute "Group 2", "string"
+    attribute "Group 3", "string"
+    attribute "Group 4", "string"
+
     attribute "configured", "enum", ["false", "true"]
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -806,7 +814,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   def name = new String(cmd.name as byte[])
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
 
-  result << response( zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
+  result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
+
+  result << response(delayBetween([
+    zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
@@ -936,6 +948,9 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+
   sendEvent(name: "numberOfButtons", value: 8, displayed: true, isStateChange: true)
 
   if (0) {
@@ -1026,43 +1041,41 @@ private sendCommands(cmds, delay=200) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-  String msg_text = (msg != null) ? "$msg" : "<null>"
-
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error "$msg_text"
-      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
-      log.warn "$msg_text"
-      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
+      log.warn msg
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
-      log.info "$msg_text"
-    }
-    break
+    if (state.loggingLevelIDE >= 3) log.info msg
+      return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
-      log.debug "$msg_textmsg"
-    }
-    break
+    if (state.loggingLevelIDE >= 4) log.debug msg
+      return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
-      log.trace "$msg_text"
-    }
-    break
+    if (state.loggingLevelIDE >= 5) log.trace msg
+      return
 
+    case "error":
     default:
-    log.debug "$msg_text"
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

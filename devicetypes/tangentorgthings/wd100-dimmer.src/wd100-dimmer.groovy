@@ -58,10 +58,18 @@ metadata {
 
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
-    attribute "lastError", "string"        // Last Error  messages.
+    attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "AssociationGroupings", "number"
     attribute "Lifeline", "string"
+
+    attribute "Group 1", "string"
+    attribute "Group 2", "string"
+    attribute "Group 3", "string"
+    attribute "Group 4", "string"
+
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
     attribute "FirmwareMdReport", "string"
@@ -361,11 +369,19 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
     cmds << zwave.basicV1.basicGet().format()
     level = 254 // Let the update change the display
-  } else if (level > 1 && level <= 30) {  // Make sure we don't burn anything out
-    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 31).format()
+  } else if (level > 1 && level <= 32) {  // Make sure we don't burn anything out
+    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 33).format()
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
     cmds << zwave.basicV1.basicGet().format()
     level = 254 // Let the update change the display
+  } else if (level > 33 && level < 69) {  // Make sure we don't burn anything out
+    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 69).format()
+    cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
+    cmds << zwave.basicV1.basicGet().format()
+  } else if (level > 69 && level < 99) {  // Make sure we don't burn anything out
+    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 99).format()
+    cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
+    cmds << zwave.basicV1.basicGet().format()
   } else if (level == 255) {
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
     cmds << zwave.basicV1.basicGet().format()
@@ -377,7 +393,7 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
   }
 
   // state.lastLevel = cmd.value
-  if (cmd_value && level <= 100) {
+  if (cmd_value && level < 100) {
     result << createEvent(name: "switch", value: "on", type: isPhysical ? "physical" : "digital", displayed: true )
     result << createEvent(name: "level", value: level, unit: "%", displayed: true)
   } else if (level == 0) {
@@ -585,7 +601,8 @@ private trueOn(Boolean physical = true) {
   }
 
   delayBetween([
-      zwave.basicV1.basicSet(value: 0xFF).format(),
+      // zwave.basicV1.basicSet(value: 0xFF).format(),
+      zwave.switchMultilevelV1.switchMultilevelSet(value: 0xFF).format(),
       zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 5000)
 }
@@ -619,7 +636,8 @@ private trueOff(Boolean physical = true) {
   sendEvent(name: "switch", value: "off");
 
   delayBetween([
-    zwave.basicV1.basicSet(value: 0x00).format(),
+    // zwave.basicV1.basicSet(value: 0x00).format(),
+    zwave.switchMultilevelV1.switchMultilevelSet(value: 0x00).format(),
     zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 5000)
 }
@@ -803,7 +821,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   def name = new String(cmd.name as byte[])
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
 
-  result << response( zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
+  result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
+
+  result << response(delayBetween([
+    zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
@@ -924,12 +946,13 @@ def updated() {
   if ( state.updatedDate && ((Calendar.getInstance().getTimeInMillis() - state.updatedDate)) < 5000 ) {
     return
   }
-
   state.loggingLevelIDE = debugLevel ? debugLevel : 5
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
 
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
@@ -1002,43 +1025,41 @@ private sendCommands(cmds, delay=1000) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-  String msg_text = (msg != null) ? "$msg" : "<null>"
-
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error "$msg_text"
-      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
-      log.warn "$msg_text"
-      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
+      log.warn msg
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
-      log.info "$msg_text"
-    }
-    break
+    if (state.loggingLevelIDE >= 3) log.info msg
+      return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
-      log.debug "$msg_textmsg"
-    }
-    break
+    if (state.loggingLevelIDE >= 4) log.debug msg
+      return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
-      log.trace "$msg_text"
-    }
-    break
+    if (state.loggingLevelIDE >= 5) log.trace msg
+      return
 
+    case "error":
     default:
-    log.debug "$msg_text"
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
