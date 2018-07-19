@@ -18,7 +18,11 @@
 
 
 def getDriverVersion() {
-  return "v1.58"
+  return "v1.59"
+}
+
+def getConfigurationOptions(Integer model) {
+  return [ 1, 2, 3, 4, 5, 6, 7  ]
 }
 
 metadata {
@@ -36,6 +40,8 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "needUpdate", "enum", ["Synced", "Pending"]
 
@@ -194,7 +200,7 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    result = createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger("$device.displayName parse() called with NULL description", "info")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -298,31 +304,31 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     switch (cmd.event) {
       case 0:
       result << motionEvent(false)
-              if (cmd.eventParameter == [8]) {
-              //
-              } else if (cmd.eventParameter == [3]) {
-                 state.lastBatteryValue = 0
-                 state.configRequired = true
-                 result << createEvent(name:"needUpdate", value: "Pending")
-                 result << createEvent(name:"tamper", value: "clear")
-              }
+      if (cmd.eventParameter == [8]) {
+        //
+      } else if (cmd.eventParameter == [3]) {
+        state.lastBatteryValue = 0
+        state.configRequired = true
+        result << createEvent(name:"needUpdate", value: "Pending")
+        result << createEvent(name:"tamper", value: "clear")
+      }
       break
       case 3:
-        result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered")
-        // Clear the tamper alert after 10s. This is a temporary fix for the tamper attribute until local execution handles it
+      result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered")
+      // Clear the tamper alert after 10s. This is a temporary fix for the tamper attribute until local execution handles it
       break
       case 1:
       case 2:
       case 7:
-        result << motionEvent(true)
+      result << motionEvent(true)
       break
     }
   } else {
-      log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
-    result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
+    log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
+      result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
   }
 
-    return result
+  return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
@@ -366,6 +372,7 @@ def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport 
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
   logger("$device.displayName $cmd")
+  def result = []
 
   if ( ! state.manufacturer ) {
     state.manufacturer= cmd.manufacturerName ? cmd.manufacturerName : "Zooz"
@@ -374,22 +381,34 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.productTypeId = cmd.productTypeId
   state.productId= cmd.productId
 
-  def manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  def productTypeCode = String.format("%04X", cmd.productTypeId)
-  def productCode = String.format("%04X", cmd.productId)
-  def wirelessConfig = "ZWP"
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
+  String wirelessConfig = "ZWP"
 
   sendEvent(name: "ManufacturerCode", value: manufacturerCode)
   sendEvent(name: "ProduceTypeCode", value: productTypeCode)
   sendEvent(name: "ProductCode", value: productCode)
   sendEvent(name: "WirelessConfig", value: wirelessConfig)
+  sendEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", "${state.manufacturer}")
 
-  sendEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  [ createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false) ]
+  Integer[] parameters = getConfigurationOptions(cmd.productId)
+
+  parameters.each {
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
+  }
+
+  state.MSR = msr
+
+  result << response(delayBetween(cmds, 1000))
+  result << response( zwave.versionV1.versionGet() )
+  result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: true)
+
+  return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
@@ -496,13 +515,6 @@ def refresh() {
   if (state.lastRefresh != null && now() - state.lastRefresh < 5000) {
     logger("Refresh Double Press", "debug")
 
-    def configuration = parseXml(configuration_model())
-    configuration.Value.each
-    {
-      if ( "${it.@setting_type}" == "zwave" ) {
-        cmds << zwave.configurationV1.configurationGet(parameterNumber: "${it.@index}".toInteger()).format()
-      }
-    }
     cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
   }
 
@@ -633,7 +645,8 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
 
   state.lastBatteryReport = 0
   state.configRequired = true
@@ -699,46 +712,6 @@ def installed() {
   state.illuminance = 0
 
   sendEvent(name:"needUpdate", value: "Pending")
-}
-
-def readSensors() {
-    [
-        zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:3).format(), // light
-        zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:5).format(), // humidity
-        zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:1).format(), // temp
-    ]
-}
-
-def getWakeIntervalPref() {
-    (wakeInterval < 10 || wakeInterval > 10080) ? 3600 : (wakeInterval * 60).toInteger()
-}
-
-def getLedModePref() {
-    (ledMode < 1 || ledMode > 3) ? 3 : ledMode.toInteger()
-}
-
-def getIllumAlertPref() {
-    if(illumSensorAlerts == "Disabled") {
-        return 0
-    } else { // alerts enabled
-        return (illumAlert >= 5 && illumAlert <= 50) ? illumAlert.toInteger() : 50
-    }
-}
-
-def getHumidityAlertPref() {
-    (humidityAlert < 1 || humidityAlert > 50) ? 50 : humidityAlert.toInteger()
-}
-
-def getTempAlertPref() {
-    (tempAlert < 1 || tempAlert > 50 ) ? 10 : tempAlert.toInteger()
-}
-
-def getPirTimeoutPref() {
-    (pirTimeout < 1 || pirTimeout > 255 ) ? 3 : pirTimeout.toInteger()
-}
-
-def getPirSensitivityPref() {
-    (pirSensitivity < 1 || pirSensitivity > 7) ? 3 : pirSensitivity.toInteger()
 }
 
 def configCmds() {
@@ -813,38 +786,40 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
     if (state.loggingLevelIDE >= 3) log.info msg
-      break
+      return
 
     case "debug":
     if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+      return
 
     case "trace":
     if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+      return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

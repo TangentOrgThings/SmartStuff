@@ -21,7 +21,7 @@
  */
 
 def getDriverVersion () {
-  return "v0.41"
+  return "v0.45"
 }
 
 def maxButton () {
@@ -272,7 +272,52 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
   sendCommands(cmds)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, Short	endPoint, result) {
+  log.debug("$device.displayName $cmd")
+
+  def cmds = []
+
+  for (def x = 1; x <= cmd.supportedScenes; x++) {
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
+  }
+
+  sendCommands(cmds)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotification cmd, result) {
+  logger("$device.displayName $cmd")
+  logger("keyAttributes: $cmd.keyAttributes")
+
+  state.lastActive = new Date().time
+
+  switch (cmd.sceneNumber) {
+    case 1:
+    // Up
+    switch (cmd.keyAttributes) {
+      case 0:
+      case 1: // Capture 0 and 1 as same;
+      buttonEvent(1, false, "physical")
+      break;
+      case 2: // 2 is held
+      buttonEvent(1, true, "physical")
+      break;
+      default:
+      buttonEvent(cmd.keyAttributes -1, false, "physical")
+      break;
+    }
+    break;
+
+    default:
+    // unexpected case
+    log.error ("unexpected scene: $cmd.sceneNumber")
+    break;
+  }
+
+
+  return result
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotification cmd, Short	endPoint, result) {
   logger("$device.displayName $cmd")
   logger("keyAttributes: $cmd.keyAttributes")
 
@@ -318,12 +363,45 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, ShortendPoint, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+  buttonEvent(endPoint, false, "physical")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, Short	endPoint, result) {
   logger("$device.displayName:${endPoint} $cmd")
   buttonEvent(endPoint, false, "physical")
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd, result) {
+  logger("$device.displayName $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, Short	endPoint, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, Short	endPoint, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
+  logger("$device.displayName:${endPoint} $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStopLevelChange cmd, Short	endPoint, result) {
   logger("$device.displayName:${endPoint} $cmd")
 }
 
@@ -450,6 +528,18 @@ private List loadEndpointInfo() {
   } else {
     []
   }
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, result) {
+  logger("$device.displayName $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointFindReport cmd, result) {
+  logger("$device.displayName $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiInstanceReport cmd, result) {
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointReport cmd, result) {
