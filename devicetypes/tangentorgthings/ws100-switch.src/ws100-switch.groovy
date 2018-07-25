@@ -1060,16 +1060,22 @@ private logger(msg, level = "trace") {
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      return
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      return
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      return
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
     case "error":
     default:

@@ -14,12 +14,12 @@ def getDriverVersion () {
 
 metadata {
 	definition (name: "Logitech Harmony Hub C2C Custom", namespace: "TangentOrgThings", author: "SmartThings") {
-		capability "Media Controller"
-		capability "Refresh"
 		capability "Actuator"
+		capability "Media Controller"
+		capability "Polling"
+		capability "Refresh"
 		capability "Sensor"
 		capability "Switch"
-		capability "Health Check"
 
 		command "activityoff"
 		command "alloff"

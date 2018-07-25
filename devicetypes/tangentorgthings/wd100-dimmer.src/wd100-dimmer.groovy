@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v7.07"
+  return "v7.08"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -190,7 +190,7 @@ def getCommandClassVersions() { // 26, 27, 2B, 2C, 59, 5A, 5B, 5E, 70, 72, 73, 7
   0x86: 1,  // Version
   0x85: 2,  // Association  0x85  V1 V2
   0x01: 1,  // Z-wave command class
-  0x25: 1,  // Binary
+  0x25: 1,  // Switch Binary <-- This does seem to happen
   0x56: 1,  // Crc16 Encap	0x56	V1
 ]
 }
@@ -289,7 +289,16 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  result << createEvent(name: "switch", value: cmd.level ? "on" : "off", type: "digital", isStateChange: true, displayed: true)
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "digital", isStateChange: true, displayed: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "digital", isStateChange: true, displayed: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
+  result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
 }
 
 def buttonEvent(Integer button, Boolean held, String buttonType = "physical") {
@@ -398,6 +407,8 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
     result << createEvent(name: "level", value: level, unit: "%", displayed: true)
   } else if (level == 0) {
     result << createEvent(name: "switch", value: "off", type: isPhysical ? "physical" : "digital", displayed: true )
+  } else if (cmd_value && level == 255) {
+    result << createEvent(name: "switch", value: "on", type: isPhysical ? "physical" : "digital", displayed: true )
   }
 
   if (cmds) {
@@ -1044,16 +1055,22 @@ private logger(msg, level = "trace") {
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      return
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      return
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      return
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
     case "error":
     default:
