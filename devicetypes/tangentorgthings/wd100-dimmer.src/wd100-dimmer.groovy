@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v7.08"
+  return "v7.11"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -47,7 +47,6 @@ def getConfigurationOptions(Integer model) {
 metadata {
   definition (name: "WD-100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
-//    capability "Health Check"
     capability "Button"
     capability "Light"
     capability "Polling"
@@ -281,20 +280,23 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelS
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
-
   dimmerEvents(cmd.value, true, result)
 }
 
 // physical device events ON/OFF
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
-
-  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "digital", isStateChange: true, displayed: true)
+  dimmerEvents(cmd.value, false, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "digital", isStateChange: true, displayed: true)
+  dimmerEvents(cmd.value, true, result)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  dimmerEvents(cmd.switchValue, true, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
@@ -368,7 +370,11 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
 
   if (level > 99 && level < 255) {
     logger("$device.displayName returned Unknown for status.", "warn")
-    result << response(zwave.basicV1.basicGet())
+    result << response(delayBetween([
+      zwave.switchMultilevelV1.switchMultilevelGet().format(),
+      zwave.basicV1.basicGet().format(),
+    ]))
+    return
   }
 
   def cmds = []
@@ -381,24 +387,17 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
   } else if (level > 1 && level <= 32) {  // Make sure we don't burn anything out
     cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 33).format()
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    cmds << zwave.basicV1.basicGet().format()
     level = 254 // Let the update change the display
   } else if (level > 33 && level < 69) {  // Make sure we don't burn anything out
     cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 69).format()
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    cmds << zwave.basicV1.basicGet().format()
   } else if (level > 69 && level < 99) {  // Make sure we don't burn anything out
     cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 99).format()
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    cmds << zwave.basicV1.basicGet().format()
   } else if (level == 255) {
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    cmds << zwave.basicV1.basicGet().format()
   } else if (level > 99 && level < 255) { // Repeat
-    logger("$device.displayName returned out of bounds level.", "warn")
-    cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    cmds << zwave.basicV1.basicGet().format()
-    level = 254
+    return
   }
 
   // state.lastLevel = cmd.value
@@ -414,8 +413,6 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
   if (cmds) {
     result << response(delayBetween(cmds, 1000))
   }
-
-  return result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
@@ -553,12 +550,11 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
   logger("$device.displayName $cmd")
-  result << response(zwave.switchMultilevelV1.switchMultilevelGet())
+  dimmerEvents(cmd.startLevel, true, result);
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStopLevelChange cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(name:"switch", value:"on", isStateChange: true, displayed: true)
   result << response(zwave.switchMultilevelV1.switchMultilevelGet())
 }
 

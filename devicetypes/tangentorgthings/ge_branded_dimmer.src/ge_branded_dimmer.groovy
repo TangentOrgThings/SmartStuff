@@ -15,7 +15,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.89"
+  return "v2.91"
 }
 
 metadata {
@@ -247,6 +247,16 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelS
   logger("$device.displayName $cmd")
 
   dimmerEvents(cmd.value, false, result)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
+  logger("$device.displayName $cmd")
+  dimmerEvents(cmd.startLevel, true, result);
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStopLevelChange cmd, result) {
+  logger("$device.displayName $cmd")
+  result << response(zwave.switchMultilevelV1.switchMultilevelGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.nodenamingv1.NodeNamingNodeNameReport cmd, result) {

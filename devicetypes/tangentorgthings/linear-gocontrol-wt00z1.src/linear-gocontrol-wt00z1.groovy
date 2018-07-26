@@ -2,7 +2,7 @@
 /**
  *  Copyright 2017-2018 Brian Aker <brian@tangent.org>
  *  
- *  Linear WT00Z-1
+ *  Linear GoControl WT00Z-1
  *  https://products.z-wavealliance.org/products/1028
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -17,11 +17,11 @@
  */
 
 def getDriverVersion() {
-  return "v2.89"
+  return "v2.91"
 }
 
 metadata {
-  definition (name: "Linear WT00Z-1", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
+  definition (name: "Linear GoControl WT00Z-1", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
     capability "Button"
     capability "Indicator"
@@ -32,8 +32,11 @@ metadata {
     capability "Switch Level"
     capability "Switch"
 
+    attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "MSR", "string"
     attribute "Manufacturer", "string"
@@ -55,7 +58,7 @@ metadata {
     command "connect"
     command "disconnect"
 
-    fingerprint mfr: "014f", prod: "5457", model: "3033", deviceJoinName: "Linear WT00Z-1"
+    fingerprint mfr: "014f", prod: "5457", model: "3033", deviceJoinName: "Linear GoControl WT00Z-1"
   }
 
   simulator {
@@ -141,7 +144,6 @@ def parse(String description) {
 
   if (description && description.startsWith("Err")) {
     log.error "parse error: ${description}"
-    result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
 
     if (description.startsWith("Err 106")) {
       result << createEvent(
@@ -154,7 +156,6 @@ def parse(String description) {
     }
   } else if (! description) {
     logger("$device.displayName parse() called with NULL description", "info")
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -226,6 +227,16 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelS
   dimmerEvents(cmd.value, false, result)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
+  logger("$device.displayName $cmd")
+  dimmerEvents(cmd.startLevel, true, result);
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStopLevelChange cmd, result) {
+  logger("$device.displayName $cmd")
+  result << response(zwave.switchMultilevelV1.switchMultilevelGet())
+}
+
 private dimmerEvents(Integer dimmer_level, boolean isPhysical, result) {
   def switch_value = (dimmer_level ? "on" : "off")
   result << createEvent(name: "switch", value: switch_value, type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
@@ -247,7 +258,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     logger("Dim Start Level: ${reportValue}")
     if (settings.DimStartLevel != reportValue) {
       result << response( delayBetween([
-        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.DimStartLevel], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.DimStartLevel, parameterNumber: cmd.parameterNumber, size: 1).format(),
         // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 2000) )
     }
@@ -256,7 +267,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     logger("Suspend Group 4: ${reportValue}")
     if (settings.SuspendGroup4 != reportValue) {
       result << response( delayBetween([
-        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.SuspendGroup4], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.SuspendGroup4, parameterNumber: cmd.parameterNumber, size: 1).format(),
         // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 2000) )
     }
@@ -265,7 +276,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     logger("Night Light: ${reportValue}")
     if (settings.NightLight != reportValue) {
       result << response( delayBetween([
-        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.NightLight], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.NightLight, parameterNumber: cmd.parameterNumber, size: 1).format(),
         // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 2000) )
     }
@@ -274,7 +285,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     logger("Enable Shade Control Group 2: ${reportValue}")
     if (settings.EnableShadeControlGroup2 != reportValue) {
       result << response( delayBetween([
-        zwave.configurationV1.configurationSet(scaledConfigurationValue: [settings.EnableShadeControlGroup2], parameterNumber: cmd.parameterNumber, size: 1).format(),
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.EnableShadeControlGroup2, parameterNumber: cmd.parameterNumber, size: 1).format(),
         // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 2000) )
     }
@@ -327,7 +338,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.manufacturerId = cmd.manufacturerId
   state.productTypeId = cmd.productTypeId
   state.productId= cmd.productId
-  state.manufacturer= cmd.manufacturerName ? cmd.manufacturerName : "Linear"
+  state.manufacturer= cmd.manufacturerName ? cmd.manufacturerName : "Linear GoControl"
 
   String manufacturerId = String.format("%04X", cmd.manufacturerId)
   String productType = String.format("%04X", cmd.productTypeId)
@@ -336,6 +347,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturerName", state.manufacturer)
+  state.MSR = "$msr"
 
   Integer[] parameters = [ 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21 ]
 
@@ -595,6 +607,8 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
 
   /*
   def zwInfo = getZwaveInfo()
@@ -669,11 +683,14 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
@@ -681,22 +698,31 @@ private logger(msg, level = "trace") {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

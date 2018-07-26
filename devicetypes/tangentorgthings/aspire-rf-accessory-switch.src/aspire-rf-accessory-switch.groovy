@@ -1,7 +1,8 @@
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 /**
- *  ASPIRE RF Accessory Switch (RF9517)
+ *  Eaton Cooper ASPIRE RF Accessory Switch (RF9517)
  *  https://products.z-wavealliance.org/products/742
+ *  https://products.z-wavealliance.org/products/479 ( Older Version )
  *
  *  Copyright 2017-2018 Brian Aker
  *
@@ -59,7 +60,7 @@ metadata {
 
     attribute "NIF", "string"
 
-    fingerprint mfr: "001A", prod: "5352", model: "0000", deviceJoinName: "ASPIRE RF Accessory Switch"
+    fingerprint mfr: "001A", prod: "5352", model: "0000", deviceJoinName: "Eaton Cooper Aspire RF Accessory Switch (RF9517)"
   }
 
 
