@@ -17,7 +17,7 @@
 
 
 def getDriverVersion() {
-  return "v3.27"
+  return "v3.29"
 }
 
 def getDefaultWakeupInterval() {
@@ -179,7 +179,7 @@ private deviceCommandClasses() {
       0x72: 1,  // Manufacturer Specific
       0x80: 1,  // Battery
       0x84: 1,  // Wake Up
-      0x85: 1,  // Association  0x85  V1 V2
+      0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class
     ]
@@ -216,7 +216,7 @@ def parse(String description) {
 
     def cmd = zwave.parse(description, deviceCommandClasses())
     if (! cmd) {
-      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "error" )
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
       cmd = zwave.parse(description)
     }
 
@@ -694,16 +694,22 @@ private logger(msg, level = "trace") {
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      return
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      return
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      return
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
     case "error":
     default:
