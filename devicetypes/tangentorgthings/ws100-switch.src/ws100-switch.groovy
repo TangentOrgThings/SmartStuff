@@ -252,7 +252,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   switchEvents(cmd.switchValue, false, result)
 }
 
-def buttonEvent(String exec_cmd, Integer button, held, buttonType = "physical") {
+def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
   logger("buttonEvent: $button  held: $held  type: $buttonType")
 
   String heldType = held ? "held" : "pushed"
@@ -558,8 +558,8 @@ private trueOn(Boolean physical = true) {
   }
   
   String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-  sendEvent(name: "lastActive", value: "off");
-  sendEvent(name: "switch", value: "off");
+  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
+  sendEvent(name: "switch", value: "on", isStateChange: true);
 
   delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
@@ -594,7 +594,7 @@ private trueOff(Boolean physical = true) {
     buttonEvent("off()", 2, false, "digital")
   }
 
-  sendEvent(name: "switch", value: "off");
+  sendEvent(name: "switch", value: "off", isStateChange: true);
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()

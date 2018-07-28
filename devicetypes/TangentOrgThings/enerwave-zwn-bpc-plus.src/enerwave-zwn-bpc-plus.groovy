@@ -176,9 +176,9 @@ private deviceCommandClasses() {
       0x20: 1,  // Basic
       0x30: 1,  // Sensor Binary
       0x70: 1,  // Configuratin
-      0x72: 1,  // Manufacturer Specific
+      0x72: 2,  // Manufacturer Specific V1
       0x80: 1,  // Battery
-      0x84: 1,  // Wake Up
+      0x84: 2,  // Wake Up V1
       0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class

@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.57"
+  return "v4.59"
 }
 
 def getIndicatorParam() {
@@ -42,6 +42,8 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -129,6 +131,7 @@ metadata {
   preferences {
     input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options:["on": "When On", "off": "When Off", "never": "Never"]
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
@@ -176,7 +179,7 @@ metadata {
 }
 
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
-def deviceCommandClasses() {
+def getCommandClassVersions() {
   String msr = device.currentValue("MSR")
   
   switch (msr) {
@@ -266,13 +269,15 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    logger("parse() called with NULL description", "warn")
+    logger("$device.displayName parse() called with NULL description", "info")
   } else if (description != "updated") {
-    def cmd = zwave.parse(description, deviceCommandClasses())
+    def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (cmd) {
       zwaveEvent(cmd, result)
     } else {
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
+      // Try it without check for classes
       cmd = zwave.parse(description)
       
       if (cmd) {
@@ -291,6 +296,13 @@ def zwaveEvent(physicalgraph.zwave.commands.switchtogglebinaryv1.SwitchToggleBin
   logger("$device.displayName $cmd")
 
   result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicGet cmd) {
+  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
+  result << response(delayBetween([
+    zwave.basicV1.basicReport(value: currentValue).format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
@@ -343,23 +355,25 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   }
 }
 
-def buttonEvent(Integer button, Boolean held, String buttonType = "physical") {
+def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
   logger("buttonEvent: $button  held: $held  type: $buttonType")
 
   String heldType = held ? "held" : "pushed"
+
   if (button > 0) {
-    sendEvent(name: "button", value: "$heldType", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+    sendEvent(name: "button", value: "$heldType", data: [buttonNumber: button], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true, type: "$buttonType")
   } else {
-    sendEvent(name: "button", value: "default", isStateChange: true, type: "$buttonType")
+    sendEvent(name: "button", value: "default", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true, type: "$buttonType")
   }
 }
 
 // A scene command was received -- it's probably scene 0, so treat it like a button release
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
   logger("$device.displayName $cmd")
-  buttonEvent(cmd.sceneId, false, "digital")
 
-  response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
+  buttonEvent("SceneActuatorConfGet()", cmd.sceneId, false, "digital")
+
+  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
@@ -396,10 +410,11 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   return result
 }
 
+/*
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
   buttonEvent(cmd.sceneId, false, "digital")
-}
+} */
 
 def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
   logger("$device.displayName: $cmd");
@@ -761,12 +776,20 @@ private trueOn(Boolean physical = true) {
     logger("$device.displayName bounce", "warn")
     return
   }
-  state.lastBounce = new Date().time
+  state.lastBounce = Calendar.getInstance().getTimeInMillis()
+
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("on()", 1, false, "digital")
+  }
   
-  response(delayBetween([
+  String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
+  sendEvent(name: "switch", value: "on", isStateChange: true);
+
+  delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format()
-  ]))
+    zwave.switchBinaryV1.switchBinaryGet().format(),
+  ], 3000)
 }
 
 def off() {
@@ -790,12 +813,30 @@ private trueOff(Boolean physical = true) {
     logger("$device.displayName bounce", "warn")
     return
   }
-  state.lastBounce = new Date().time
+  state.lastBounce = Calendar.getInstance().getTimeInMillis()
   
-  response(delayBetween([
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format()
-  ]))
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("off()", 2, false, "digital")
+  }
+
+  String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
+  sendEvent(name: "switch", value: "off", isStateChange: true);
+  def cmds = []
+  if (settings.delayOff) {
+    // cmds << zwave.versionV1.versionGet()
+    // cmds << zwave.zwaveCmdClassV1.zwaveCmdNop()
+    cmds << "delay 3000";
+  }
+
+  // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
+  // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
+  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
+  cmds << "delay 5000"
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+
+  delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
+  // sendCommands(cmds)
 }
 
 def poll() {
@@ -866,6 +907,8 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
 
   if (0) {
     if (device.rawDescription) {
@@ -957,34 +1000,46 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: true)
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

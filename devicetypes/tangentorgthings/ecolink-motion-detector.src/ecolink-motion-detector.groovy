@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.71"
+  return "v4.73"
 }
 
 def isPlus() {
@@ -173,7 +173,7 @@ private deviceCommandClasses() {
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class
       0x25: 1,  //
-      0x31: 1,  //
+      0x31: 5,  // Sensor MultLevel V1
     ]
   } else {
     return [
@@ -669,7 +669,7 @@ def checkConfigure() {
       cmds << zwave.associationV2.associationGroupingsGet().format()
     }
   }
-  cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId).format()
+  cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format()
   cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 25).format()
   cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
   cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
