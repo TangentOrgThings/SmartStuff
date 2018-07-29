@@ -15,7 +15,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.95"
+  return "v2.97"
 }
 
 def getAssociationGroup() {
@@ -31,7 +31,6 @@ metadata {
     capability "Actuator"
     capability "Acceleration Sensor"
     capability "Energy Meter"
-    capability "Health Check"
     capability "Polling"
     capability "Power Meter"
     capability "Refresh"
@@ -42,6 +41,8 @@ metadata {
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Associated", "string"
     attribute "LifeLine", "string"
@@ -119,12 +120,12 @@ metadata {
 	}
 }
 
-def deviceCommandClasses() { // 25, 31, 32, 27, 70, 85, 72, 86
+def getCommandClassVersions() { // 25, 31, 32, 27, 70, 85, 72, 86
   [
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
-    0x31: 3,  // SensorMultilevel V3
+    0x31: 5,  // SensorMultilevel V3
     0x32: 2,  // Meter V2
     0x70: 2,  // Configuration V2
     0x72: 2,  // Manufacturer Specific V2
@@ -151,15 +152,25 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger("$device.displayName parse() called with NULL description", "info")
+  } else if ( 0 && description.endsWith("command: 3105, payload: 04")) {
+    logger("Unknown command ${description}", "info")
   } else if (description != "updated") {
-    def cmd = zwave.parse(description, deviceCommandClasses())
+    def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (cmd) {
       zwaveEvent(cmd, result)
+
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
+      // Try it without check for classes
+      cmd = zwave.parse(description)
+
+      if (cmd) {
+        zwaveEvent(cmd, result)
+      } else {
+        logger( "zwave.parse() failed for: ${description}", "error" )
+      }
     }
   }
 
@@ -252,7 +263,7 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv3.SensorMultilevelReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   logger("$device.displayName: $cmd");
 
   switch (cmd.sensorType) {
@@ -296,8 +307,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
-  logger("$device.displayName command not implemented: $cmd", "error")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
+  logger("$device.displayName command not implemented: $cmd", "unknownCommand")
 }
 
 def on() {
@@ -462,9 +472,6 @@ def installed() {
   log.info("$device.displayName installed()")
   state.loggingLevelIDE = 4
 
-  // Device-Watch simply pings if no device events received for 86220 (one day minus 3 minutes)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
-
   if (0) {
   def zwInfo = getZwaveInfo()
   log.debug("$device.displayName $zwInfo")
@@ -481,11 +488,13 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -553,34 +562,47 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-	case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
-    break;
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
+    break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
+    return
+
+    case "info":
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
+
+    case "debug":
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
+
+    case "trace":
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
+
+    case "error":
+    default:
     break
+  }
 
-		case "info":
-		if (state.loggingLevelIDE >= 3) log.info msg
-			break
-
-		case "debug":
-		if (state.loggingLevelIDE >= 4) log.debug msg
-			break
-
-		case "trace":
-		if (state.loggingLevelIDE >= 5) log.trace msg
-			break
-
-		default:
-		log.debug msg
-		break
-	}
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
+

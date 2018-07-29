@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.87"
+  return "v6.89"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -208,7 +208,7 @@ def parse(String description) {
       zwaveEvent(cmd, result)
 
     } else {
-      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "error" )
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
       // Try it without check for classes
       cmd = zwave.parse(description)
 
@@ -250,6 +250,10 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
   switchEvents(cmd.switchValue, false, result)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
+  result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
 }
 
 def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
@@ -594,6 +598,8 @@ private trueOff(Boolean physical = true) {
     buttonEvent("off()", 2, false, "digital")
   }
 
+  String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
   sendEvent(name: "switch", value: "off", isStateChange: true);
   def cmds = []
   if (settings.delayOff) {
@@ -943,13 +949,16 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "parseErrorCount", value: 0, displayed: false)
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
+
 
   sendEvent(name: "numberOfButtons", value: 8, displayed: true, isStateChange: true)
 

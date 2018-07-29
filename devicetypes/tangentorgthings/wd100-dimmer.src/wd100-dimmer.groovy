@@ -37,7 +37,7 @@
 
 
 def getDriverVersion() {
-  return "v7.11"
+  return "v7.15"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -960,6 +960,8 @@ def updated() {
   sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "parseErrorCount", value: 0, displayed: false)
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)

@@ -19,7 +19,7 @@
 
 
 def getDriverVersion () {
-  return "v1.51"
+  return "v1.53"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -490,7 +490,13 @@ def updated() {
   state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
-  sendEvent(name: "lastError", value: "")
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
+
   sendEvent(name: "Scene", value: 0)
   sendEvent(name: "setScene", value: "Unknown")
 

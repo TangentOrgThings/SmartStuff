@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.59"
+  return "v4.63"
 }
 
 def getIndicatorParam() {
@@ -902,13 +902,13 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 3
+  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 3
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   if (0) {
     if (device.rawDescription) {

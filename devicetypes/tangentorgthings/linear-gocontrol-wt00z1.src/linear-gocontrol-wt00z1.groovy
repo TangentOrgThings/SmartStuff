@@ -17,7 +17,7 @@
  */
 
 def getDriverVersion() {
-  return "v2.91"
+  return "v2.93"
 }
 
 metadata {
@@ -182,6 +182,9 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
 
   dimmerEvents(cmd.value, false, result);
+  if (cmd.value == 255) {
+    result << response(zwave.switchMultilevelV1.switchMultilevelGet())
+  }
 }
 
 // Physical press of the switch
@@ -191,10 +194,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   dimmerEvents(cmd.value, true, result);
 
   if (cmd.value == 255) {
-    buttonEvent("SceneActuatorConfGet()", 1, false, "physical")
+    buttonEvent("BasicSet()", 1, false, "physical")
+    result << response(zwave.switchMultilevelV1.switchMultilevelGet())
   }
   else if (cmd.value == 0) {
-    buttonEvent("SceneActuatorConfGet()", 2, false, "physical")
+    buttonEvent("BasicSet()", 2, false, "physical")
   }
 }
 
@@ -607,8 +611,8 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   /*
   def zwInfo = getZwaveInfo()

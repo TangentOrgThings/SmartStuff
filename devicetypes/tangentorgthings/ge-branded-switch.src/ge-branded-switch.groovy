@@ -207,6 +207,8 @@ def updated() {
   sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "parseErrorCount", value: 0, displayed: false)
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   if ($zwInfo) {
     log.debug("$device.displayName $zwInfo")

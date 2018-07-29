@@ -16,7 +16,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.73"
+  return "v4.75"
 }
 
 def isPlus() {
@@ -690,7 +690,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 3
+  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 3
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   if (0) {
@@ -707,6 +707,8 @@ def updated() {
   sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "parseErrorCount", value: 0, displayed: false)
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   // We don't send the prepDevice() because we don't know if the device is awake
   if (0) {

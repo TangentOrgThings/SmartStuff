@@ -19,17 +19,21 @@
 
 
 def getDriverVersion () {
-  return "v1.53"
+  return "v1.55"
 }
 
 metadata {
   definition (name: "Leviton Vizia RF 1 Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
+    capability "Momentary"
     capability "Sensor"
+    capability "Switch"
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
@@ -143,7 +147,7 @@ def parse(String description) {
     if (cmd) {
       zwaveEvent(cmd, result)
     } else {
-      logger( "zwave.parse(CC) failed for: ${description}", "error")
+      logger( "zwave.parse(CC) failed for: ${description}", "parse")
 
       cmd = zwave.parse(description)
       if (cmd) {
@@ -157,6 +161,40 @@ def parse(String description) {
   return result
 }
 
+def on() {
+  logger("$device.displayName on()")
+
+  delayBetween([
+    zwave.basicV1.basicSet(value: 0xFF).format(),
+    zwave.basicV1.basicGet().format(),
+  ], 2000)
+}
+
+def off() {
+  logger("$device.displayName off()")
+
+  delayBetween([
+    zwave.basicV1.basicSet(value: 0x00).format(),
+    zwave.basicV1.basicGet().format(),
+  ], 2000)
+}
+
+def push() {
+  logger("$device.displayName push()")
+
+  if (device.currentState("switch").value.equals("on")) {
+    sendEvent(name: "switch", value: "off")
+    delayBetween([
+      zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format(),
+    ], 2000)
+  } else {
+    sendEvent(name: "switch", value: "on")
+    delayBetween([
+      zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: zwaveHubNodeId).format(),
+    ], 2000)
+  }
+}
+
 def getparamState() {
   logger("$device.displayName getparamState()")
   // sendHubCommand(new physicalgraph.device.HubAction("91001D0D01FF01180508D3"))
@@ -168,73 +206,6 @@ def getparamState() {
 def handleManufacturerProprietary(String description, result) {
   // log.debug "Handling manufacturer-proprietary command: '${description}'"
   logger("$device.displayName $description")
-
-  switch (description) {
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 01 00 ":
-    case "1":
-    // log.debug "Turning button #1 on"
-    logger("button 1 ON")
-    updateState("currentButton", "1")
-    // result << createEvent(name: "button", value: "on", data: [button: 1, status: "on"], isStateChange: true)
-    buttonEvent("handleManufacturerProprietary", 1, false, result)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 05 00 ":
-    case "5":
-    // log.debug "Turning button #1 off"
-    logger("button 1 OFF")
-    updateState("currentButton", "1")
-    // result << createEvent(name: "button", value: "off", data: [button: 1, status: "off"], isStateChange: true)
-    buttonEvent("handleManufacturerProprietary", 2, false, result)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 02 00 ":
-    case "2":
-    // log.debug "Turning button #2 on"
-    logger("button 2 ON")
-    updateState("currentButton", "2")
-    // result << createEvent(name: "button", value: "on", data: [button: 2, status: "on"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 06 00 ":
-    case "6":
-    // log.debug "Turning button #2 off"
-    logger("button 2 OFF")
-    updateState("currentButton", "2")
-    // result << createEvent(name: "button", value: "off", data: [button: 2, status: "off"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 03 00 ":
-    case "3":
-    logger("button 3 ON")
-    // log.debug "Turning button #3 on"
-    updateState("currentButton", "3")
-    // result << createEvent(name: "button", value: "on", data: [button: 3, status: "on"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 07 00 ":        
-    case "7":
-    // log.debug "Turning button #3 off"
-    logger("button 3 OFF")
-    updateState("currentButton", "3")
-    // result << createEvent(name: "button", value: "off", data: [button: 3, status: "off"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 04 00 ":
-    case "4":
-    // log.debug "Turning button #4 on"
-    logger("button 4 ON")
-    updateState("currentButton", "4")
-    // result << createEvent(name: "button", value: "on", data: [button: 4, status: "on"], isStateChange: true)
-    break
-    case "zw device: ${device.deviceNetworkId}, command: 9100, payload: 1D 0C 08 00 ":
-    case "8":
-    // log.debug "Turning button #4 off"
-    logger("button 4 OFF")
-    updateState("currentButton", "4")
-    // result << createEvent(name: "button", value: "off", data: [button: 4, status: "off"], isStateChange: true)
-    break
-    default:
-    logger("Could not parse vendor hidden command: $description", "error")
-    // log.debug "Fell through to default switch case"
-    break
-  }
-
-  return result
 }
 
 def buttonEvent(String exec_cmd, Integer button, Boolean held, result) {
@@ -243,7 +214,8 @@ def buttonEvent(String exec_cmd, Integer button, Boolean held, result) {
   String heldType = held ? "held" : "pushed"
 
   if (button > 0) {
-    result << createEvent(name: "button", value: heldType, data: [buttonNumber: 1, status: (button == 1 ? "on" : "off")], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true)
+    Integer button_pressed = ( button <= 232 && button != 2 ) ? 1 : 2
+    result << createEvent(name: "button", value: heldType, data: [buttonNumber: button_pressed, status: (button_pressed == 1 ? "on" : "off")], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true)
   } else {
     result << createEvent(name: "button", value: "", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true)
   }
@@ -318,6 +290,13 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   logger("$device.displayName $cmd")
   buttonEvent("SceneActuatorConfGet", cmd.sceneId, false, result)
 
+  if (0) {
+  if (device.currentState("switch").value.equals("on")) {
+    result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: 1 ))
+  } else {
+    result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: state.lastScene ? state.lastScene : 0))
+  }
+  }
   result <<  createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
   result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: state.lastScene ? state.lastScene : 0))
 }
@@ -341,7 +320,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
   }
 
-  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings, isStateChange: true, displayed: true)
+  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings * 2, isStateChange: true, displayed: true)
   result << response( delayBetween(cmds, 2000) )
 }
 
@@ -496,7 +475,13 @@ def updated() {
   state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
   log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
-  sendEvent(name: "lastError", value: "")
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
+
   sendEvent(name: "Scene", value: 0)
   sendEvent(name: "setScene", value: "Unknown")
 
@@ -565,11 +550,14 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
@@ -577,22 +565,31 @@ private logger(msg, level = "trace") {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
