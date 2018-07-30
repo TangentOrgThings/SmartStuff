@@ -338,7 +338,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     }
   }
 
-  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings * 2, isStateChange: true, displayed: true)
   result << response( delayBetween(cmds, 2000) )
 }
 
@@ -561,6 +560,8 @@ def installed() {
 
   state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
 
+  sendEvent(name: "numberOfButtons", value: 2, isStateChange: true)
+
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
@@ -585,6 +586,8 @@ def updated() {
 
   sendEvent(name: "Scene", value: 0)
   sendEvent(name: "setScene", value: "Unknown")
+
+  sendEvent(name: "numberOfButtons", value: 2, isStateChange: true)
 
   // Check in case the device has been changed
   state.manufacturer = null
