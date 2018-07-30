@@ -959,7 +959,6 @@ def updated() {
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
 
-
   sendEvent(name: "numberOfButtons", value: 8, displayed: true, isStateChange: true)
 
   if (0) {

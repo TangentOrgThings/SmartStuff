@@ -19,7 +19,7 @@
 
 
 def getDriverVersion () {
-  return "v1.53"
+  return "v1.55"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -39,6 +39,8 @@ metadata {
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
@@ -69,9 +71,13 @@ metadata {
   }
 
   preferences {
-    input name: "DelayedOFF", type: "number", title: "Associated Device", description: "... ", range: "1..127", required: false
+    input name: "DelayedOFF", type: "number", title: "Delay sending off", description: "... ", range: "1..127", required: false
+    input name: "BasicSetValue", type: "number", title: "Basic Set Value", description: "... ", range: "1..127", required: false
     input name: "associatedDevice", type: "number", title: "Associated Device", description: "... ", required: false
+    input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
+    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+ 
   }
 
   tiles {
@@ -163,6 +169,77 @@ def parse(String description) {
   }
 
   return result
+}
+
+def connect() {
+  logger("$device.displayName connect()") 
+  trueOn(true)
+}
+
+def on() {
+  logger("$device.displayName on()")
+  trueOn(false)
+}
+
+private trueOn(Boolean physical = true) {
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = Calendar.getInstance().getTimeInMillis()
+
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("on()", 1, false, "digital")
+  }
+  
+  String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
+  sendEvent(name: "switch", value: "on", isStateChange: true);
+
+  delayBetween([
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
+  ], 5000)
+}
+
+def off() {
+  logger("$device.displayName off()")
+
+  if (settings.disbableDigitalOff) {
+    logger("..off() disabled")
+    return zwave.switchBinaryV1.switchBinaryGet().format();
+  }
+  
+  trueOff(false)
+}
+
+def disconnect() {
+  logger("$device.displayName disconnect()") 
+  trueOff(true)
+}
+
+private trueOff(Boolean physical = true) {
+  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+    logger("$device.displayName bounce", "warn")
+    return
+  }
+  state.lastBounce = Calendar.getInstance().getTimeInMillis()
+  
+  if (physical) { // Add option to have digital commands execute buttons
+    buttonEvent("off()", 2, false, "digital")
+  }
+
+  String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
+  sendEvent(name: "switch", value: "off", isStateChange: true);
+  def cmds = []
+  // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
+  // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
+
+  delayBetween([
+    zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
+  ], 3000)
 }
 
 def buttonEvent(String exec_cmd, Integer button, Boolean held, result) {
@@ -261,7 +338,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     }
   }
 
-  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings, isStateChange: true, displayed: true)
+  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings * 2, isStateChange: true, displayed: true)
   result << response( delayBetween(cmds, 2000) )
 }
 
@@ -275,6 +352,15 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
     if (settings.DelayedOFF != null && settings.DelayedOFF != reportValue) {
       result << response( delayBetween([
         zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.DelayedOFF.toInteger(), parameterNumber: cmd.parameterNumber, size: 1).format(),
+        // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 2000) )
+    }
+    break
+    case 4:
+    logger("Basic Set Value $reportValue")
+    if (settings.BasicSetValue != null && settings.BasicSetValue != reportValue) {
+      result << response( delayBetween([
+        zwave.configurationV1.configurationSet(scaledConfigurationValue: settings.BasicSetValue.toInteger(), parameterNumber: cmd.parameterNumber, size: 1).format(),
         // zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 2000) )
     }
