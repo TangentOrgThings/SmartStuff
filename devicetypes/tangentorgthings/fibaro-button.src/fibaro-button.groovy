@@ -20,7 +20,7 @@
  */
 
 def getDriverVersion () {
-  return "v0.38"
+  return "v0.39"
 }
 
 def maxButton () {

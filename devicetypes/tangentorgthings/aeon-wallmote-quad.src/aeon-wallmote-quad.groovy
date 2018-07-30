@@ -21,7 +21,7 @@
  */
 
 def getDriverVersion () {
-  return "v0.45"
+  return "v0.49"
 }
 
 def maxButton () {
@@ -376,10 +376,6 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, Short	endPoint, result) {
   logger("$device.displayName:${endPoint} $cmd")
   buttonEvent(endPoint, false, "physical")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd, result) {
-  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd, result) {
