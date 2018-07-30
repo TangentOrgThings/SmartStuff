@@ -29,7 +29,6 @@ def maxButton () {
 
 metadata {
   definition (name: "FIBARO Button", namespace: "TangentOrgThings", author: "brian@tangent.org") {
-
     capability "Actuator"
     capability "Button"
     capability "Battery"
@@ -39,6 +38,8 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "buttonPressed", "number"
     attribute "keyAttributes", "number"
@@ -188,6 +189,10 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   state.manufacturer = null
   updateDataValue("MSR", null)
@@ -573,43 +578,47 @@ private sendCommands(cmds, delay=200) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-  String msg_text = (msg != null) ? "$msg" : "<null>"
-
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error "$msg_text"
-      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
-      log.warn "$msg_text"
-      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
+      log.warn msg
+      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
     if (state.loggingLevelIDE >= 3) {
-      log.info "$msg_text"
+      log.info msg
     }
-    break
+    return
 
     case "debug":
     if (state.loggingLevelIDE >= 4) {
-      log.debug "$msg_textmsg"
+      log.debug msg
     }
-    break
+    return
 
     case "trace":
     if (state.loggingLevelIDE >= 5) {
-      log.trace "$msg_text"
+      log.trace msg
     }
-    break
+    return
 
+    case "error":
     default:
-    log.debug "$msg_text"
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

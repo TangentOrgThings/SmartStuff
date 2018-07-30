@@ -1034,47 +1034,43 @@ private sendCommands(cmds, delay=1000) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-  switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
+  String msg_text = (msg != null) ? "$msg" : "<null>"
 
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
+  switch(level) {
+    case "error":
+    if (state.loggingLevelIDE >= 1) {
+      log.error "$msg_text"
+      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
+    }
     break
 
     case "warn":
     if (state.loggingLevelIDE >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+      log.warn "$msg_text"
+      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
     }
-    return
+    break
 
     case "info":
     if (state.loggingLevelIDE >= 3) {
-      log.info msg
+      log.info "$msg_text"
     }
-    return
+    break
 
     case "debug":
     if (state.loggingLevelIDE >= 4) {
-      log.debug msg
+      log.debug "$msg_textmsg"
     }
-    return
+    break
 
     case "trace":
     if (state.loggingLevelIDE >= 5) {
-      log.trace msg
+      log.trace "$msg_text"
     }
-    return
+    break
 
-    case "error":
     default:
+    log.debug "$msg_text"
     break
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
