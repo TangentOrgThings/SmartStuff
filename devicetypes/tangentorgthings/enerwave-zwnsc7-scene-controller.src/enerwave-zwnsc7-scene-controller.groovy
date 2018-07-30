@@ -23,12 +23,11 @@
  */
 
 def getDriverVersion() {
-  return "v0.41"
+  return "v0.43"
 }
 
 metadata {
-  // Automatically generated. Make future change here. ZWN-SC7
-  definition (name: "ZWN-SC7 Enerwave 7 Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
+  definition (name: "Enerwave ZWN-SC7 Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
     capability "Configuration"
@@ -69,6 +68,8 @@ metadata {
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     // zw:L type:0202 mfr:011A prod:0801 model:0B03 ver:1.05 zwv:3.42 lib:02 cc:2D,85,86,72
     // fingerprint deviceId: "0x0202", inClusters:"0x21, 0x2D, 0x85, 0x86, 0x72"
@@ -146,7 +147,6 @@ def parse(String description) {
     }
   } else if (! description) {
     logger("$device.displayName parse() called with NULL description", "info")
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -154,13 +154,14 @@ def parse(String description) {
       zwaveEvent(cmd, result)
 
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
       // Try it without check for classes
       cmd = zwave.parse(description)
 
       if (cmd) {
         zwaveEvent(cmd, result)
+      } else {
+        logger( "zwave.parse() failed for: ${description}", "error" )
       }
     }
   }
@@ -452,6 +453,10 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   // Check in case the device has been changed
   state.manufacturer = null
@@ -584,11 +589,14 @@ private sendCommands(cmds, delay=200) {
  **/
 private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
@@ -596,22 +604,32 @@ private logger(msg, level = "trace") {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (state.loggingLevelIDE >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (state.loggingLevelIDE >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+    if (state.loggingLevelIDE >= 5) {
+      log.trace msg
+    }
+    return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
+
