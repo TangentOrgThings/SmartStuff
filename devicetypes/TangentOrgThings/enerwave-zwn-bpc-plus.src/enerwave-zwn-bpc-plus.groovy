@@ -17,7 +17,7 @@
 
 
 def getDriverVersion() {
-  return "v3.29"
+  return "v3.33"
 }
 
 def getDefaultWakeupInterval() {
@@ -78,10 +78,11 @@ metadata {
     attribute "zWaveProtocolVersion", "string"
     attribute "Power", "string"
     attribute "FirmwareMdReport", "string"
+    attribute "NIF", "string"
+
+    attribute "MSR", "string"
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
-    attribute "MSR", "string"
-    attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
@@ -605,6 +606,8 @@ def updated() {
   sendEvent(name: "logMessage", value: "", displayed: false)
   sendEvent(name: "parseErrorCount", value: 0, displayed: false)
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   if (0) {
     def zwInfo = getZwaveInfo()
