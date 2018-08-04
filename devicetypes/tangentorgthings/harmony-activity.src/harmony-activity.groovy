@@ -18,7 +18,7 @@
  */
 
 def getDriverVersion () {
-	return "v0.29"
+	return "v0.31"
 }
 
 metadata {
@@ -44,7 +44,7 @@ metadata {
 	}
 
 	preferences {
-		input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+		input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
 	}
 
 	// UI tile definitions
@@ -105,7 +105,6 @@ def initialize() {
 
 def installed() {
 	logger("$device.displayName installed()", "info")
-	state.loggingLevelIDE = 4
 
 	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
@@ -116,8 +115,7 @@ def updated() {
 	if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
 		return
 	}
-	state.loggingLevelIDE = settings.debugLevel ?: 4
-	log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+	log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
 	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
@@ -153,23 +151,29 @@ private logger(msg, level = "trace") {
 		break
 
 		case "warn":
-		if (state.loggingLevelIDE >= 2) {
+		if (settings.debugLevel >= 2) {
 			log.warn msg
 			sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
 		}
 		return
 
 		case "info":
-		if (state.loggingLevelIDE >= 3) log.info msg
-			return
+		if (settings.debugLevel >= 3) {
+      log.info msg
+    }
+    return
 
 		case "debug":
-		if (state.loggingLevelIDE >= 4) log.debug msg
-			return
+		if (settings.debugLevel >= 4){
+      log.debug msg
+    }
+    return
 
 		case "trace":
-		if (state.loggingLevelIDE >= 5) log.trace msg
-			return
+    if (settings.debugLevel >= 5){
+      log.trace msg
+    }
+    return
 
 		case "error":
 		default:

@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.89"
+  return "v6.91"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -43,7 +43,6 @@ metadata {
   definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
-//    capability "Health Check"
     capability "Indicator"
     capability "Light"    
     capability "Polling"
@@ -118,7 +117,7 @@ metadata {
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
     input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
-    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false,  defaultValue: 3
   }
 
   tiles(scale: 2) {
@@ -927,7 +926,6 @@ def prepDevice() {
 def installed() {
   logger("$device.displayName installed()")
   sendEvent(name: "numberOfButtons", value: 8, displayed: false)
-  state.loggingLevelIDE = 4
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -950,8 +948,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -1062,26 +1059,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return
