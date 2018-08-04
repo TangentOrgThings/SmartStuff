@@ -18,15 +18,15 @@
  */
 
 def getDriverVersion () {
-	return "v0.25"
+	return "v0.27"
 }
 
 metadata {
 	definition (name: "Harmony Activity", namespace: "TangentOrgThings", author: "Juan Risso") {
-		capability "Switch"
 		capability "Actuator"
 		capability "Refresh"
-		capability "Health Check"
+		capability "Sensor"
+		capability "Switch"
 
 		command "huboff"
 		command "alloff"
@@ -71,22 +71,22 @@ metadata {
 }
 
 def parse(String description) {
-	logger("parse() ${description}", "info")
+	logger("parse() ${description}")
 }
 
 def on() {
 	sendEvent(name: "switch", value: "on")
-	log.trace parent.activity(device.deviceNetworkId,"start")
+	logger( parent.activity(device.deviceNetworkId,"start") )
 }
 
 def off() {
 	sendEvent(name: "switch", value: "off")
-	log.trace parent.activity(device.deviceNetworkId,"end")
+	logger( parent.activity(device.deviceNetworkId,"end") )
 }
 
 def huboff() {
 	sendEvent(name: "switch", value: "off")
-	log.trace parent.activity(device.deviceNetworkId,"hub")
+	logger( parent.activity(device.deviceNetworkId,"hub") )
 }
 
 def alloff() {
