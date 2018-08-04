@@ -18,11 +18,11 @@
  */
 
 def getDriverVersion () {
-	return "v0.27"
+	return "v0.29"
 }
 
 metadata {
-	definition (name: "Harmony Activity", namespace: "TangentOrgThings", author: "Juan Risso") {
+	definition (name: "Harmony Activity", namespace: "TangentOrgThings", author: "Juan Risso", ocfDeviceType: "x.com.st.d.remotecontroller") {
 		capability "Actuator"
 		capability "Refresh"
 		capability "Sensor"
@@ -121,10 +121,12 @@ def updated() {
 
 	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
-	sendEvent(name: "lastError", value: "", displayed: false)
-	sendEvent(name: "logMessage", value: "", displayed: false)
-	sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-	sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
 	initialize()
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
