@@ -70,13 +70,17 @@ metadata {
     attribute "Group 4", "string"
 
     attribute "driverVersion", "string"
+
     attribute "firmwareVersion", "string"
+    attribute "zWaveProtocolVersion", "string"
+
     attribute "FirmwareMdReport", "string"
     attribute "FirmwareVersion", "string"
+    attribute "NIF", "string"
+
+    attribute "MSR", "string"
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
-    attribute "MSR", "string"
-    attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
@@ -829,6 +833,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
 
   result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
 
   result << response(delayBetween([
     zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),

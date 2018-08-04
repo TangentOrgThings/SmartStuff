@@ -153,7 +153,7 @@ def parse(String description) {
     }
   } else if (! description) {
     logger("$device.displayName parse() called with NULL description", "info")
-  } else if ( description.endsWith("command: 3105, payload: 04")) {
+  } else if ( description?.endsWith("command: 3105, payload: 04")) {
     logger("Unknown command ${description}", "info")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())

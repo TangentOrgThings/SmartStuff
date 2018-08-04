@@ -18,7 +18,7 @@
 
 
 def getDriverVersion() {
-  return "v1.59"
+  return "v1.61"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -26,7 +26,7 @@ def getConfigurationOptions(Integer model) {
 }
 
 metadata {
-  definition (name: "Zooz 4 in 1 Sensor", namespace: "TangentOrgThings", author: "Brian Aker") {
+  definition (name: "Zooz 4 in 1 Sensor", namespace: "TangentOrgThings", author: "Brian Aker", ocfDeviceType: "x.com.st.d.sensor.motion") {
     capability "Battery"
     capability "Illuminance Measurement"
     capability "Motion Sensor"
@@ -165,7 +165,7 @@ metadata {
  def getCommandClassVersions() { // cc:5E,98,86,72,5A,85,59,73,80,71,31,70,84,7A role:06 ff:8C07 ui:8C07
   [
     // 0x20: 1,  // Basic
-    // 0x30: 2,  // Sensor Binary Command Class (V2)
+    0x30: 2,  // Sensor Binary Command Class (V2)
     0x31: 5,  // Sensor Multilevel (V4)
     0x59: 1,  // Association Grp Info
     0x5A: 1,  // Device Reset Locally
@@ -237,6 +237,14 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupported
   logger("$device.displayName $cmd")
   configure()
   [ createEvent(descriptionText: "SecurityCommandsSupportedReport() Unable to extract encapsulated from $cmd") ]
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
+  motionEvent((Boolean)cmd.sensorValue)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
+  motionEvent((Boolean)cmd.value)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {

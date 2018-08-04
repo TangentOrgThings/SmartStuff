@@ -14,7 +14,7 @@
  */
 
 def getDriverVersion() {
-  return "v4.63"
+  return "v4.65"
 }
 
 def getIndicatorParam() {
@@ -46,11 +46,15 @@ metadata {
     attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "driverVersion", "string"
+
     attribute "firmwareVersion", "string"
+    attribute "zWaveProtocolVersion", "string"
+
     attribute "FirmwareMdReport", "string"
+
+    attribute "MSR", "string"
     attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
-    attribute "MSR", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
@@ -180,7 +184,7 @@ metadata {
 
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 def getCommandClassVersions() {
-  String msr = device.currentValue("MSR")
+  String msr = state.MSR ?: device.currentValue("MSR")
   
   switch (msr) {
     case "011A-0101-0603":
@@ -571,8 +575,10 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   logger("$device.displayName $cmd")
 
   def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
+  def zWaveProtocolVersion = "${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
   result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
+  result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
@@ -646,6 +652,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
   def name = new String(cmd.name as byte[])
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
 
   result << response(delayBetween([
     zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
