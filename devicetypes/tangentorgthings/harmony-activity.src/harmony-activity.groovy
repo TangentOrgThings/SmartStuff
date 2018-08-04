@@ -3,6 +3,7 @@
 /**
  *  Logitech Harmony Activity
  *
+ *  Copyright 2018 Brian Aker <brian@tangent.org>
  *  Copyright 2015 Juan Risso
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -17,7 +18,7 @@
  */
 
 def getDriverVersion () {
-	return "v0.23"
+	return "v0.25"
 }
 
 metadata {
@@ -69,36 +70,6 @@ metadata {
 	}
 }
 
-def initialize() {
-	sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "cloud", scheme:"untracked"]), displayed: false)
-}
-
-def installed() {
-	logger("$device.displayName installed()", "info")
-	state.loggingLevelIDE = 4
-
-	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-
-	initialize()
-}
-
-def updated() {
-	if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
-		return
-	}
-	state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
-	log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
-
-	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-
-	sendEvent(name: "lastError", value: "", displayed: false)
-	sendEvent(name: "logMessage", value: "", displayed: false)
-	sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-	sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-
-	initialize()
-}
-
 def parse(String description) {
 	logger("parse() ${description}", "info")
 }
@@ -126,6 +97,37 @@ def alloff() {
 def refresh() {
 	log.debug "Executing 'refresh'"
 	log.trace parent.poll()
+}
+
+def initialize() {
+	sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "cloud", scheme:"untracked"]), displayed: false)
+}
+
+def installed() {
+	logger("$device.displayName installed()", "info")
+	state.loggingLevelIDE = 4
+
+	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+	initialize()
+}
+
+def updated() {
+	if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
+		return
+	}
+	state.loggingLevelIDE = settings.debugLevel ?: 4
+	log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+
+	sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+	sendEvent(name: "lastError", value: "", displayed: false)
+	sendEvent(name: "logMessage", value: "", displayed: false)
+	sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+	sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+
+	initialize()
+  state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
 
 /**
