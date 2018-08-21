@@ -15,11 +15,11 @@
  *
  */
 
-def getDriverVersion() {
-  return "v3.31"
+String getDriverVersion() {
+  return "v3.35"
 }
 
-def getAssociationGroup() {
+Integer getAssociationGroup() {
   return 1
 }
 
@@ -34,6 +34,8 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Configured", "enum", ["false", "true"]
     attribute "Lifeline", "string"
@@ -89,12 +91,12 @@ metadata {
       }
     }
 
-    valueTile("tamperAlert", "device.tamperAlert", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+    valueTile("tamperAlert", "device.tamperAlert", inactiveLabel: true, decoration: "flat", width: 2, height: 2) {
       state "detected", backgroundColor:"#00FF00"
       state "clear", backgroundColor:"#e51426"
     }
 
-    valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+    valueTile("battery", "device.battery", inactiveLabel: true, decoration: "flat", width: 2, height: 2) {
       state "battery", label:'${currentValue}', unit:"%"
     }
 
@@ -102,7 +104,7 @@ metadata {
       state "default", label: '${currentValue}'
     }
 
-    standardTile("reset", "device.DeviceReset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+    standardTile("reset", "device.DeviceReset", inactiveLabel: true, decoration: "flat", width: 2, height: 2) {
       state "false", label:'', backgroundColor:"#ffffff"
       state "true", label:'reset', backgroundColor:"#e51426"
     }
@@ -147,9 +149,9 @@ private deviceCommandClasses () {
 def checkConfigure() {
   def cmds = []
 
-  if (device.currentValue("Configured") && device.currentValue("Configured").toBoolean() == false) {
-		if ((new Date().time) - state.lastConfigure > 1500) {
-			state.lastConfigure = new Date().time
+  if (!device.currentValue("Configured") || device.currentValue("Configured").toBoolean() == false) {
+    if ( !state.lastConfigure || ((Calendar.getInstance().getTimeInMillis() - state.lastConfigure)) < 5000 ) {
+      state.lastConfigure = Calendar.getInstance().getTimeInMillis()
 
       cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
 			cmds << zwave.versionV1.versionGet().format()
@@ -158,8 +160,8 @@ def checkConfigure() {
   }
 
 	if (state.isAssociated == false) {
-		if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
-			state.lastAssociated = new Date().time
+    if ( !state.lastAssociated || ((Calendar.getInstance().getTimeInMillis() - state.lastAssociated)) < 5000 ) {
+      state.lastAssociated = Calendar.getInstance().getTimeInMillis()
 
       cmds << zwave.associationV2.associationGroupingsGet().format()
 		}
@@ -178,7 +180,6 @@ def prepDevice() {
 
 def installed() {
   log.info("$device.displayName installed()")
-  state.loggingLevelIDE = 4
 
   if (0) {
   def zwInfo = getZwaveInfo()
@@ -189,7 +190,6 @@ def installed() {
   }
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
-  sendEvent(name: "AssociationGroup", value: getAssociationGroup(), isStateChange: true)
   sendEvent(name: "Configured", value: "false", isStateChange: true)
   sendEvent(name: "DeviceReset", value: "false", isStateChange: true)
 
@@ -202,14 +202,17 @@ def installed() {
 }
 
 def updated() {
-  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
+  if ( state.updatedDate && ((Calendar.getInstance().getTimeInMillis() - state.updatedDate)) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 3
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   if (0) {
   def zwInfo = getZwaveInfo()
@@ -224,8 +227,6 @@ def updated() {
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
   // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName is being reset")
-  sendEvent(name: "AssociationGroup", value: getAssociationGroup(), isStateChange: true)
-  state.AssociationGroup = getAssociationGroup()
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -282,7 +283,6 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, res
 
   state.lastActive = new Date().time
   result << createEvent(name: "LastAwake", value: state.lastActive, descriptionText: "${device.displayName} woke up", isStateChange: false)
-  return
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
@@ -367,6 +367,12 @@ def motionEvent(value, result) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$device.displayName $cmd DUPLICATE")
+
+  // motionEvent(cmd.value, result)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
 
   motionEvent(cmd.value, result)
@@ -416,17 +422,17 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   if (cmd.notificationType == 7) { // NOTIFICATION_TYPE_BURGLAR) {
     switch (cmd.event) {
       case 0:
-      switch (cmd.eventParameter) {
-        case 8:
-        motionEvent(0, result)
-        break;
-        case 3:
-        result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName has been activated by the switch.", isStateChange: true)
-        break;
-        default:
-        // ERROR: Unknown eventParameter [8] for 0
-        logger("Unknown eventParameter ${cmd.eventParameter} for ${cmd.event}", "error")
-        break;
+      if ( cmd.eventParametersLength && cmd.eventParameter.size() && cmd.eventParameter[0] ) {
+        switch ( cmd.eventParameter[0]) {
+          case 3:
+          result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName has been activated by the switch.", isStateChange: true)
+          break
+          case 8:
+          motionEvent(0, result)
+          break
+          default:
+          logger("Unknown event parameter", "error")
+        }
       }
       break;
 
@@ -446,8 +452,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   } else {
     logger("Unknown notification type ${cmd.notificationType}", "error")
   }
-
-  return
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
@@ -500,11 +504,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 			]))
 		}
 
-    if ( associatedDevice  && ! cmd.nodeId.any { it == associatedDevice }) {
-      associate += associatedDevice
+    if ( settings.associatedDevice  && ! cmd.nodeId.any { it == settings.associatedDevice }) {
+      associate += settings.associatedDevice
       state.isAssociated = false
 
-      result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice) )
+      result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: settings.associatedDevice) )
     }
 	}
 
@@ -661,35 +665,43 @@ private sendCommands(cmds, delay=1000) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
+  String msg_text = (msg != null) ? "$msg" : "<null>"
+
   switch(level) {
     case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
+    if (settings.debugLevel >= 1) {
+      log.error "$msg_text"
+      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
     }
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (settings.debugLevel  >= 2) {
+      log.warn "$msg_text"
+      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
     }
     break
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (settings.debugLevel  >= 3) {
+      log.info "$msg_text"
+    }
+    break
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (settings.debugLevel  >= 4) {
+      log.debug "$msg_textmsg"
+    }
+    break
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+    if (settings.debugLevel  >= 5) {
+      log.trace "$msg_text"
+    }
+    break
 
     default:
-    log.debug msg
+    log.debug "$msg_text"
     break
   }
 }

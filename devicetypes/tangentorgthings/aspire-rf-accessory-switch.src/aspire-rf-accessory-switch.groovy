@@ -18,7 +18,7 @@
  */
 
 
-def getDriverVersion () {
+String getDriverVersion () {
   return "v1.55"
 }
 

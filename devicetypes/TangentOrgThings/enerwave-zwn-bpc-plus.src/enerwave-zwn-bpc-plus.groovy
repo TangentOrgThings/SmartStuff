@@ -16,8 +16,8 @@
  */
 
 
-def getDriverVersion() {
-  return "v3.33"
+String getDriverVersion() {
+  return "v3.35"
 }
 
 def getDefaultWakeupInterval() {
@@ -117,10 +117,6 @@ metadata {
       }
     }
 
-    valueTile("firmwareVersion", "device.firmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
-      state "default", label: '${currentValue}'
-    }
-
     valueTile("driverVersion", "device.driverVersion", width:2, height:2, inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
@@ -144,7 +140,7 @@ metadata {
   }
 
     main "motion"
-    details(["motion", "lastActive", "driverVersion", "firmwareVersion", "reset", "configured", "battery", "lastActive"])
+    details(["motion", "lastActive", "driverVersion", "reset", "configured", "battery", "lastActive"])
   }
 
   preferences {
@@ -171,6 +167,7 @@ private deviceCommandClasses() {
       0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class
+      0x25: 1,  // Switch Binary
     ]
   } else {
     return [
@@ -191,8 +188,7 @@ def parse(String description) {
   def result = []
 
   if (description && description.startsWith("Err")) {
-    log.error "parse error: ${description}"
-    result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
+    logger("parse error: ${description}", "error")
 
     if (description.startsWith("Err 106")) {
       result << createEvent(
@@ -253,6 +249,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
+  logger("$device.displayName $cmd")
+  sensorValueEvent(cmd.value, result)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
   sensorValueEvent(cmd.value, result)
 }
@@ -574,7 +575,6 @@ def prepDevice() {
 
 def installed() {
   log.info("$device.displayName installed()")
-  state.loggingLevelIDE = 4
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -599,8 +599,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${debugLevel}")
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -690,26 +689,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return

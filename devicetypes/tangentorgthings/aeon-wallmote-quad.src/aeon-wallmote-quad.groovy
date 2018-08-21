@@ -20,11 +20,11 @@
  *
  */
 
-def getDriverVersion () {
-  return "v0.49"
+String getDriverVersion () {
+  return "v0.53"
 }
 
-def maxButton () {
+Integer maxButton () {
   return 4
 }
 
@@ -97,21 +97,18 @@ metadata {
   }
 
   tiles {
-    standardTile("button", "device.button", width: 2, height: 2) {
-      state "default", label: "", icon: "st.Home.home30", backgroundColor: "#ffffff"
-      state "held", label: "holding", icon: "st.Home.home30", backgroundColor: "#C390D4"
-    }
-    valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat") {
-      tileAttribute ("device.battery", key: "PRIMARY_CONTROL"){
-        state "battery", label:'${currentValue}% battery', unit:""
+    multiAttributeTile(name: "rich-control", type: "generic", width: 6, height: 4, canChangeIcon: true) {
+      tileAttribute("device.button", key: "PRIMARY_CONTROL") {
+        attributeState "default", label: ' ', action: "", icon: "st.unknown.zwave.remote-controller", backgroundColor: "#ffffff"
       }
     }
-    standardTile("configure", "device.button", width: 1, height: 1, decoration: "flat") {
-      state "default", label: "configure", backgroundColor: "#ffffff", action: "configure"
+    standardTile("battery", "device.battery", inactiveLabel: false, width: 6, height: 2) {
+      state "battery", label:'${currentValue}% battery', unit:""
     }
+    childDeviceTiles("outlets")
 
-    main "button"
-    details(["button", "battery", "configure"])
+    main "rich-control"
+    details(["button", "battery"])
   }
 
 }
@@ -157,7 +154,7 @@ def parse(String description) {
       )
     }
   } else if (! description) {
-    logger("$device.displayName parse() called with NULL description", "info")
+    logger("$device.displayName parse() called with NULL description")
   } else if (description != "updated") {
 
     if (1) {
@@ -188,58 +185,9 @@ def parse(String description) {
   return result
 }
 
-def prepDevice() {
-  [
-    zwave.zwaveCmdClassV1.requestNodeInfo(),
-    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.configurationV2.configurationGet(parameterNumber: 4),
-    zwave.firmwareUpdateMdV1.firmwareMdGet(),
-    zwave.associationV2.associationGroupingsGet(),
-    zwave.centralSceneV1.centralSceneSupportedGet(),
-    zwave.multiChannelV3.multiChannelEndPointGet(),
-  ]
-}
-
-def installed() {
-  log.info("$device.displayName installed()")
-
-  sendEvent(name: "numberOfButtons", value: maxButton(), displayed: true, isStateChange: true)
-  state.loggingLevelIDE = 4
-
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-
-  sendCommands( prepDevice(), 2000 )
-}
-
-def updated() {
-  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
-    return
-  }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
-
-  sendEvent(name: "lastError", value: "", displayed: false)
-  sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
-
-  state.manufacturer = null
-  updateDataValue("MSR", null)
-  updateDataValue("manufacturer", null)
-  sendEvent(name: "numberOfButtons", value: maxButton(), displayed: true, isStateChange: true)
-
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-
-  sendCommands( prepDevice(), 2000 )
-
-  // Avoid calling updated() twice
-  state.updatedDate = Calendar.getInstance().getTimeInMillis()
-}
-
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd, result) {
   logger("$device.displayName $cmd")
+
   def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   //    log.debug("UnsecuredCommand: $encapsulatedCommand")
   // can specify command class versions here like in zwave.parse
@@ -252,21 +200,63 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
   logger("Unable to extract security encapsulated cmd from $cmd", "error")
 }
 
-def buttonEvent(button, held, buttonType = "physical") {
-  log.debug("buttonEvent: $button  held: $held  type: $buttonType")
-  button = button as Integer
-  String heldType = held ? "held" : "pushed"
+def childOn(String childID) {
+  logger("$device.displayName $childID")
 
-  sendEvent(name: "buttonPressed", value: button, displayed: true, isStateChange: true)
-  sendEvent(name: "button", value: "$heldType", data: [buttonNumber: button], descriptionText: "$device.displayName", isStateChange: true, type: "$buttonType")
+  Integer buttonId = childID?.split("/")[1] as Integer
+
+  def child = getChildDeviceForEndpoint( buttonId )
+  if ( child ) {
+    child.off()
+  }
+
+  buttonEvent(buttonId, false)
+
+  def child = getChildDeviceForEndpoint( buttonId )
+  if ( child ) {
+    child.on()
+  }
+}
+
+def childOff(String childID) {
+  logger("$device.displayName $childID")
+
+  Integer buttonId = childID?.split("/")[1] as Integer
+
+  buttonEvent(0, false)
+
+  def child = getChildDeviceForEndpoint( buttonId )
+  if ( child ) {
+    child?.sendEvent(name: "switch", value: "off")
+  }
+}
+
+void buttonEvent(Integer buttonId, Boolean held, Boolean isPhysical = false /* false ? "digital" : "physical" */) {
+  logger("buttonEvent: $buttonId  held: $held  isPhysical: $isPhysical")
+
+  if ( buttonId ) {
+    String heldType = held ? "held" : "pushed"
+    String buttonType = isPhysical ? "physical" : "digital"
+
+    if ( isPhysical ) {
+      def child = getChildDeviceForEndpoint( buttonId )
+
+      if ( child ) {
+        child?.sendEvent(name: "switch", value: "on")
+        child?.sendEvent(name: "switch", value: "off")
+      }
+    }
+
+    sendEvent(name: "button", value: "$heldType", data: [buttonNumber: buttonId], descriptionText: "$device.displayName $buttonId", isStateChange: true, type: buttonType)
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, result) {
-  log.debug("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
 
   def cmds = []
 
-  for (def x = 1; x <= cmd.supportedScenes; x++) {
+  for (Integer x = 1; x <= cmd.supportedScenes; x++) {
     cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
   }
 
@@ -278,7 +268,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
 
   def cmds = []
 
-  for (def x = 1; x <= cmd.supportedScenes; x++) {
+  for (Integer x = 1; x <= cmd.supportedScenes; x++) {
     cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
   }
 
@@ -297,13 +287,13 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     switch (cmd.keyAttributes) {
       case 0:
       case 1: // Capture 0 and 1 as same;
-      buttonEvent(1, false, "physical")
+      buttonEvent(1, false, true)
       break;
       case 2: // 2 is held
-      buttonEvent(1, true, "physical")
+      buttonEvent(1, true, true)
       break;
       default:
-      buttonEvent(cmd.keyAttributes -1, false, "physical")
+      buttonEvent(cmd.keyAttributes -1, false, true)
       break;
     }
     break;
@@ -330,13 +320,13 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
     switch (cmd.keyAttributes) {
       case 0:
       case 1: // Capture 0 and 1 as same;
-      buttonEvent(1, false, "physical")
+      buttonEvent(1, false, true)
       break;
       case 2: // 2 is held
-      buttonEvent(1, true, "physical")
+      buttonEvent(1, true, true)
       break;
       default:
-      buttonEvent(cmd.keyAttributes -1, false, "physical")
+      buttonEvent(cmd.keyAttributes -1, false, true)
       break;
     }
     break;
@@ -364,26 +354,25 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, ShortendPoint, result) {
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, Short endPoint, result) {
   logger("$device.displayName:${endPoint} $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName:${endPoint} $cmd")
-  buttonEvent(endPoint, false, "physical")
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, Short	endPoint, result) {
   logger("$device.displayName:${endPoint} $cmd")
-  buttonEvent(endPoint, false, "physical")
+  buttonEvent(endPoint, false, true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd, result) {
-  logger("$device.displayName:${endPoint} $cmd")
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, result) {
-  logger("$device.displayName:${endPoint} $cmd")
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, Short	endPoint, result) {
@@ -395,7 +384,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelS
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
-  logger("$device.displayName:${endPoint} $cmd")
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStopLevelChange cmd, Short	endPoint, result) {
@@ -414,11 +403,11 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.productTypeId= cmd.productTypeId
   state.productId= cmd.productId
 
-  def manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  def productTypeCode = String.format("%04X", cmd.productTypeId)
-  def productCode = String.format("%04X", cmd.productId)
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", "${state.manufacturer}")
   updateDataValue("manufacturerName", cmd.manufacturerName)
@@ -446,8 +435,9 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
-  def zWaveProtocolVersion = "${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
+  String text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
+  String zWaveProtocolVersion = "${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
+
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
   result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
@@ -460,7 +450,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
 
   if (cmd.supportedGroupings) {
     def cmds = []
-    for (def x = 1; x <= cmd.supportedGroupings; x++) {
+    for (Integer x = 1; x <= cmd.supportedGroupings; x++) {
       cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x);
       cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00);
       cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x);
@@ -479,7 +469,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  def name = new String(cmd.name as byte[])
+  String name = new String(cmd.name as byte[])
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
 
   result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
@@ -546,10 +536,13 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointR
   if (!state.endpointInfo) {
     state.endpointInfo = loadEndpointInfo()
   }
+
   if (state.endpointInfo.size() > cmd.endPoints) {
     cmd.endpointInfo
   }
+
   state.endpointInfo = [null] * cmd.endPoints
+
   //response(zwave.associationV2.associationGroupingsGet())
   result << createEvent(name: "epInfo", value: util.toJson(state.endpointInfo), displayed: false, descriptionText:"")
   result << response(zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: 1))
@@ -559,11 +552,22 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
 }
 
-private getChildDeviceForEndpoint(Integer endpoint) {
+private getChildDeviceForEndpoint(Integer button) {
   def children = childDevices
-  if (children && endpoint) {
-    return children.find{ it.deviceNetworkId.endsWith("ep$endpoint") }
+  def child
+
+  if (children && button) {
+    String childDni = "${device.deviceNetworkId}/${button}"
+
+    logger("${childDni}")
+    child = childDevices.find{ it.deviceNetworkId == childDni }
+
+    if (! child) {
+      logger("Child device $childDni not found", "error")
+    }
   }
+
+  return child
 }
 
 def configure() {
@@ -614,6 +618,81 @@ def checkConfigure() {
   }
 
   return cmds
+}
+
+private void createChildDevices() {
+  // Save the device label for updates by updated()
+  state.oldLabel = device.label
+
+  // Add child devices for four button presses
+  for ( Integer x in 1..4 ) {
+    addChildDevice(
+      "smartthings",
+      "Child Switch",
+      "${device.deviceNetworkId}/$x",
+      "",
+      [
+      label         : "$device.displayName Switch $x",
+      completedSetup: true,
+      isComponent: true,
+      ])
+  }
+}
+
+def prepDevice() {
+  [
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
+    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
+    zwave.configurationV2.configurationGet(parameterNumber: 4),
+    zwave.firmwareUpdateMdV1.firmwareMdGet(),
+    zwave.associationV2.associationGroupingsGet(),
+    zwave.centralSceneV1.centralSceneSupportedGet(),
+    zwave.multiChannelV3.multiChannelEndPointGet(),
+  ]
+}
+
+def installed() {
+  log.info("$device.displayName installed()")
+
+  sendEvent(name: "numberOfButtons", value: maxButton(), displayed: true, isStateChange: true)
+
+  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  createChildDevices()
+
+  sendCommands( prepDevice(), 2000 )
+}
+
+def updated() {
+  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
+    return
+  }
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
+
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
+
+  state.manufacturer = null
+  updateDataValue("MSR", null)
+  updateDataValue("manufacturer", null)
+  sendEvent(name: "numberOfButtons", value: maxButton(), displayed: true, isStateChange: true)
+
+  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  if (! childDevices) {
+    createChildDevices()
+  }
+
+  childDevices.each { logger("${it.deviceNetworkId}") }
+
+  sendCommands( prepDevice(), 2000 )
+
+  // Avoid calling updated() twice
+  state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
 
 /*****************************************************************************************************************
@@ -679,26 +758,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return

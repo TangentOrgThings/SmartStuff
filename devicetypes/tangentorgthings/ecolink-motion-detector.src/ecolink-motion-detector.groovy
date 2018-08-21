@@ -15,20 +15,20 @@
  *
  */
 
-def getDriverVersion() {
-  return "v4.75"
+String getDriverVersion() {
+  return "v4.79"
 }
 
-def isPlus() {
-  return settings.newModel || state.newModel
+Boolean isPlus() {
+  return settings.newModel || state.discoveredNewModel
 }
 
-def isLifeLine() {
-  return state.isLifeLine
+Boolean isLifeLine() {
+  return state.isLifeLine ? state.isLifeLine : false
 }
 
 def getAssociationGroup () {
-  if ( zwaveHubNodeId == 1 || isPlus() || isLifeLine()) {
+  if ( zwaveHubNodeId == 1 || isPlus() ) {
     return 1
   }
 
@@ -60,8 +60,6 @@ metadata {
     // Device Specific
     attribute "Lifeline", "string"
     attribute "Repeated", "string"
-
-    attribute "Plus", "enum", ["Unconfigured", "No", "Yes"]
 
     attribute "Basic Report", "enum", ["Unconfigured", "On", "Off"]
     attribute "Lifeline Sensor Binary Report", "enum", ["Unconfigured", "On", "Off"]
@@ -99,8 +97,8 @@ metadata {
   }
 
   preferences {
-    input name: "newModel", type: "bool", title: "Follow up check", description: "Follow up check to turn off after 300 seconds.", required: false, defaultValue: false
-    input name: "followupCheck", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
+    input name: "followupCheck", type: "bool", title: "Follow up check", description: "Follow up check to turn off after 300 seconds.", required: false, defaultValue: false
+    input name: "newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
   }
 
@@ -116,14 +114,6 @@ metadata {
 
     valueTile("driverVersion", "device.driverVersion", inactiveLabel: true, decoration: "flat") {
       state("driverVersion", label: getDriverVersion())
-    }
-
-    valueTile("associated", "device.Associated", inactiveLabel: true, decoration: "flat") {
-      state("device.Associated", label: '${currentValue}')
-    }
-    
-    valueTile("Plus", "device.Plus", inactiveLabel: true, decoration: "flat") {
-      state("device.Plus", label: '${currentValue}')
     }
 
     valueTile("temperature", "device.temperature", width: 2, height: 2) {
@@ -150,7 +140,7 @@ metadata {
     }
 
     main "motion"
-    details(["motion", "battery", "tamper", "driverVersion", "temperature", "associated", "Plus", "lastActive"])
+    details(["motion", "battery", "tamper", "driverVersion", "temperature", "lastActive"])
   }
 }
 
@@ -258,7 +248,7 @@ def sensorValueEvent(Boolean happening, result) {
 
   if (happening) {
     state.lastActive = new Date().time
-    sendEvent(name: "LastActive", value: state.lastActive, displayed: false)
+//    sendEvent(name: "LastActive", value: Date.format('MM/dd HH:mm:ss'), displayed: false)
 
     if (settings.followupCheck) {
       runIn(360, followupStateCheck)
@@ -444,13 +434,13 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  def manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  def productTypeCode = String.format("%04X", cmd.productTypeId)
-  def productCode = String.format("%04X", cmd.productId)
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
 
   state.manufacturer = "Ecolink"
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   state.MSR = "$msr"
   
@@ -460,9 +450,10 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     productId -> ProductCode: 0001
   */
 
-  state.newModel = cmd.productTypeId == 0x0004 ? true : false
+  state.discoveredNewModel = cmd.productTypeId == 0x0004 ? true : false
   
   if (isPlus()) {
+    updateDataValue("isNewerModel", true)
     result << createEvent(name: "Lifeline Sensor Binary Report", value: "Unknown")
     result << createEvent(name: "Basic Set Off", value: "Unknown")
     result << response(delayBetween([
@@ -471,6 +462,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     ], 700))
     state.isLifeLine = true
   } else {
+    updateDataValue("isNewerModel", false)
     result << createEvent(name: "Basic Report", value: "Unknown")
   }
   
@@ -480,14 +472,12 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
   }
   
-  result << createEvent(name: "Plus", value: isPlus())
-
   result << createEvent(name: "Manufacturer ID", value: manufacturerCode)
   result << createEvent(name: "Product Type", value: productTypeCode)
   result << createEvent(name: "Product ID", value: productCode)
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
-  result << response(delayBetween(cmds, 1000))
+  result << response( delayBetween(cmds, 1000) )
   result << response( zwave.versionV1.versionGet() )
 }
 
@@ -591,12 +581,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   if (cmd.groupingIdentifier == 0x01) { // Lifeline
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      state.isLifeLine = true
       isAssociated = true
-    } else {
-      if (isLifeLine()) {
-        state.isAssociated = false
-      }
     }
     result << createEvent(name: "Lifeline",
           value: "${final_string}",
@@ -604,11 +589,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
           isStateChange: true)
   } else if (cmd.groupingIdentifier == 0x02) { // Repeated
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      if (isLifeLine()) {
+      if (getAssociationGroup() == 1) {
         cmds << zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format()
-      } else {
-        isAssociated = true
       }
+      isAssociated = true
     }
     result << createEvent(name: "Repeated",
       value: "${final_string}",
@@ -620,12 +604,16 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   }
 
   if (! isAssociated ) {
-    cmds << zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format()
-    cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
-    cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
-    result << createEvent(name: "isAssociated", value: "false", displayed: true)
+    if (getAssociationGroup() == cmd.groupingIdentifier ) {
+      result << createEvent(name: "isAssociated", value: "true", displayed: true)
+      cmds << zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format()
+      cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
+      cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
+    }
   } else {
-    result << createEvent(name: "isAssociated", value: "true", displayed: true)
+    if (getAssociationGroup() == cmd.groupingIdentifier ) {
+      result << createEvent(name: "isAssociated", value: "true", displayed: true)
+    }
   }
 
   if (cmds.size()) {
@@ -646,10 +634,13 @@ def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result
 def checkConfigure() {
   def cmds = []
 
+  if (state.checkConfigure && ((new Date().time) - state.checkConfigure) < 120 ) {
+    return
+  }
+  state.checkConfigure = new Date().time
+
   if (! device.currentValue("isConfigured") || device.currentValue("isConfigured").toBoolean() == false) {
     if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
-      state.lastConfigure = new Date().time
-
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
       } else {
@@ -660,19 +651,24 @@ def checkConfigure() {
         cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
       }
     }
+
+    state.lastConfigure = new Date().time
   }
 
   if (! device.currentValue("isAssociated") || device.currentValue("isAssociated").toBoolean() == false) {
     if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
-      state.lastAssociated = new Date().time
-
       cmds << zwave.associationV2.associationGroupingsGet().format()
     }
+
+    state.lastAssociated = new Date().time
   }
-  cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format()
-  cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 25).format()
-  cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
-  cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
+
+  if (0) { // Misconfigure fix
+    cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format()
+      cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 25).format()
+      cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
+      cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
+  }
 
   return cmds
 }
@@ -690,8 +686,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 3
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -725,7 +720,6 @@ def updated() {
 
 def installed() {
   log.debug "$device.displayName installed()"
-  state.loggingLevelIDE = 4
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -802,26 +796,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return

@@ -8,8 +8,8 @@
  *   and: http://openremote.org/display/forums/Controlling++RX+2065+Yamaha+Amp
  */
 
-def getDriverVersion () {
-  return "v1.03"
+String getDriverVersion () {
+  return "v1.05"
 }
 
 metadata {
@@ -76,6 +76,8 @@ metadata {
       state "volume", action:"Audio Volume.setVolume"
     }
 
+    childDeviceTile("volumeChild", "yamahaVolume", height: 2, width: 2, childTileName: "Volume")
+
     valueTile("volume", "device.volume", width: 1, height: 1) {
       state "volume", label: '${currentValue}'
     }
@@ -100,7 +102,7 @@ metadata {
     }
 
     main "state"
-    details(["switch", "levelSliderControl", "volume", "input", "mute", "refresh", "playback"])
+    details(["switch", "levelSliderControl", "volume", "volumeChild", "input", "mute", "refresh", "playback"])
   }
 }
 
@@ -244,11 +246,13 @@ def setMute(state) {
 }
 
 def mute() {
+  logger("mute()")
   sendEvent(name: "mute", value: "muted")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Mute>On</Mute></Volume></$Zone></YAMAHA_AV>")
 }
 
 def unmute() {
+  logger("unmute()")
   sendEvent(name: "mute", value: "unmuted")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Mute>Off</Mute></Volume></$Zone></YAMAHA_AV>")
 }
@@ -289,19 +293,19 @@ def setPlaybackStatus(status) {
 }
 
 def play() {
-  log.debug "play()"
+  logger("play()")
   sendEvent(name: "playbackStatus", value: "play")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Play</Playback></Play_Control></$Zone></YAMAHA_AV>")
 }
 
 def stop() {
-  log.debug "stop()"
+  logger("stop()")
   sendEvent(name: "playbackStatus", value: "stop")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Stop</Playback></Play_Control></$Zone></YAMAHA_AV>")
 }
 
 def pause() {
-  log.debug "pause()"
+  logger("pause()")
   sendEvent(name: "playbackStatus", value: "pause")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Pause</Playback></Play_Control></$Zone></YAMAHA_AV>")
 }
@@ -344,22 +348,49 @@ private String convertPortToHex(port) {
   return hexport
 }
 
+private void createChildDevices() {
+  // Save the device label for updates by updated()
+  state.oldLabel = device.label
+
+  // Add child devices for four button presses
+  addChildDevice(
+    "Yamaha Network Receiver Volume",
+    "${device.displayName}/volume",
+    "",
+    [
+    componentName: "yamahaVolume",
+    label         : "$device.displayName Volume",
+    completedSetup: true,
+    isComponent: true,
+    ])
+}
+
 def installed() {
   log.info("$device.displayName installed()")
-  state.loggingLevelIDE = 4
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  createChildDevices()
 }
 
 def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${debugLevel}")
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
+
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  if (! childDevices) {
+    createChildDevices()
+  }
+
+  childDevices.each { logger("${it.deviceNetworkId}") }
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -373,33 +404,48 @@ def updated() {
  *    messages by sending events for the device's logMessage attribute and lastError attribute.
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
-private logger(msg, level = "trace") {
+void logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (settings.debugLevel >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (settings.debugLevel >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
+    if (settings.debugLevel >= 5) {
+      log.trace msg
+    }
+    return
+
+    case "error":
     default:
-    log.trace msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

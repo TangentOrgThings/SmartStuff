@@ -14,15 +14,15 @@
  *
  */
 
-def getDriverVersion() {
-  return "v2.97"
+String getDriverVersion() {
+  return "v3.01"
 }
 
-def getAssociationGroup() {
+Integer getAssociationGroup() {
   return 1
 }
 
-def getWattMin() {
+Integer getWattMin() {
   return 5
 }
 
@@ -95,19 +95,19 @@ metadata {
 			}
 		}
 
-		valueTile("power", "device.power", decoration: "flat") {
+		valueTile("power", "device.power", width:2, height:2, inactiveLabel: true, decoration: "flat") {
 			state "default", label:'${currentValue} W', unit:"W"
 		}
 
-		valueTile("energy", "device.energy", decoration: "flat") {
+		valueTile("energy", "device.energy", width:2, height:2, inactiveLabel: true, decoration: "flat") {
 			state "default", label:'${currentValue} kWh', unit:"kWh"
 		}
 
-		standardTile("reset", "device.energy", inactiveLabel: false, decoration: "flat") {
+		standardTile("reset", "device.energy", width:2, height:2, inactiveLabel: false, decoration: "flat") {
 			state "default", label:'reset kWh', action:"reset"
 		}
 
-		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
+		standardTile("refresh", "device.switch", width:2, height:2, inactiveLabel: false, decoration: "flat") {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
 
@@ -126,7 +126,7 @@ def getCommandClassVersions() { // 25, 31, 32, 27, 70, 85, 72, 86
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
     0x31: 5,  // SensorMultilevel V3
-    0x32: 2,  // Meter V2
+    0x32: 3,  // Meter V2
     0x70: 2,  // Configuration V2
     0x72: 2,  // Manufacturer Specific V2
     0x82: 1, // Hail
@@ -139,8 +139,7 @@ def parse(String description) {
   def result = []
 
   if (description && description.startsWith("Err")) {
-    log.error "parse error: ${description}"
-    result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
+    logger("parse error: ${description}", "error")
 
     if (description.startsWith("Err 106")) {
       result << createEvent(
@@ -153,9 +152,8 @@ def parse(String description) {
     }
   } else if (! description) {
     logger("$device.displayName parse() called with NULL description", "info")
-  } else if ( description?.endsWith("command: 3105, payload: 04")) {
-    logger("Unknown command ${description}", "info")
   } else if (description != "updated") {
+    logger("description: '$description'")
     def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (cmd) {
@@ -186,13 +184,13 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     cmd.nodeId.each {
       string_of_assoc += "${it}, "
     }
-    def lengthMinus2 = string_of_assoc.length() - 3
+    Integer lengthMinus2 = string_of_assoc.length() - 3
     final_string = string_of_assoc.getAt(0..lengthMinus2)
   }
 
   if (cmd.groupingIdentifier == getAssociationGroup()) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      Boolean isStateChange = state.isAssociated ?: false
+      Boolean isStateChange = state.isAssociated ? false : true
       result << createEvent(name: "Associated",
                             value: "${final_string}",
                             descriptionText: "${final_string}",
@@ -200,50 +198,30 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
       state.isAssociated = true
     } else {
-      Boolean isStateChange = state.isAssociated ? true : false
+      Boolean isStateChange = state.isAssociated ?: false
       result << createEvent(name: "Associated",
                           value: "",
                           descriptionText: "${final_string}",
                           isStateChange: isStateChange)
       state.isAssociated = false
     }
-  } else if (cmd.groupingIdentifier == 1) {
-    if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      Boolean isStateChange = state.isAssociated ?: false
-      result << createEvent(name: "LifeLine",
-                            value: "${final_string}",
-                            descriptionText: "${final_string}",
-                            isStateChange: isStateChange)
-
-      state.isAssociated = true
-    } else {
-      Boolean isStateChange = state.isAssociated ? true : false
-      result << createEvent(name: "LifeLine",
-                          value: "${final_string}",
-                          descriptionText: "${final_string}",
-                          isStateChange: isStateChange)
-      state.isAssociated = false
-    }
   } else {
-    Boolean isStateChange = state.isAssociated ? true : false
-    result << createEvent(name: "LifeLine",
-                          value: "misconfigured",
-                          descriptionText: "misconfigured group ${cmd.groupingIdentifier}",
-                          isStateChange: isStateChange)
+    logger("Unknown group ${cmd.groupingIdentifier}", "error")
   }
 
   if (state.isAssociated == false) {
-    result << delayBetween([
-                   zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [1,zwaveHubNodeId]),
-                   zwave.associationV1.associationSet(groupingIdentifier: 1, nodeId: [1,zwaveHubNodeId]),
+    result << response(delayBetween([
+                   zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]),
                    zwave.associationV1.associationGet(groupingIdentifier: getAssociationGroup())
-                 ], 1000)
-  }
-
-  return result
+                 ], 1000))
+  } 
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterSupportedReport cmd, result) {
+  logger("$device.displayName: $cmd");
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, result) {
   logger("$device.displayName: $cmd");
 
   switch (cmd.scale) {
@@ -261,6 +239,14 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv2.MeterReport cmd, result) {
     result << createEvent(descriptionText: "$device.displayName scale not implemented: $cmd")
     break;
   }
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelSupportedSensorReport cmd, result) {
+  logger("$device.displayName: $cmd", "warn");
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelSupportedScaleReport cmd, result) {
+  logger("$device.displayName: $cmd", "warn");
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
@@ -315,6 +301,7 @@ def on() {
 
   delayBetween([
 		zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
 	])
 }
 
@@ -329,6 +316,7 @@ def off() {
 
   delayBetween([
     zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format(),
+    zwave.switchBinaryV1.switchBinaryGet().format(),
   ])
 }
 
@@ -339,7 +327,15 @@ def ping() {
 
 def poll() {
   logger("$device.displayName: poll()");
-  zwave.switchBinaryV1.switchBinaryGet().format()
+  if (0) {
+    zwave.switchBinaryV1.switchBinaryGet().format()
+  }
+  sendCommands([
+    zwave.switchBinaryV1.switchBinaryGet(),
+    // zwave.sensorMultilevelV3.sensorMultilevelGet(),
+    zwave.meterV2.meterGet(scale: 0x00),
+    zwave.meterV2.meterGet(scale: 0x02),
+  ])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
@@ -359,15 +355,15 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   state.manufacturer= cmd.manufacturerName ? cmd.manufacturerName : "Aeon"
 
-  def manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  def productTypeCode = String.format("%04X", cmd.productTypeId)
-  def productCode = String.format("%04X", cmd.productId)
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
 
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName")
 
   Integer[] parameters = [ 1, 80, 90, 91, 92, 101, 102, 103, 111, 112, 113 ]
@@ -387,7 +383,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName: $cmd");
 
-  def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
+  String text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
   result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: false)
 }
@@ -415,7 +411,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
     msg = "Device is included in the all on/all off functionality."
     break
   }
-  logger("Switch All Mode: ${msg}","debug")
+  logger("Switch All Mode: ${msg}", "info")
 
   if (cmd.mode != 0) {
     result << delayBetween([
@@ -431,18 +427,20 @@ def refresh() {
   logger("$device.displayName: refresh()");
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
-    zwave.sensorMultilevelV3.sensorMultilevelGet().format(),
+    // zwave.sensorMultilevelV3.sensorMultilevelGet().format(),
     zwave.meterV2.meterGet(scale: 0x00).format(),
+    zwave.meterV2.meterGet(scale: 0x02).format(),
     ])
 }
 
 def reset() {
   logger("$device.displayName: reset()");
   sendCommands([
-		zwave.meterV2.meterReset(),
-        zwave.sensorMultilevelV3.sensorMultilevelGet(),
-        zwave.meterV2.meterGet(scale: 0x00),
-	])
+    zwave.meterV2.meterReset(),
+    // zwave.sensorMultilevelV3.sensorMultilevelGet(),
+    zwave.meterV2.meterGet(scale: 0x00),
+    zwave.meterV2.meterGet(scale: 0x02),
+  ])
 }
 
 private prepDevice() {
@@ -461,16 +459,17 @@ private prepDevice() {
     zwave.configurationV1.configurationSet(parameterNumber: 103, size: 4, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 113, size: 4, scaledConfigurationValue: 0),
     zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.sensorMultilevelV3.sensorMultilevelGet(),
+    // zwave.sensorMultilevelV3.sensorMultilevelGet(),
     zwave.meterV2.meterGet(scale: 0x00),
+    zwave.meterV2.meterGet(scale: 0x02),
+    zwave.meterV2.meterSupportedGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
 def installed() {
-  log.info("$device.displayName installed()")
-  state.loggingLevelIDE = 4
+  logger("$device.displayName installed()")
 
   if (0) {
   def zwInfo = getZwaveInfo()
@@ -479,17 +478,15 @@ def installed() {
   }
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
-  state.driverVersion = getDriverVersion()
 
   sendCommands( prepDevice(), 2000 )
 }
 
 def updated() {
-  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
+  if ( state.updatedDate && ((Calendar.getInstance().getTimeInMillis() - state.updatedDate)) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  logger("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -573,26 +570,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return
