@@ -200,8 +200,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = settings.debugLevel ?: 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -234,7 +233,6 @@ def updated() {
 
 def installed() {
   log.debug ("installed()")
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
 
   def zwInfo = getZwaveInfo()
 
@@ -971,22 +969,22 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
+    if (settings.debugLevel >= 3) log.info msg
       return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
+    if (settings.debugLevel >= 4) log.debug msg
       return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
+    if (settings.debugLevel >= 5) log.trace msg
       return
 
     case "error":

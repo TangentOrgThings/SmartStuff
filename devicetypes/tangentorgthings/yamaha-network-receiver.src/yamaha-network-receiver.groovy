@@ -225,6 +225,14 @@ def volumeUp() {
 def volumeDown() {
 }
 
+def childOn() {
+  log.debug "childOn"
+}
+
+def childOff() {
+  log.debug "childOff"
+}
+
 def on() {
   log.debug "on"
   sendEvent(name: "switch", value: 'on')
@@ -353,16 +361,18 @@ private void createChildDevices() {
   state.oldLabel = device.label
 
   // Add child devices for four button presses
-  addChildDevice(
-    "Yamaha Network Receiver Volume",
-    "${device.displayName}/volume",
-    "",
-    [
-    componentName: "yamahaVolume",
-    label         : "$device.displayName Volume",
-    completedSetup: true,
-    isComponent: true,
+  String switch_name = "Mute"
+  if (1) {
+    String childDni = "${device.displayName}/${switch_name}"
+    def child = childDevices.find { it.deviceNetworkId == childDni }
+    addChildDevice("smartthings", "Child Switch", childDni, null, [
+      completedSetup: true,
+      label         : "$device.displayName ${switch_name}",
+      isComponent   : true,
+      componentName : "switch${switch_name}",
+      componentLabel: "${switch_name}"
     ])
+  }
 }
 
 def installed() {
@@ -386,7 +396,7 @@ def updated() {
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
-  if (! childDevices) {
+  if (1) { //! childDevices) {
     createChildDevices()
   }
 

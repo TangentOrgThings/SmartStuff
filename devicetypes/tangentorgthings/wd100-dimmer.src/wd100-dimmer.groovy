@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.18"
+  return "v7.19"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -740,21 +740,21 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
   logger("$device.displayName $cmd")
 
   if (0) {
-  long currenTime = Calendar.getInstance().getTimeInMillis()
-  logger("Lasttime ${state.lastSequenceBounce} $currenTime")
-  if ( state.lastSequenceBounce ) {
-    if (0 && currenTime - state.lastSequenceBounce < 1500 ) {
-      state.sequenceNumber= cmd.sequenceNumber
-      logger("Bounce, too soon to update.", "warn")
-      return
+    long currenTime = Calendar.getInstance().getTimeInMillis()
+    logger("Lasttime ${state.lastSequenceBounce} $currenTime")
+    if ( state.lastSequenceBounce ) {
+      if (0 && currenTime - state.lastSequenceBounce < 1500 ) {
+        state.sequenceNumber= cmd.sequenceNumber
+        logger("Bounce, too soon to update.", "warn")
+        return
+      }
+      if ( state.sequenceNumber && cmd.sequenceNumber > 1 && ( cmd.sequenceNumber < state.sequenceNumber ) ) {
+        logger("Late sequenceNumber ${cmd.sequenceNumber} < ${state.sequenceNumber}", "warn")
+        return
+      }
     }
-    if ( state.sequenceNumber && cmd.sequenceNumber > 1 && ( cmd.sequenceNumber < state.sequenceNumber ) ) {
-      logger("Late sequenceNumber ${cmd.sequenceNumber} < ${state.sequenceNumber}", "warn")
-      return
-    }
-  }
-  state.sequenceNumber= cmd.sequenceNumber
-  state.lastSequenceBounce = Calendar.getInstance().getTimeInMillis()
+    state.sequenceNumber= cmd.sequenceNumber
+    state.lastSequenceBounce = Calendar.getInstance().getTimeInMillis()
   }
 
   def cmds = []
@@ -956,7 +956,7 @@ def installed() {
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
   // Set Button Number and driver version
-  sendEvent(name: "numberOfButtons", value: 8, displayed: false)
+  sendEvent(name: "numberOfButtons", value: 6, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   sendCommands( prepDevice() + setDimRatePrefs(), 2000 )
@@ -1003,7 +1003,7 @@ def updated() {
   state.unknownCommandErrorCount = 0
 
   // Set Button Number and driver version
-  sendEvent(name: "numberOfButtons", value: 8, displayed: false)
+  sendEvent(name: "numberOfButtons", value: 6, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)

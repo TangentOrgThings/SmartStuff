@@ -29,7 +29,7 @@
  */
 
 def getDriverVersion () {
-  return "v6.91"
+  return "v6.93"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -925,7 +925,7 @@ def prepDevice() {
 
 def installed() {
   logger("$device.displayName installed()")
-  sendEvent(name: "numberOfButtons", value: 8, displayed: false)
+  sendEvent(name: "numberOfButtons", value: 6, displayed: false)
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -957,7 +957,7 @@ def updated() {
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
 
-  sendEvent(name: "numberOfButtons", value: 8, displayed: true, isStateChange: true)
+  sendEvent(name: "numberOfButtons", value: 6, displayed: true, isStateChange: true)
 
   if (0) {
     if (! state.indicatorStatus) {
