@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.79"
+  return "v4.83"
 }
 
 Boolean isPlus() {
@@ -293,7 +293,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   logger("$device.displayName $cmd")
 
   if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.sensorValue, result)
+    sensorValueEvent((Boolean)cmd.switchValue, result)
   } else {
     logger("duplicate SwitchBinarySet", "warn")
   }
@@ -453,7 +453,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.discoveredNewModel = cmd.productTypeId == 0x0004 ? true : false
   
   if (isPlus()) {
-    updateDataValue("isNewerModel", true)
+    updateDataValue("isNewerModel", "true")
     result << createEvent(name: "Lifeline Sensor Binary Report", value: "Unknown")
     result << createEvent(name: "Basic Set Off", value: "Unknown")
     result << response(delayBetween([
@@ -494,18 +494,18 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  Boolean isConfigured = false
+  Boolean _isConfigured = false
 
   if (cmd.parameterNumber == 0x63) {
     result << createEvent(name: "Basic Report", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
-    isConfigured = true
+    _isConfigured = true
   } else if (cmd.parameterNumber == 0x01) {
   / *
       0x00 (Default) Sensor does NOT send Basic Sets to Node IDs in Association Group 2 when the sensor is restored (i.e. Motion Not Detected ).
       0xFF Sensor sends Basic Sets of 0x00 to nodes in Association Group2 when sensor is restored.
     */
     result << createEvent(name: "Basic Set Off", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
-    isConfigured = true
+    _isConfigured = true
   } else if (cmd.parameterNumber == 0x02) {
   /*
       0x00 (Default) Sensor sends Sensor Binary Reports when sensor is faulted and restored for backwards compatibility in addition to Notification Reports.
@@ -518,14 +518,14 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 800))
     }
-    isConfigured = true
+    _isConfigured = true
   } else {
     logger("$device.displayName Unknown parameterNumber number ${cmd.parameterNumber}", "error")
     return
   }
 
   if ( zwaveHubNodeId != 1 && ! isPlus() && device.currentValue("MSR")) {
-    if (! isConfigured) {
+    if (! _isConfigured) {
       result << response(delayBetween([
         zwave.configurationV1.configurationSet(parameterNumber: 0x63, scaledConfigurationValue: 0xFF, size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: 0x63).format(),
@@ -533,10 +533,10 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     }
   }
 
-  if (isConfigured) {
-    result << createEvent(name: "isConfigured", value: "true", displayed: true )
+  if (_isConfigured) {
+    setConfigured()
   } else {
-    result << createEvent(name: "isConfigured", value: "false", displayed: true )
+    unConfigured()
   }
 }
 
@@ -605,14 +605,14 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   if (! isAssociated ) {
     if (getAssociationGroup() == cmd.groupingIdentifier ) {
-      result << createEvent(name: "isAssociated", value: "true", displayed: true)
+      unAssociated()
       cmds << zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format()
       cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
       cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
     }
   } else {
     if (getAssociationGroup() == cmd.groupingIdentifier ) {
-      result << createEvent(name: "isAssociated", value: "true", displayed: true)
+      setAssociated()
     }
   }
 
@@ -639,7 +639,7 @@ def checkConfigure() {
   }
   state.checkConfigure = new Date().time
 
-  if (! device.currentValue("isConfigured") || device.currentValue("isConfigured").toBoolean() == false) {
+  if (! isConfigured()) {
     if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
@@ -655,7 +655,7 @@ def checkConfigure() {
     state.lastConfigure = new Date().time
   }
 
-  if (! device.currentValue("isAssociated") || device.currentValue("isAssociated").toBoolean() == false) {
+  if (! isAssociated()) {
     if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
       cmds << zwave.associationV2.associationGroupingsGet().format()
     }
@@ -710,8 +710,8 @@ def updated() {
     sendCommands(prepDevice())
   }
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
-  sendEvent(name: "isAssociated", value: "false", displayed: true)
-  sendEvent(name: "isConfigured", value: "false", displayed: true)
+  initIsAssociated()
+  initIsConfigured()
   // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on update", isStateChange: true, displayed: true)
 
   // Avoid calling updated() twice
@@ -736,6 +736,46 @@ def installed() {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
+
+private initIsConfigured() {
+  sendEvent(name: "isConfigured", value: "Unconfigured", displayed: true)
+}
+
+private unConfigured() {
+  sendEvent(name: "isConfigured", value: "false", displayed: true)
+}
+
+private setConfigured() {
+  sendEvent(name: "isConfigured", value: "true", displayed: true)
+}
+
+private isConfigured() {
+  if (device.currentValue("isConfigured") && device.currentValue("isConfigured").toBoolean() == true) {
+    return true
+  }
+
+  return false
+}
+
+private initIsAssociated() {
+  sendEvent(name: "isAssociated", value: "Unconfigured", displayed: true)
+}
+
+private unAssociated() {
+  sendEvent(name: "isAssociated", value: "false", displayed: true)
+}
+
+private setAssociated() {
+  sendEvent(name: "isAssociated", value: "true", displayed: true)
+}
+
+private isAssociated() {
+  if (device.currentValue("isAssociated") && device.currentValue("isAssociated").toBoolean() == true) {
+    return true
+  }
+
+  return false
+}
 
 /**
  *  encapCommand(cmd)

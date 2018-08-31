@@ -13,8 +13,8 @@
  *
  */
 
-def getDriverVersion() {
-  return "v4.65"
+String getDriverVersion() {
+  return "v4.67"
 }
 
 def getIndicatorParam() {
@@ -333,6 +333,14 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   result << createEvent(name: "switch", value: cmd.switchValue ? "on" : "off", type: "digital")
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
+  logger("$device.displayName $cmd")
+
+  result << response(delayBetween([
+    zwave.basicV1.switchBinaryReport(value: device.currentValue("switch")).format(),
+  ]))
+}
+
 // NotificationReport
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
   logger("$device.displayName $cmd")
@@ -569,6 +577,11 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
   def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
   result << createEvent(name: "Power", value: device_power_level)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << response( zwave.commands.powerlevelv1.PowerlevelGet() )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
@@ -889,7 +902,6 @@ def prepDevice() {
 
 def installed() {
   log.info("$device.displayName installed()")
-  state.loggingLevelIDE = 3
 
   /*
   if (device.rawDescription) {
@@ -909,8 +921,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 3
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -1018,26 +1029,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return

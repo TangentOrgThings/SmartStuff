@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.19"
+  return "v7.21"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -158,10 +158,6 @@ metadata {
       state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
     }
 
-    valueTile("firmwareVersion", "device.FirmwareVersion", width:2, height: 2, decoration: "flat", inactiveLabel: true) {
-      state "default", label: '${currentValue}'
-    }
-
     valueTile("driverVersion", "device.driverVersion", inactiveLabel: true, decoration: "flat") {
       state "default", label: '${currentValue}'
     }
@@ -172,7 +168,7 @@ metadata {
     }
 
     main "switch"
-    details(["switch", "firmwareVersion", "driverVersion", "refresh", "reset"])
+    details(["switch", "driverVersion", "refresh", "reset"])
   }
 }
 
@@ -293,8 +289,13 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 
 // physical device events ON/OFF
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd")
-  dimmerEvents(cmd.value, false, result)
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  if (cmd.value) {
+    trueOn(false)
+    return
+  }
+
+  trueOff(false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -304,7 +305,12 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
-  dimmerEvents(cmd.switchValue, true, result)
+  if (cmd.switchValue) {
+    trueOn(false)
+    return
+  }
+
+  trueOff(false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
@@ -553,6 +559,11 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
   result << createEvent(name: "Power", value: device_power_level)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
+  logger("$device.displayName $cmd")
+  result << response( zwave.commands.powerlevelv1.PowerlevelGet() )
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -612,11 +623,11 @@ def on() {
 }
 
 private trueOn(Boolean physical = true) {
-  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+  if (state.lastOnBounce && (Calendar.getInstance().getTimeInMillis() - state.lastOnBounce) < 2000 ) {
     logger("$device.displayName bounce", "warn")
     return
   }
-  state.lastBounce = Calendar.getInstance().getTimeInMillis()
+  state.lastOnBounce = Calendar.getInstance().getTimeInMillis()
 
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent(1, false, "digital")
@@ -646,11 +657,11 @@ def disconnect() {
 }
 
 private trueOff(Boolean physical = true) {   
-  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
+  if (state.lastOffBounce && (Calendar.getInstance().getTimeInMillis() - state.lastOffBounce) < 2000 ) {
     logger("$device.displayName bounce", "warn")
     return
   }
-  state.lastBounce = Calendar.getInstance().getTimeInMillis()
+  state.lastOffBounce = Calendar.getInstance().getTimeInMillis()
   
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent(2, false, "digital")
@@ -658,8 +669,8 @@ private trueOff(Boolean physical = true) {
   sendEvent(name: "switch", value: "off");
 
   delayBetween([
-    //zwave.basicV1.basicSet(value: 0x00).format(),
-    zwave.switchMultilevelV1.switchMultilevelSet(value: 0x00).format(),
+    zwave.basicV1.basicSet(value: 0x00).format(),
+    //zwave.switchMultilevelV1.switchMultilevelSet(value: 0x00).format(),
     zwave.switchMultilevelV1.switchMultilevelGet().format(),
   ], 4000)
 }
@@ -1005,6 +1016,8 @@ def updated() {
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 6, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  sendEvent(name: "DeviceReset", value: "false", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])

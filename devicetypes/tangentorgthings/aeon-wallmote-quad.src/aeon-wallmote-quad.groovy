@@ -21,7 +21,7 @@
  */
 
 String getDriverVersion () {
-  return "v0.53"
+  return "v0.55"
 }
 
 Integer maxButton () {
@@ -83,6 +83,8 @@ metadata {
 
     // fingerprint deviceId: "0x1801", inClusters: "0x5E, 0x70, 0x85, 0x2D, 0x8E, 0x80, 0x84, 0x8F, 0x5A, 0x59, 0x5B, 0x73, 0x86, 0x72", outClusters: "0x20, 0x5B, 0x26, 0x27, 0x2B, 0x60"
     // fingerprint deviceId: "0x1202", inClusters: "0x5E, 0x8F, 0x73, 0x98, 0x86, 0x72, 0x70, 0x85, 0x2D, 0x8E, 0x80, 0x84, 0x5A, 0x59, 0x5B", outClusters:  "0x20, 0x5B, 0x26, 0x27, 0x2B, 0x60"         
+    fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "Aeon Wallmote Quad" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
+    fingerprint mfr: "0208", prod: "4447", model: "0201", deviceJoinName: "Aeon Wallmote Quad" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
   }
 
   simulator {
@@ -212,7 +214,6 @@ def childOn(String childID) {
 
   buttonEvent(buttonId, false)
 
-  def child = getChildDeviceForEndpoint( buttonId )
   if ( child ) {
     child.on()
   }
@@ -291,6 +292,54 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       break;
       case 2: // 2 is held
       buttonEvent(1, true, true)
+      break;
+      default:
+      buttonEvent(cmd.keyAttributes -1, false, true)
+      break;
+    }
+    break;
+
+    case 2:
+    // Up
+    switch (cmd.keyAttributes) {
+      case 0:
+      case 1: // Capture 0 and 1 as same;
+      buttonEvent(2, false, true)
+      break;
+      case 2: // 2 is held
+      buttonEvent(2, true, true)
+      break;
+      default:
+      buttonEvent(cmd.keyAttributes -1, false, true)
+      break;
+    }
+    break;
+
+    case 3:
+    // Up
+    switch (cmd.keyAttributes) {
+      case 0:
+      case 1: // Capture 0 and 1 as same;
+      buttonEvent(3, false, true)
+      break;
+      case 2: // 2 is held
+      buttonEvent(3, true, true)
+      break;
+      default:
+      buttonEvent(cmd.keyAttributes -1, false, true)
+      break;
+    }
+    break;
+
+    case 4:
+    // Up
+    switch (cmd.keyAttributes) {
+      case 0:
+      case 1: // Capture 0 and 1 as same;
+      buttonEvent(4, false, true)
+      break;
+      case 2: // 2 is held
+      buttonEvent(4, true, true)
       break;
       default:
       buttonEvent(cmd.keyAttributes -1, false, true)
@@ -441,6 +490,26 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
   result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  def map = [ name: "battery", unit: "%" ]
+  if (cmd.batteryLevel == 0xFF) {
+    map.value = 1
+    map.descriptionText = "${device.displayName} battery is low"
+    map.isStateChange = true
+  } else {
+    map.value = cmd.batteryLevel
+  }
+  state.lastBatteryReport = now()
+  if (state.lastBatteryValue != map.value)
+  {
+    state.lastBatteryValue = map.value
+    map.isStateChange = true
+  }
+  result << createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
