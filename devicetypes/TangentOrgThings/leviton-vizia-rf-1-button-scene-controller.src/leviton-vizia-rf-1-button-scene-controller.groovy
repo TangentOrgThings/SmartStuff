@@ -1,5 +1,6 @@
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 /**
+ *
  *  VIZIA RF 1 BUTTON SCENE CONTROLLER
  *  VRCS1 - 1-Button Scene Controller
  *  https://products.z-wavealliance.org/products/316
@@ -22,14 +23,14 @@
 
 
 String getDriverVersion () {
-  return "v1.57"
+  return "v1.63"
 }
 
 metadata {
   definition (name: "Leviton Vizia RF Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
-    capability "Momentary"
+    capability "Holdable Button"
     capability "Sensor"
     capability "Switch"
 
@@ -53,20 +54,12 @@ metadata {
     attribute "setScene", "enum", ["Unknown", "Set", "Setting"]
 
     attribute "Group 1 Association", "number"
-    attribute "Group 1 Scene", "number"
-    attribute "Group 1 Duration", "number"
 
     attribute "Group 2 Association", "number"
-    attribute "Group 2 Scene", "number"
-    attribute "Group 2 Duration", "number"
 
     attribute "Group 3 Association", "number"
-    attribute "Group 3 Scene", "number"
-    attribute "Group 3 Duration", "number"
 
     attribute "Group 4 Association", "number"
-    attribute "Group 4 Scene", "number"
-    attribute "Group 4 Duration", "number"
 
     attribute "NIF", "string"
 
@@ -87,13 +80,11 @@ metadata {
   }
 
   tiles {
-    standardTile("tap", "device.button", width: 2, height: 2, decoration: "flat") {
-      state "default", label: "", backgroundColor: "#D3D3D3"
-      state "pushed", label: "${currentValue}", backgroundColor: "#79b821"
-    }
-
-    valueTile("tapme", "device.button", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
-      state "default", label: '${currentValue}'
+    multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4) {
+      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+        attributeState "on", label: '${name}', action: "off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
+        attributeState "off", label: '${name}', icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+      }
     }
 
     valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -105,8 +96,12 @@ metadata {
       state "Setting", label: '${name}' //, nextState: "Set_Scene"
     }
 
-    main (["tap"])
-    details(["tap", "scene", "setScene", "tapme"])
+    valueTile("driverVersion", "device.driverVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
+      state "default", label: '${currentValue}'
+    }
+
+    main ("switch")
+    details(["switch", "scene", "setScene", "driverVersion"])
   }
 }
 
@@ -176,44 +171,40 @@ def parse(String description) {
 
 def on() {
   logger("$device.displayName on()")
-
-  delayBetween([
-    zwave.basicV1.basicSet(value: 0xFF).format(),
-    zwave.basicV1.basicGet().format(),
-  ], 2000)
 }
 
 def off() {
   logger("$device.displayName off()")
 
-  delayBetween([
-    zwave.basicV1.basicSet(value: 0x00).format(),
-    zwave.basicV1.basicGet().format(),
-  ], 2000)
-}
+  logger(device.currentValue("switch"))
+  if (device.currentValue("switch") == "on") {
+    if (0) {
+      sendEvent(name: "switch", value: "off", type: "digital", isStateChange: true, displayed: true)
+    }
+    response( zwave.basicV1.basicSet(value: 0x00) )
+  }
 
-def push() {
-  logger("$device.displayName push()")
-
-  if (device.currentState("switch").value.equals("on")) {
-    sendEvent(name: "switch", value: "off")
-    delayBetween([
-      zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 2).format(),
-    ], 2000)
-  } else {
-    sendEvent(name: "switch", value: "on")
-    delayBetween([
-      zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: zwaveHubNodeId).format(),
-    ], 2000)
+  if (0) {
+    unsetScene(false)
   }
 }
 
-def getparamState() {
-  logger("$device.displayName getparamState()")
-  // sendHubCommand(new physicalgraph.device.HubAction("91001D0D01FF01180508D3"))
-  def cmds = []
-  cmds << new physicalgraph.device.HubAction("91001D0D01FF01180508D3")
-	return response(delayBetween(cmds, 1000))
+def childOn(String childID) {
+  logger("$device.displayName childOn( $childID )")
+
+  Integer buttonId = childID?.split("/")[1] as Integer
+}
+
+def childOff(String childID) {
+  logger("$device.displayName childOff( $childID )")
+
+  Integer buttonId = childID?.split("/")[1] as Integer
+}
+
+def childLevel(String childID, Integer val) {
+  logger("$device.displayName childLevel( $childID, $val )")
+
+  Integer buttonId = childID?.split("/")[1] as Integer
 }
 
 def handleManufacturerProprietary(String description, result) {
@@ -221,29 +212,30 @@ def handleManufacturerProprietary(String description, result) {
   logger("$device.displayName $description")
 }
 
-def buttonEvent(String exec_cmd, Integer button, result) {
-  logger("buttonEvent: $button  exec: $exec_cmd")
+def buttonEvent(String exec_cmd, Integer button_pressed, Boolean isHeld) {
+  logger("buttonEvent: $button_pressed  exec: $exec_cmd held: $isHeld")
 
-  String heldType = "pushed"
+  String heldType = isHeld ? "held" : "pushed"
 
-  if (button > 0) {
-    // Integer button_pressed = ( button <= 232 && button != 2 ) ? 1 : 2
-    Integer button_pressed = button
-    result << createEvent(name: "button", value: heldType, data: [buttonNumber: button_pressed, status: (button_pressed == 1 ? "on" : "off")], descriptionText: "$device.displayName $exec_cmd button $button was pushed", isStateChange: true)
+  if (button_pressed > 0) {
+    sendEvent(name: "button", value: "$heldType", data: [buttonNumber: button_pressed], descriptionText: "$device.displayName $exec_cmd button $button_pressed was pushed", isStateChange: true, type: "physical")
   } else {
-    result << createEvent(name: "button", value: "", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true)
+    sendEvent(name: "button", value: "default", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true, type: "physical")
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$device.displayName $cmd")
+  if ( cmd.value == 0 ) {
+    unsetScene(true)
+  }
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChange cmd, result) {	
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChange cmd) {	
-  logger("$device.displayName $cmd")
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStopLevelChange cmd) {	
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStopLevelChange cmd, result) {	
   logger("$device.displayName $cmd")
 }
 
@@ -272,17 +264,15 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejec
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (cmd.groupId == cmd.sceneId) {
+  if (cmd.groupId != cmd.sceneId) {
     result << response(delayBetween([
       zwave.sceneControllerConfV1.sceneControllerConfSet(groupId: cmd.groupId, sceneId: cmd.sceneId).format(),
       zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: cmd.groupId).format(),
     ]))
   }
 
-  String group_scene_name =  "Group ${cmd.groupId} Scene"
-  String group_duration_name =  "Group ${cmd.groupId} Duration"
-  result <<  createEvent(name: group_scene_name, value: cmd.sceneId, isStateChange: true, displayed: true)
-  result <<  createEvent(name: group_duration_name, value: cmd.dimmingDuration, isStateChange: true, displayed: true)
+  updateDataValue("Group #${cmd.groupId} Scene", "$cmd.sceneId")
+  updateDataValue("Group #${cmd.groupId} Duration", "$cmd.dimmingDuration")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
@@ -301,18 +291,55 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
     state.repeatCount = 0
     state.repeatStart = now()
 
-    buttonEvent("SceneActivationSet", cmd.sceneId, result)
-    result <<  createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true)
-    result <<  createEvent(name: "setScene", value: "Setting", isStateChange: true)
+    setScene( cmd.sceneId )
+  }
+}
+
+def setScene( sceneId ) {
+  state.Scene = sceneId
+
+  sendEvent(name: "Scene", value: state.Scene, isStateChange: true)
+  sendEvent(name: "setScene", value: "Setting", isStateChange: true)
+
+  if (state.buttons && state.Scene >= 1 && state.Scene <= state.buttons) {
+    sendEvent(name: "switch", value: "on", type: "digital", isStateChange: true, displayed: true)
+    buttonEvent("setScene", state.Scene, true)
+  } else if (state.buttons && state.Scene > state.buttons && state.Scene <= state.buttons * 2) {
+    sendEvent(name: "switch", value: "off", type: "digital", isStateChange: true, displayed: true)
+    buttonEvent("setScene", state.Scene - state.buttons, false)
+  } else {
+    buttonEvent("setScene", state.Scene, true)
+  }
+}
+
+def unsetScene(Boolean isPhysical) {
+  if ( state.Scene ) {
+    if (state.buttons && state.Scene >= 1 && state.Scene <= state.buttons) {
+      if (isPhysical) {
+        buttonEvent("unsetScene", state.Scene, false)
+      }
+      sendEvent(name: "switch", value: "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
+    } else if (device.currentValue("switch") == "on") {
+      sendEvent(name: "switch", value: "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
+    }
+
+    state.Scene = 0
+    sendEvent(name: "Scene", value: state.Scene, isStateChange: true)
+  } else if (device.currentValue("switch") == "on") {
+    sendEvent(name: "switch", value: "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
   }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
   logger("$device.displayName $cmd")
-  buttonEvent("SceneActuatorConfGet", cmd.sceneId, result)
+  logger("$device.displayName lastScene: $state.lastScene")
 
   result << createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
-  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
+  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(
+    dimmingDuration: 0xFF, 
+    level: 0xFF, 
+    sceneId: cmd.sceneId == 0 ? state.lastScene : cmd.sceneId
+  ))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
@@ -330,7 +357,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     }
   }
 
-  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings * 2, isStateChange: true, displayed: true)
   result << response( delayBetween(cmds, 2000) )
 }
 
@@ -396,6 +422,8 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
+  def cmds = []
+
   String manufacturerCode = String.format("%04X", cmd.manufacturerId)
   String productTypeCode = String.format("%04X", cmd.productTypeId)
   String productCode = String.format("%04X", cmd.productId)
@@ -405,14 +433,28 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
 
+  state.buttons = 0
   if (cmd.productId == 0x0224) { // VRCS1
-    for (def x = 1; x <= 2; x++) {
+    state.buttons = 1
+
+    sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
+
+    for (def x = 1; x <= state.buttons * 2; x++) {
       cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
     }
+
   } else if (cmd.productId == 0x0261) { // VRCS4
-    for (def x = 1; x <= 4; x++) {
+    state.buttons = 4
+
+    sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
+
+    for (def x = 1; x <= state.buttons * 2; x++) {
       cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
     }
+  }
+
+  if (0 && ! childDevices) {
+    createChildDevices(state.buttons)
   }
 
   if ( cmds.size ) {
@@ -465,6 +507,27 @@ def poll() {
   ]))
 }
 
+private void createChildDevices(Integer numberOfSwitches) {
+  // Save the device label for updates by updated()
+  state.oldLabel = device.label
+
+  // Add child devices for four button presses
+  for ( Integer x in 1..numberOfSwitches ) {
+    def childDevice = addChildDevice(
+      "smartthings",
+      "Child Switch",
+      "${device.deviceNetworkId}/$x",
+      "",
+      [
+      label         : "$device.displayName Switch $x",
+      completedSetup: true,
+      isComponent: true,
+      ]);
+
+    childDevice.ignoreDigital()
+  }
+}
+
 def prepDevice() {
   [
     zwave.associationV1.associationGroupingsGet(),
@@ -504,15 +567,16 @@ def updated() {
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
 
-  sendEvent(name: "Scene", value: 0)
-  sendEvent(name: "setScene", value: "Unknown")
-
   // Check in case the device has been changed
   state.manufacturer = null
   updateDataValue("MSR", null)
   updateDataValue("Manufacturer", null)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  if ( childDevices ) {
+    childDevices.each { logger("${it.deviceNetworkId}") }
+  }
 
   sendCommands( prepDevice(), 3000 )
 

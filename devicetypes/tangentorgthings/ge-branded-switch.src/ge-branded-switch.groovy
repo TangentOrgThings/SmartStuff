@@ -13,8 +13,8 @@
  *
  */
 
-def getDriverVersion() {
-  return "v4.13"
+String getDriverVersion() {
+  return "v4.15"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -305,17 +305,13 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
-  switchEvents(cmd.value, true, result);
 
-  if (cmd.value) {
-    result << response(delayBetween([
-      zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: zwaveHubNodeId).format(),
-    ]))
-
-    result << createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "Double-tap up (button 1) on $device.displayName", isStateChange: true, type: "physical")
-  } else if (cmd.value == 0) {
-    result << createEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "Double-tap down (button 2) on $device.displayName", isStateChange: true, type: "physical")
+  if ( cmd.value ) {
+    trueOn(false)
+    return
   }
+
+  trueOff(false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -325,7 +321,13 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
-  switchEvents(cmd.switchValue, false, result)
+
+  if ( cmd.switchValue ) {
+    trueOn(false)
+    return
+  }
+
+  trueOff(false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {

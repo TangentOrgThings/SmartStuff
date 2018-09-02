@@ -16,12 +16,13 @@
  */
 
 String getDriverVersion () {
-  return "v1.01"
+  return "v1.03"
 }
 
 metadata {
   definition (name: "Virtual Dimmer", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
+    capability "Button"
     capability "Sensor"
     capability "Switch"
     capability "Switch Level"
@@ -32,6 +33,9 @@ metadata {
     attribute "lastError", "string"        // Last error message
     attribute "parseErrorCount", "number"        // Last error message
     attribute "unknownCommandErrorCount", "number"        // Last error message
+
+    command "trueSetLevel", ["number"]
+    command "ignoreDigital"
   }
 
   simulator {
@@ -64,29 +68,70 @@ def parse(String description) {
 // handle commands
 def on() {
   logger("on()")
-  sendEvent(name: "switch", value: "on")
+
+  if (! state.IgnoreDigital) {
+    trueSetLevel(99)
+    sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true) //  type: "$buttonType"
+
+    if (parent) {
+      parent.childOn(device.deviceNetworkId)
+    }
+  }
 }
 
 def off() {
   logger("off()")
-  sendEvent(name: "switch", value: "off")
+
+  if (! state.IgnoreDigital) {
+    trueSetLevel(0)
+    sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], isStateChange: true) //  type: "$buttonType"
+
+    if (parent) {
+      parent.childOff(device.deviceNetworkId)
+    }
+  }
 }
 
 def setLevel(val) {
   logger("setLevel()")
 
-  if (val == 0){ 
-    off()
-  } else {
-    on()
-    sendEvent(name: "level", value: val)
+  if (! state.IgnoreDigital) {
+    trueSetLevel(val)
+
+    if (val == 0) {
+      sendEvent(name: "button", value: "held", data: [buttonNumber: 1], isStateChange: true) //  type: "$buttonType"
+    } else {
+      sendEvent(name: "button", value: "held", data: [buttonNumber: 2], isStateChange: true) //  type: "$buttonType"
+    }
+
+    if (parent) {
+      parent.childLevel(device.deviceNetworkId)
+    }
   }
+}
+
+def trueSetLevel(Integer val) {
+  if (val == 0) {
+    sendEvent(name: "switch", value: "off")
+    sendEvent(name: "level", value: val)
+  } else {
+    sendEvent(name: "switch", value: "on")
+    sendEvent(name: "level", value: val == 255 ? 99 : val)
+  }
+}
+
+def ignoreDigital() {
+  state.IgnoreDigital = true
+  return
 }
 
 def installed() {
   log.info("$device.displayName installed()")
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+
+  sendEvent(name: "switch", value: "off")
+  sendEvent(name: "level", value: 0)
 }
 
 def updated() {

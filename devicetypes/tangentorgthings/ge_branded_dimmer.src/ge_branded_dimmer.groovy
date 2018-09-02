@@ -14,7 +14,7 @@
  *
  */
 
-def getDriverVersion() {
+String getDriverVersion() {
   return "v2.93"
 }
 
@@ -215,14 +215,12 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  dimmerEvents(cmd.value, true, result);
+  if ( cmd.value ) {
+    trueOn(false)
+    return
+  }
 
-  if (cmd.value == 255) {
-    buttonEvent("SceneActuatorConfGet()", 1, false, "physical")
-  }
-  else if (cmd.value == 0) {
-    buttonEvent("SceneActuatorConfGet()", 2, false, "physical")
-  }
+  trueOff(false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -234,7 +232,12 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
 
-  dimmerEvents(cmd.switchValue, true, result);
+  if ( cmd.switchValue ) {
+    trueOn(false)
+    return
+  }
+
+  trueOff(false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
@@ -246,7 +249,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelR
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  dimmerEvents(cmd.value, false, result)
+  setLevel(cmd.value)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
@@ -308,6 +311,14 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     break
     case 10:
     name = "manualDelay"
+    value = reportValue
+    break
+    case 11:
+    name = "allSteps"
+    value = reportValue
+    break
+    case 12:
+    name = "allDelay"
     value = reportValue
     break
     default:
@@ -737,9 +748,7 @@ def updated() {
   if ( state.updatedDate && ((Calendar.getInstance().getTimeInMillis() - state.updatedDate)) < 5000 ) {
     return
   }
-
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -817,7 +826,6 @@ private sendCommands(cmds, delay=200) {
  *  Wrapper function for all logging:
  *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
  *    messages by sending events for the device's logMessage attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
   switch(level) {
@@ -832,26 +840,26 @@ private logger(msg, level = "trace") {
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
     return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
+    if (settings.debugLevel >= 3) {
       log.info msg
     }
     return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
+    if (settings.debugLevel >= 4) {
       log.debug msg
     }
     return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
+    if (settings.debugLevel >= 5) {
       log.trace msg
     }
     return
