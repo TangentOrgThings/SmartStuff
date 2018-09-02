@@ -23,7 +23,7 @@
 
 
 String getDriverVersion () {
-  return "v1.63"
+  return "v1.65"
 }
 
 metadata {
@@ -110,6 +110,7 @@ def getCommandClassVersions() {
     0x20: 1,  // Basic
     0x2D: 1,  // Scene Controller Conf
     0x72: 1,  // Manufacturer Specific
+    0x73: 1,  // Powerlevel
     // 0x77: 1,  // Node Naming
     0x82: 1,  // Hail
     0x85: 2,  // Association  0x85  V1 V2
@@ -118,12 +119,14 @@ def getCommandClassVersions() {
     // Note: Controlled but not supported
     0x2B: 1,  // SceneActivation
     0x2C: 1,  // Scene Actuator Conf
+    0x25: 1,  //
     0x22: 1,  // Application Status
+    0x7C: 1,  // Remote Association Activate
     //    0x56: 1,  // Crc16 Encap
     //    0x25: 1,  // Switch Binary
     //    0x91: 1, // Manufacturer Proprietary
     // Stray commands that show up
-    0x54: 1,  // Application Status
+    0x54: 1,  // Network Management Primary
   ]
 }
 
@@ -229,6 +232,10 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   if ( cmd.value == 0 ) {
     unsetScene(true)
   }
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChange cmd, result) {	
