@@ -54,11 +54,8 @@ metadata {
     attribute "setScene", "enum", ["Unknown", "Set", "Setting"]
 
     attribute "Group 1 Association", "number"
-
     attribute "Group 2 Association", "number"
-
     attribute "Group 3 Association", "number"
-
     attribute "Group 4 Association", "number"
 
     attribute "NIF", "string"
@@ -385,6 +382,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   }
   def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
   String final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
+
+  updateDataValue("Association Group #${cmd.groupingIdentifier}", "${final_string}")
 
   event_value = final_string
 
