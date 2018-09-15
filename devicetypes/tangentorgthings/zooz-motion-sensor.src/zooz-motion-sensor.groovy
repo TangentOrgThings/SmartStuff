@@ -433,15 +433,18 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
           default:
           logger("Unknown event parameter", "error")
         }
+      } else {
+        motionEvent(0, result)
       }
       break;
 
       case 3:
+      // "Tampering, product cover removed"
       result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName has been deactivated by the switch.", isStateChange: true)
       motionEvent(0, result)
       break;
 
-      case 8:
+      case 8: // "Motion detected, location unknown"
       motionEvent(255, result)
       break;
 
