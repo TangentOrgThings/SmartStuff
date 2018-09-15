@@ -178,6 +178,7 @@ private deviceCommandClasses() {
       0x86: 1,  // Version
       0x01: 1,  // Z-wave command class
       0x22: 1,  // Application Status
+      0x31: 5,  // Sensor MultLevel V1
     ]
   }
 }
@@ -385,11 +386,14 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
   logger("$device.displayName $cmd")
 }
 
+// SensorMultilevelReport() SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   log.debug("$device.displayName $cmd")
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit:"dF", isStateChange: true, displayed: true)
+  } else if (cmd.sensorType == 5) {
+    logger("Unknown Relative Humidity value ${cmd.scaledSensorValue}", "warn")
   } else if (cmd.sensorType == 7) {
     Boolean current_status = cmd.notificationStatus == 255 ? true : false
     sensorValueEvent(current_status, result)
