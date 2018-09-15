@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.83"
+  return "v4.85"
 }
 
 Boolean isPlus() {
@@ -462,7 +462,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     ], 700))
     state.isLifeLine = true
   } else {
-    updateDataValue("isNewerModel", false)
+    updateDataValue("isNewerModel", "false")
     result << createEvent(name: "Basic Report", value: "Unknown")
   }
   
