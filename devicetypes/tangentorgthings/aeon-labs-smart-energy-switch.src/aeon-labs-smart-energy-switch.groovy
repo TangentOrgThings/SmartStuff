@@ -15,7 +15,7 @@
  */
 
 String getDriverVersion() {
-  return "v3.01"
+  return "v3.03"
 }
 
 Integer getAssociationGroup() {
@@ -125,7 +125,7 @@ def getCommandClassVersions() { // 25, 31, 32, 27, 70, 85, 72, 86
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
-    0x31: 5,  // SensorMultilevel V3
+    0x31: 3,  // SensorMultilevel V3 sensormultilevelv3
     0x32: 3,  // Meter V2
     0x70: 2,  // Configuration V2
     0x72: 2,  // Manufacturer Specific V2
@@ -184,9 +184,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     cmd.nodeId.each {
       string_of_assoc += "${it}, "
     }
-    Integer lengthMinus2 = string_of_assoc.length() - 3
-    final_string = string_of_assoc.getAt(0..lengthMinus2)
+    Integer lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
+    final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
   }
+  
+  updateDataValue("Group Associations #${cmd.groupingIdentifier}", "${final_string}")
 
   if (cmd.groupingIdentifier == getAssociationGroup()) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
@@ -262,6 +264,31 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
     logger("$device.displayName: SensorMultilevelReport Unknown power scale ${cmd.scale}", "error")
     break;
     default:
+    if (cmd.precision == 0 && cmd.scaledSensorValue == 0) {
+      return
+    }
+    break;
+  }
+
+  logger("$device.displayName: SensorMultilevelReport Unknown sensor type ${cmd.sensorType}", "error")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv3.SensorMultilevelReport cmd, result) {
+  logger("$device.displayName: $cmd");
+
+  switch (cmd.sensorType) {
+    case 4:
+    if (cmd.scale == 0) {
+      result << createEvent(name: "power", value: Math.round(cmd.scaledSensorValue), unit: "W", descriptionText: "$device.displayName ${cmd.scaledSensorValue}")
+      result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive")
+      return
+    }
+    logger("$device.displayName: SensorMultilevelReport Unknown power scale ${cmd.scale}", "error")
+    break;
+    default:
+    if (cmd.precision == 0 && cmd.scaledSensorValue == 0) {
+      return
+    }
     break;
   }
 
@@ -602,4 +629,3 @@ private logger(msg, level = "trace") {
   log.error msg
   sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
-
