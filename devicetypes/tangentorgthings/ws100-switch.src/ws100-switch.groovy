@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v6.95"
+  return "v6.97"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -329,6 +329,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
 
   switch (cmd.parameterNumber) {
     case 3:
@@ -875,15 +877,18 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     }
   } else {
     isStateChange = state.isAssociated == false ? false : true
-    event_descriptionText = "Hub was not found in lifeline"
     if (cmd.groupingIdentifier == 1) {
+      event_descriptionText = "Hub was not found in lifeline"
       state.isAssociated = false
+    } else {
+      event_descriptionText = "Hub was not found in Group #${cmd.groupingIdentifier}"
     }
 
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
-  String group_name = getDataValue("Group #${cmd.groupingIdentifier}")
+  String group_name = getDataValue("Group #${cmd.groupingIdentifier}");
+  updateDataValue("$group_name", "$event_value")
 
   if (group_name) {
     sendEvent(name: "$group_name",

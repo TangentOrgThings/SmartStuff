@@ -17,15 +17,19 @@
 
 
 String getDriverVersion() {
-  return "v3.35"
+  return "v3.41"
 }
 
 def getDefaultWakeupInterval() {
-  return isPlus() ? 360 : 360
+  return isPlus() ? 240 : 360
 }
 
 def getParamater() {
   return isPlus() ? 1 : 0
+}
+
+def getConfigurationOptions() {
+  return [ 1 ]
 }
 
 def getAssociationGroup () {
@@ -244,7 +248,8 @@ def sensorValueEvent(happened, result) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  // The device is sending a Set message device is in Group 4 ( this logic should be checked against associations)
   sensorValueEvent(cmd.value, result)
 }
 
@@ -337,6 +342,10 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result)
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
 
+  if (cmd.supportedGroupings > 1) {
+    state.newerModel = true
+  }
+
   if (cmd.supportedGroupings) {
     def cmds = []
 
@@ -392,6 +401,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   if (cmd.groupingIdentifier == getAssociationGroup()) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       result << createEvent(name: "isAssociated", value: "true")
+      result << response(delayBetween([
+        zwave.associationV1.associationSet(groupingIdentifier: 4, nodeId: [zwaveHubNodeId]).format(),
+        zwave.associationV1.associationGet(groupingIdentifier: 4).format(),
+        ]))
     } else {
       result << createEvent(name: "isAssociated", value: "false")
       result << response(delayBetween([
@@ -403,14 +416,14 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     }
   }
 
-  String final_string
+  String final_string = ""
   if (cmd.nodeId) {
     def string_of_assoc = ""
     cmd.nodeId.each {
       string_of_assoc += "${it}, "
     }
-    def lengthMinus2 = string_of_assoc.length() - 3
-    final_string = string_of_assoc.getAt(0..lengthMinus2)
+    def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
+    final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
   }
 
   String group_name
@@ -432,6 +445,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     group_name = ""
     break;
   }
+
+  if (0) {
+    group_name = getDataValue("Group #${cmd.groupingIdentifier}");
+  }
+  updateDataValue("$group_name", "$final_string")
 
   result << createEvent(
               name: group_name,
@@ -497,6 +515,17 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
 
+  if (isPlus()) {
+    Integer[] parameters = getConfigurationOptions()
+
+    def cmds = []
+    parameters.each {
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
+    }
+
+    result << response(delayBetween(cmds, 1000))
+  }
+
   result << response(delayBetween([
     zwave.versionV1.versionGet().format(),
   ]))
@@ -504,6 +533,9 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
+  
   int parameterNumber
 
   if (! state.MSR) { // Don't change an unknown 

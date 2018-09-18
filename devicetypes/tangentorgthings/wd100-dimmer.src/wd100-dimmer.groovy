@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.21"
+  return "v7.23"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -462,6 +462,8 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
       break
     }
   }
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
 
   if (cmd.parameterNumber == 4) {
     if ( cmd.scaledConfigurationValue != invertSwitch) {
@@ -920,6 +922,9 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
+
+  String group_name = getDataValue("Group #${cmd.groupingIdentifier}");
+  updateDataValue("$group_name", "$event_value")
 
   logger("Lifeline: $event_value", "info");
   // result << createEvent(name: "Lifeline",
