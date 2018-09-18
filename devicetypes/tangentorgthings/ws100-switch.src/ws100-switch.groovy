@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v6.97"
+  return "v7.01"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -40,7 +40,7 @@ def getConfigurationOptions(Integer model) {
 }
 
 metadata {
-  definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
+  definition (name: "Homeseer WS100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
     capability "Indicator"
