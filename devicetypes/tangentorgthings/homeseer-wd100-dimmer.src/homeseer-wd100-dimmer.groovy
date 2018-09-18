@@ -45,7 +45,7 @@ def getConfigurationOptions(Integer model) {
 }
 
 metadata {
-  definition (name: "WD-100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
+  definition (name: "Homeseer WD100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
     capability "Button"
     capability "Light"
