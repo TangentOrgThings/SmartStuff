@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.01"
+  return "v7.05"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -57,13 +57,6 @@ metadata {
     attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "invertedState", "enum", ["false", "true"]
-
-    attribute "Lifeline", "string"
-
-    attribute "Group 1", "string"
-    attribute "Group 2", "string"
-    attribute "Group 3", "string"
-    attribute "Group 4", "string"
 
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -879,7 +872,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     isStateChange = state.isAssociated == false ? false : true
     if (cmd.groupingIdentifier == 1) {
       event_descriptionText = "Hub was not found in lifeline"
-      state.isAssociated = false
+        state.isAssociated = false
     } else {
       event_descriptionText = "Hub was not found in Group #${cmd.groupingIdentifier}"
     }
@@ -887,16 +880,20 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
-  String group_name = getDataValue("Group #${cmd.groupingIdentifier}");
-  updateDataValue("$group_name", "$event_value")
-
-  if (group_name) {
-    sendEvent(name: "$group_name",
-        value: event_value,
-        descriptionText: event_descriptionText,
-        displayed: true,
-        isStateChange: true) // isStateChange)
+  String group_name = ""
+  switch (cmd.groupingIdentifier) {
+    case 1:
+    group_name = "Lifeline"
+      break;
+    case 2:
+    group_name = "On/Off/Dimming control"
+    break;
+    default:
+    group_name = "Unknown";
+    break;
   }
+
+  updateDataValue("$group_name", "$event_value")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, result) {
