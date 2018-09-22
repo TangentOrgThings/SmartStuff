@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.21"
+  return "v7.25"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -45,7 +45,7 @@ def getConfigurationOptions(Integer model) {
 }
 
 metadata {
-  definition (name: "WD-100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
+  definition (name: "Homeseer WD100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
     capability "Button"
     capability "Light"
@@ -60,14 +60,6 @@ metadata {
     attribute "lastError", "string"        // Last error message
     attribute "parseErrorCount", "number"        // Last error message
     attribute "unknownCommandErrorCount", "number"        // Last error message
-
-    attribute "AssociationGroupings", "number"
-    attribute "Lifeline", "string"
-
-    attribute "Group 1", "string"
-    attribute "Group 2", "string"
-    attribute "Group 3", "string"
-    attribute "Group 4", "string"
 
     attribute "driverVersion", "string"
 
@@ -462,6 +454,8 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
       break
     }
   }
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
 
   if (cmd.parameterNumber == 4) {
     if ( cmd.scaledConfigurationValue != invertSwitch) {
@@ -921,13 +915,21 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
-  logger("Lifeline: $event_value", "info");
-  // result << createEvent(name: "Lifeline",
-  result << createEvent(name: "Lifeline",
-      value: event_value,
-      descriptionText: event_descriptionText,
-      displayed: true,
-      isStateChange: true) // isStateChange)
+
+  String group_name = ""
+  switch (cmd.groupingIdentifier) {
+    case 1:
+    group_name = "Lifeline"
+      break;
+    case 2:
+    group_name = "On/Off/Dimming control"
+    break;
+    default:
+    group_name = "Unknown";
+    break;
+  }
+
+  updateDataValue("$group_name", "$event_value")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {

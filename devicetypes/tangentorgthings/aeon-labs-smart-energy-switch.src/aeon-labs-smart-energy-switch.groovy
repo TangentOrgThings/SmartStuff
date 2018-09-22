@@ -15,7 +15,7 @@
  */
 
 String getDriverVersion() {
-  return "v3.03"
+  return "v3.05"
 }
 
 Integer getAssociationGroup() {
@@ -375,6 +375,8 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {

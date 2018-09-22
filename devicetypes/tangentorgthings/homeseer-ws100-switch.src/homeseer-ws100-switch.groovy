@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v6.95"
+  return "v7.05"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -40,7 +40,7 @@ def getConfigurationOptions(Integer model) {
 }
 
 metadata {
-  definition (name: "WS-100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
+  definition (name: "Homeseer WS100 Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
     capability "Indicator"
@@ -57,13 +57,6 @@ metadata {
     attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "invertedState", "enum", ["false", "true"]
-
-    attribute "Lifeline", "string"
-
-    attribute "Group 1", "string"
-    attribute "Group 2", "string"
-    attribute "Group 3", "string"
-    attribute "Group 4", "string"
 
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -329,6 +322,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
 
   switch (cmd.parameterNumber) {
     case 3:
@@ -728,7 +723,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
   log.debug("$device.displayName $cmd")
 
   if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
-    logger(descriptionText: "Late sequenceNumber  $cmd", "error")
+    logger(descriptionText: "Late sequenceNumber  ${state.sequenceNumber} < $cmd", "info")
     return
   }
   state.sequenceNumber= cmd.sequenceNumber
@@ -848,9 +843,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  Boolean isStateChange
   String event_value
-  String event_descriptionText
 
   if (cmd.groupingIdentifier > 2) {
     logger("Unknown Group Identifier", "error");
@@ -867,31 +860,29 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   event_value = "${final_string}"
 
-  if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    isStateChange = state.isAssociated == true ? false : true
-    event_descriptionText = "Device is associated"
-    if (cmd.groupingIdentifier == 1) {
+  if (cmd.groupingIdentifier == 1) {
+    if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       state.isAssociated = true
-    }
-  } else {
-    isStateChange = state.isAssociated == false ? false : true
-    event_descriptionText = "Hub was not found in lifeline"
-    if (cmd.groupingIdentifier == 1) {
+    } else {
       state.isAssociated = false
+      result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
     }
-
-    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
-  String group_name = getDataValue("Group #${cmd.groupingIdentifier}")
-
-  if (group_name) {
-    sendEvent(name: "$group_name",
-        value: event_value,
-        descriptionText: event_descriptionText,
-        displayed: true,
-        isStateChange: true) // isStateChange)
+  String group_name = ""
+  switch (cmd.groupingIdentifier) {
+    case 1:
+    group_name = "Lifeline"
+      break;
+    case 2:
+    group_name = "On/Off/Dimming control"
+    break;
+    default:
+    group_name = "Unknown";
+    break;
   }
+
+  updateDataValue("$group_name", "$event_value")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, result) {
