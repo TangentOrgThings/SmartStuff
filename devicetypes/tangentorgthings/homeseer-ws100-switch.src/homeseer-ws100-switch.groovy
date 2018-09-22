@@ -723,7 +723,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
   log.debug("$device.displayName $cmd")
 
   if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
-    logger(descriptionText: "Late sequenceNumber  $cmd", "error")
+    logger(descriptionText: "Late sequenceNumber  ${state.sequenceNumber} < $cmd", "info")
     return
   }
   state.sequenceNumber= cmd.sequenceNumber
