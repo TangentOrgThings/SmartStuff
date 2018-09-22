@@ -311,14 +311,9 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   }
 }
 
-/*
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   log.debug("$device.displayName $cmd")
-  Integer set_sceen = ((cmd.sceneId + 1) / 2) as Integer
-  buttonEvent("SceneActivationSet()", set_sceen, false, "digital")
-  [ createEvent(name: "setScene", value: "Setting", isStateChange: true, displayed: true) ]
 }
-*/
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
