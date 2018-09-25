@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.17"
+  return "v4.19"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -193,6 +193,7 @@ def prepDevice() {
     // zwave.configurationV1.configurationGet(parameterNumber: 3),
     // zwave.configurationV1.configurationGet(parameterNumber: 4),
     zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
