@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.05"
+  return "v7.07"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -227,11 +227,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
   if (cmd.value) {
-    trueOn(false)
+    response( trueOn(false) )
     return
   }
 
-  trueOff(false)
+  response( trueOff(false) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -242,11 +242,22 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
   if (cmd.switchValue) {
-    trueOn(false)
+    response( trueOn(false) )
     return
   }
 
-  trueOff(false)
+  response( trueOff(false) )
+}
+
+// These will show up from time to time, handle them as control
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  if (cmd.sensorValue) {
+    response( trueOn(false) )
+    return
+  }
+
+  response( trueOff(false) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {

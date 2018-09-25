@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.25"
+  return "v7.27"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -283,11 +283,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
   if (cmd.value) {
-    trueOn(false)
+    response( trueOn(false) )
     return
   }
 
-  trueOff(false)
+  response( trueOff(false) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -298,11 +298,11 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
   if (cmd.switchValue) {
-    trueOn(false)
+    response( trueOn(false) )
     return
   }
 
-  trueOff(false)
+  response( trueOff(false) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {

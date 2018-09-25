@@ -216,11 +216,11 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
   if ( cmd.value ) {
-    trueOn(false)
+    response( trueOn(false) )
     return
   }
 
-  trueOff(false)
+  response( trueOff(false) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -233,11 +233,11 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   logger("$device.displayName $cmd -- BEING CONTROLLED")
 
   if ( cmd.switchValue ) {
-    trueOn(false)
+    response( trueOn(false) )
     return
   }
 
-  trueOff(false)
+  response( trueOff(false) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
