@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.07"
+  return "v7.09"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -105,7 +105,6 @@ metadata {
   }
 
   preferences {
-    input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options: ["When Off", "When On", "Never"]
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
     input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
@@ -113,17 +112,30 @@ metadata {
   }
 
   tiles(scale: 2) {
-    multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
+    multiAttributeTile(name:"lightswitch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
         attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
         attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
 
       tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
-        attributeState("when off", action: "indicator.indicatorWhenOn", label: '${currentValue}', icon: "st.indicators.lit-when-off")
-        attributeState("when on", action: "indicator.indicatorNever", label: '${currentValue}', icon: "st.indicators.lit-when-on")
-        attributeState("never", action: "indicator.indicatorWhenOff", label: '${currentValue}', icon: "st.indicators.never-lit")
+        attributeState "when off", icon: "st.indicators.lit-when-off"
+        attributeState "when on", icon: "st.indicators.lit-when-on"
+        attributeState "never", icon: "st.indicators.never-lit"
       }
+    }
+
+    multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
+      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
+        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+      }
+    }
+
+    standardTile("indicator", "device.indicatorStatus", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      attributeState "when off", action: "indicator.indicatorWhenOn", icon: "st.indicators.lit-when-off"
+      attributeState "when on", action: "indicator.indicatorNever", icon: "st.indicators.lit-when-on"
+      attributeState "never", action: "indicator.indicatorWhenOff", icon: "st.indicators.never-lit"
     }
 
     valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -131,7 +143,7 @@ metadata {
     }
 
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
+      state "default", label:'', action:"refresh.refresh", icon: "st.secondary.refresh"
     }
 
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, inactiveLabel: true, decoration: "flat") {
@@ -143,8 +155,8 @@ metadata {
       state "true", label:'reset', backgroundColor:"#e51426"
     }
 
-    main "switch"
-    details(["switch", "scene", "driverVersion", "refresh", "reset"])
+    main "lightSwitch"
+    details(["switch", "indicator" "scene", "driverVersion", "refresh", "reset"])
   }
 }
 
@@ -334,17 +346,20 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
   switch (cmd.parameterNumber) {
     case 3:
     if (1) {
-      def value = "when off"
-
-      if (cmd.configurationValue[0] == 0) {
-        value = "when on"
-      } else if (cmd.configurationValue[0] == 1) {
-        value = "when on"
-      } else if (cmd.configurationValue[0] == 2) {
-        value = "never"
+      switch (cmd.configurationValue[0]) {
+        case 0:
+        result << createEvent(name: "indicatorStatus", value: "when off", display: false, isStateChange: true)
+        break;
+        case 1:
+        result << createEvent(name: "indicatorStatus", value: "when on", display: false, isStateChange: true)
+        break;
+        case 2:
+        result << createEvent(name: "indicatorStatus", value: "never", display: false, isStateChange: true)
+        break;
+        default:
+        indicatorWhenOff()
+        break;
       }
-
-      result << createEvent(name: "indicatorStatus", value: value, display: false)
       return
     }
     break;
@@ -975,17 +990,8 @@ def updated() {
 
   sendEvent(name: "numberOfButtons", value: 6, displayed: true, isStateChange: true)
 
-  if (0) {
-    if (! state.indicatorStatus) {
-      settings.indicatorStatus = state.indicatorStatus
-    } else {
-      settings.indicatorStatus = "when off"
-      state.indicatorStatus = settings.indicatorStatus
-    }
-  }
-
   if (1) {
-    switch (settings.indicatorStatus) {
+    switch ( device.currentValue("indicatorStatus") )
       case "when on":
       indicatorWhenOn()
       break
@@ -996,7 +1002,8 @@ def updated() {
       indicatorNever()
       break
       default:
-      indicatorWhenOn()
+      sendEvent(name: "indicatorStatus", value: "when off", displayed: false, isStateChange: true)
+      indicatorWhenOff()
       break
     }
   }
