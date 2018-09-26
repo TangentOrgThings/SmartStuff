@@ -120,9 +120,9 @@ metadata {
       }
 
       tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
-        attributeState("when off", label:'${currentValue}', icon:"st.indicators.lit-when-off")
-        attributeState("when on", label:'${currentValue}', icon:"st.indicators.lit-when-on")
-        attributeState("never", label:'${currentValue}', icon:"st.indicators.never-lit")
+        attributeState("when off", action: "indicator.indicatorWhenOn", label: '${currentValue}', icon: "st.indicators.lit-when-off")
+        attributeState("when on", action: "indicator.indicatorNever", label: '${currentValue}', icon: "st.indicators.lit-when-on")
+        attributeState("never", action: "indicator.indicatorWhenOff", label: '${currentValue}', icon: "st.indicators.never-lit")
       }
     }
 
@@ -987,7 +987,7 @@ def updated() {
     }
   }
 
-  if (0) {
+  if (1) {
     switch (settings.indicatorStatus) {
       case "when on":
       indicatorWhenOn()
