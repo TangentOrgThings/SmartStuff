@@ -341,6 +341,14 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, 
   ]))
 }
 
+// This should not ever be called, but it is
+def zwaveEvent(physicalgraph.zwave.commands.thermostatfanmodev1.ThermostatFanModeGet cmd, result) {
+  logger("$device.displayName $cmd")
+  result << response(delayBetween([
+    physicalgraph.zwave.commands.thermostatfanmodev1.ThermostatFanModeReport(0x00, 0x2),
+  ]))
+}
+
 // NotificationReport
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
   logger("$device.displayName $cmd")
