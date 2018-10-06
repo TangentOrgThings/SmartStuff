@@ -725,13 +725,12 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     case 3:
     association_name = "Double Tap"
     break;
+    default:
+    association_name = "Unknown"
+    break;
   }
-    
 
-  result << createEvent(name: "$association_name",
-                        value: "${final_string}",
-                        displayed: true,
-                        isStateChange: isStateChange)
+  updateDataValue("$association_name", "$final_string")
   return
 }
 
@@ -905,6 +904,7 @@ def prepDevice() {
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
