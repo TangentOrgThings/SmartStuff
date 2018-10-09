@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.19"
+  return "v4.21"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -307,12 +307,22 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
 
-  if ( cmd.value ) {
-    response( trueOn(false) )
+  if (0) {
+    if ( cmd.value ) {
+      response( trueOn(false) )
+      return
+    }
+
+    response( trueOff(false) )
     return
   }
 
-  response( trueOff(false) )
+  if (cmd.value == 255) {
+    createEvent(name: "button", value: "pushed", data: [buttonNumber: 3], descriptionText: "Double-tap up (button 1) on $device.displayName", isStateChange: true, type: "physical")
+  }
+  else if (cmd.value == 0) {
+    createEvent(name: "button", value: "pushed", data: [buttonNumber: 4], descriptionText: "Double-tap down (button 2) on $device.displayName", isStateChange: true, type: "physical")
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -564,6 +574,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   }
 
   logger("$device.displayName AssociationGroupingsReport: $cmd", "error")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationSpecificGroupReport cmd, result) {
+  log.debug("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {

@@ -841,8 +841,6 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  state.groups = cmd.supportedGroupings
-
   def cmds = []
   if (cmd.supportedGroupings) {
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
@@ -857,6 +855,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   }
 
   logger("$device.displayName AssociationGroupingsReport: $cmd", "error")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationSpecificGroupReport cmd, result) {
+  log.debug("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
