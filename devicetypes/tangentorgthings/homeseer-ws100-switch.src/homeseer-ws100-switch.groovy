@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.11"
+  return "v7.12"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -133,9 +133,9 @@ metadata {
     }
 
     standardTile("indicator", "device.indicatorStatus", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      attributeState "when off", action: "indicator.indicatorWhenOn", icon: "st.indicators.lit-when-off"
-      attributeState "when on", action: "indicator.indicatorNever", icon: "st.indicators.lit-when-on"
-      attributeState "never", action: "indicator.indicatorWhenOff", icon: "st.indicators.never-lit"
+      state "when off", action: "indicator.indicatorWhenOn", icon: "st.indicators.lit-when-off"
+      state "when on", action: "indicator.indicatorNever", icon: "st.indicators.lit-when-on"
+      state "never", action: "indicator.indicatorWhenOff", icon: "st.indicators.never-lit"
     }
 
     valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -156,7 +156,7 @@ metadata {
     }
 
     main "lightSwitch"
-    details(["switch", "indicator" "scene", "driverVersion", "refresh", "reset"])
+    details(["switch", "indicator", "scene", "driverVersion", "refresh", "reset"])
   }
 }
 
@@ -995,7 +995,7 @@ def updated() {
   sendEvent(name: "numberOfButtons", value: 6, displayed: true, isStateChange: true)
 
   if (1) {
-    switch ( device.currentValue("indicatorStatus") )
+    switch ( device.currentValue("indicatorStatus") ) {
       case "when on":
       indicatorWhenOn()
       break
