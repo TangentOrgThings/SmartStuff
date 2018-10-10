@@ -19,7 +19,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  Author: Brian Aker <brian@tangent.org>
- *  Date: 2017
+ *  Date: 2017-2018
  *
  *  Changelog:
  *
@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.09"
+  return "v7.11"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -837,6 +837,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   logger("$device.displayName AssociationGroupingsReport: $cmd", "error")
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationSpecificGroupReport cmd, result) {
+  logger("$device.displayName $cmd")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
   logger("$device.displayName $cmd")
 }
@@ -852,10 +856,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   result << response(delayBetween([
     zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
   ]))
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationSpecificGroupReport cmd, result) {
-  log.debug("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
@@ -1006,7 +1006,6 @@ def updated() {
       indicatorNever()
       break
       default:
-      sendEvent(name: "indicatorStatus", value: "when off", displayed: false, isStateChange: true)
       indicatorWhenOff()
       break
     }
