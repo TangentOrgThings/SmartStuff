@@ -209,7 +209,6 @@ def updated() {
     sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
   } else {
     log.debug("$device.displayName has no ZwaveInfo")
-    sendCommands([ zwave.zwaveCmdClassV1.requestNodeInfo() ])
   }
 
   // Check in case the device has been changed
