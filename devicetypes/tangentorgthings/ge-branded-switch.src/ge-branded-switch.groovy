@@ -67,12 +67,6 @@ metadata {
     attribute "keyAttributes", "number"
 
     attribute "Scene", "number"
-    attribute "Scene_1", "number"
-    attribute "Scene_1_Duration", "number"
-    attribute "Scene_2", "number"
-    attribute "Scene_2_Duration", "number"
-    attribute "Scene_default", "number"
-    attribute "Scene_default_Duration", "number"
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
@@ -396,6 +390,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
         zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
         zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
         zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
+        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: device.deviceNetworkId),
         zwave.firmwareUpdateMdV2.firmwareMdGet(),
         // zwave.associationV2.associationGroupingsGet(),
         ], 2000)
@@ -501,12 +496,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
     }
   }
 
-  String scene_name = (cmd.sceneId == zwaveHubNodeId) ? "Scene_default" : "Scene_$cmd.sceneId"
-  String scene_duration_name = (cmd.sceneId == zwaveHubNodeId) ? "Scene_default_Duration" : String.format("Scene_%d_Duration", cmd.sceneId)
+  updateDataValue("Scene #${cmd.sceneId}", "Level: ${cmd.level} Dimming Duration: ${cmd.dimmingDuration}")
 
-  result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
-  result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
   if (cmds.size()) {
     result << response(delayBetween(cmds, 1000))
   }
@@ -670,7 +661,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       return
   }
 
-  result << createEvent(name: group_name, value: "${final_string}", isStateChange: true)
+  updateDataValue("$group_name", "${final_string}")
+
 
   if ( state.hasAssociationSet == true && state.hasDoubleTap == true && state.hasLifeLine == true ) {
     state.isAssociated = true

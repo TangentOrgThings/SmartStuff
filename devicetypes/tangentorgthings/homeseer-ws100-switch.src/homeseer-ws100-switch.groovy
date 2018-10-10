@@ -323,12 +323,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
     }
   }
 
-  String scene_name = "Scene_$cmd.sceneId"
-  String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
+  updateDataValue("Scene #${cmd.sceneId}", "Level: ${cmd.level} Dimming Duration: ${cmd.dimmingDuration}")
 
-  result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
-  result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
   if (cmds.size()) {
     result << response(delayBetween(cmds, 1000))
   }
@@ -736,6 +732,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
   for (def x = 1; x <= cmd.supportedScenes; x++) {
     cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
   }
+  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
 
   result << sendCommands(cmds)
 }
