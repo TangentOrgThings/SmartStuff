@@ -21,7 +21,7 @@
  */
 
 String getDriverVersion () {
-  return "v0.57"
+  return "v0.59"
 }
 
 Integer maxButton () {
@@ -33,7 +33,7 @@ def getConfigurationOptions(Integer model) {
   // 2 Touch vibration
   // 3 Button slide function
   // 4 WallMote Reports
-  return [ 1, 2, 3, 4, 39 ]
+  return [ 1, 2, 3, 4, 5, 39 ]
 }
 
 metadata {
@@ -370,6 +370,13 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd, r
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
   logger("$device.displayName $cmd")
+
+  def request = []
+
+  if (!state.lastBatteryReport || (now() - state.lastBatteryReport) / 60000 >= 60 * 24) {
+    logger("Over 24hr since last battery report. Requesting report")
+    request << response( zwave.batteryV1.batteryGet() )
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
@@ -479,9 +486,9 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result)
   } else {
     map.value = cmd.batteryLevel
   }
+
   state.lastBatteryReport = now()
-  if (state.lastBatteryValue != map.value)
-  {
+  if (state.lastBatteryValue != map.value) {
     state.lastBatteryValue = map.value
     map.isStateChange = true
   }
@@ -636,6 +643,10 @@ private getChildDeviceForEndpoint(Integer button) {
   }
 
   return child
+}
+
+def ping() {
+  logger("ping()")
 }
 
 def configure() {
