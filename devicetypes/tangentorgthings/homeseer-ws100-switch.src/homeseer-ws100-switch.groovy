@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.12"
+  return "v7.13"
 }
 
 def getConfigurationOptions(Integer model) {
