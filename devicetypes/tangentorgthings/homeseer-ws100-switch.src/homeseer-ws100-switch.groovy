@@ -261,6 +261,14 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   response( trueOff(false) )
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
+  logger("$device.displayName $cmd")
+
+  result << response(delayBetween([
+    zwave.basicV1.switchBinaryReport(value: device.currentValue("switch")).format(),
+  ]))
+}
+
 // These will show up from time to time, handle them as control
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")

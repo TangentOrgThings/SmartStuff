@@ -324,6 +324,14 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   response( trueOff(false) )
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
+  logger("$device.displayName $cmd")
+
+  result << response(delayBetween([
+    zwave.basicV1.switchBinaryReport(value: device.currentValue("switch")).format(),
+  ]))
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
 
