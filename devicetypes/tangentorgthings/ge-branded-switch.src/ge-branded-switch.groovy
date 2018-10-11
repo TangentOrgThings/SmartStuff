@@ -659,18 +659,24 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   updateDataValue("$group_name", "${final_string}")
 
 
-  if ( state.hasAssociationSet == true && state.hasDoubleTap == true && state.hasLifeLine == true ) {
+  if ( state.hasDoubleTap == true && state.hasLifeLine == true ) {
     state.isAssociated = true
   } else {
     state.isAssociated = false
   }
 
-  if (! state.isAssociated ) {
+  if (! state.isAssociated && cmd.groupingIdentifier != 2 ) {
     result << response(delayBetween([
       zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
       // zwave.associationV1.associationGet(groupingIdentifier: 0x01).format(),
       // zwave.associationV1.associationGet(groupingIdentifier: 0x02).format(),
       // zwave.associationV1.associationGet(groupingIdentifier: 0x03).format(),
+    ], 5000))
+  }
+
+  if ( state.hasAssociationSet == true && cmd.groupingIdentifier == 2 ) {
+    result << response(delayBetween([
+      zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format()
     ], 5000))
   }
 }
