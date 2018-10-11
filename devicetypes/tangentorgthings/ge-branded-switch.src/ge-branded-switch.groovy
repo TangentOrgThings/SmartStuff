@@ -189,9 +189,7 @@ def prepDevice() {
 }
 
 def initialize() {
-  def zwInfo = getZwaveInfo()
-
-  if ($zwInfo) {
+  if (1) {
     sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
   }
 }
@@ -211,13 +209,6 @@ def updated() {
 
   initialize()
 
-  if ($zwInfo) {
-    log.debug("$device.displayName $zwInfo")
-    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  } else {
-    log.debug("$device.displayName has no ZwaveInfo")
-  }
-
   // Check in case the device has been changed
   state.manufacturer = null
   updateDataValue("MSR", null)
@@ -233,15 +224,6 @@ def updated() {
 
 def installed() {
   log.debug ("installed()")
-
-  def zwInfo = getZwaveInfo()
-
-  if ($zwInfo) {
-    log.debug("$device.displayName $zwInfo")
-    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  } else {
-    log.debug("$device.displayName has no ZwaveInfo")
-  }
 
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
@@ -802,7 +784,7 @@ private trueOn(Boolean physical = true) {
   }
 
   def cmds = []
-  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format()
+  cmds << zwave.basicV1.basicSet(value: 0xFF).format()
   cmds << "delay 500"
   cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: zwaveHubNodeId).format();
   cmds << "delay 5000"
@@ -838,7 +820,6 @@ private trueOff(Boolean physical = true) {
     buttonEvent("off()", 2, false, "digital")
   }
 
-  sendEvent(name: "switch", value: "off");
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()
@@ -846,7 +827,7 @@ private trueOff(Boolean physical = true) {
     cmds << "delay 3000";
   }
 
-  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
+  cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << "delay 5000"
   cmds << zwave.switchBinaryV1.switchBinaryGet().format()
 
@@ -879,9 +860,7 @@ def refresh() {
     }
   }
 
-  if (getDataValue("MSR") == null) {
-    cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet()
-  }
+  cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet()
 
   if (device.currentState('firmwareVersion') == null) {
     cmds << zwave.versionV1.versionGet()

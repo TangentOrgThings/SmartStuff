@@ -811,10 +811,9 @@ private trueOn(Boolean physical = true) {
   
   String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
   sendEvent(name: "lastActive", value: active_time, isStateChange: true);
-  sendEvent(name: "switch", value: "on", isStateChange: true);
 
   delayBetween([
-    zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
+    zwave.basicV1.basicSet(value: 0xFF).format(),
     zwave.switchBinaryV1.switchBinaryGet().format(),
   ], 3000)
 }
@@ -848,7 +847,7 @@ private trueOff(Boolean physical = true) {
 
   String active_time = new Date(state.lastBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
   sendEvent(name: "lastActive", value: active_time, isStateChange: true);
-  sendEvent(name: "switch", value: "off", isStateChange: true);
+
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()
@@ -858,7 +857,7 @@ private trueOff(Boolean physical = true) {
 
   // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
   // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
-  cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
+  cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << "delay 5000"
   cmds << zwave.switchBinaryV1.switchBinaryGet().format()
 
@@ -884,7 +883,10 @@ def ping() {
 def refresh() {
   logger("$device.displayName refresh()")
  
-  zwave.switchBinaryV1.switchBinaryGet().format()
+  delayBetween([
+    zwave.switchBinaryV1.switchBinaryGet().format(),
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
+  ])
 }
 
 def reset() {
@@ -935,16 +937,6 @@ def updated() {
   sendEvent(name: "logMessage", value: "", displayed: false)
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
-
-  if (0) {
-    if (device.rawDescription) {
-      def zwInfo = getZwaveInfo()
-      if ($zwInfo) {
-        log.debug("$device.displayName $zwInfo")
-        sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-      }
-    }
-  }
 
   // Check in case the device has been changed
   //state.manufacturer = null

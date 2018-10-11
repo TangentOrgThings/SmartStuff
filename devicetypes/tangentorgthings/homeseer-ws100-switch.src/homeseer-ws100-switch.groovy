@@ -586,10 +586,8 @@ private trueOn(Boolean physical = true) {
   
   String active_time = new Date(state.lastOnBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
   sendEvent(name: "lastActive", value: active_time, isStateChange: true);
-  sendEvent(name: "switch", value: "on", isStateChange: true);
 
   delayBetween([
-    // zwave.switchBinaryV1.switchBinarySet(switchValue: 0xFF).format(),
     zwave.basicV1.basicSet(value: 0xFF).format(),
     zwave.switchBinaryV1.switchBinaryGet().format(),
   ], 5000)
@@ -624,7 +622,6 @@ private trueOff(Boolean physical = true) {
 
   String active_time = new Date(state.lastOffBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
   sendEvent(name: "lastActive", value: active_time, isStateChange: true);
-  sendEvent(name: "switch", value: "off", isStateChange: true);
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()
@@ -634,7 +631,6 @@ private trueOff(Boolean physical = true) {
 
   // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
   // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
-  //cmds << zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format()
   cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << "delay 5000"
   cmds << zwave.switchBinaryV1.switchBinaryGet().format()
@@ -656,7 +652,7 @@ def refresh() {
   
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
-    // zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xFF, sceneId: 0).format(),
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
   ])
 }
 
@@ -957,15 +953,6 @@ def prepDevice() {
 def installed() {
   logger("$device.displayName installed()")
   sendEvent(name: "numberOfButtons", value: 6, displayed: false)
-
-  if (0) {
-    def zwInfo = getZwaveInfo()
-    log.debug("$device.displayName $zwInfo")
-    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  }
-
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   indicatorWhenOff()
