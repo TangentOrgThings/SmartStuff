@@ -25,9 +25,9 @@ metadata {
   definition (name: "GE Branded Switch", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.switch") {
     capability "Actuator"
     capability "Button"
+    capability "Health Check"
     capability "Indicator"
     capability "Light"    
-    capability "Polling"
     capability "Refresh"
     capability "Sensor"
     capability "Switch"
@@ -37,9 +37,6 @@ metadata {
     attribute "lastError", "string"        // Last error message
     attribute "parseErrorCount", "number"        // Last error message
     attribute "unknownCommandErrorCount", "number"        // Last error message
-
-    attribute "MSR", "string"
-    attribute "Manufacturer", "string"
 
     attribute "NIF", "string"
 
@@ -191,6 +188,14 @@ def prepDevice() {
   ]
 }
 
+def initialize() {
+  def zwInfo = getZwaveInfo()
+
+  if ($zwInfo) {
+    sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+  }
+}
+
 def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
@@ -203,6 +208,8 @@ def updated() {
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
+
+  initialize()
 
   if ($zwInfo) {
     log.debug("$device.displayName $zwInfo")
@@ -217,7 +224,6 @@ def updated() {
   updateDataValue("manufacturer", null)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
-  sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
   sendCommands(prepDevice(), 3000)
 
@@ -240,6 +246,8 @@ def installed() {
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
+
+  initialize()
 
   sendCommands(prepDevice(), 3000)
 }
@@ -411,8 +419,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
-  result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
   
   result << response(delayBetween(cmds, 1000))
   result << response( zwave.versionV1.versionGet() )
@@ -656,8 +662,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     state.DoubleTap = final_string;
 
   } else {
-    logger("Association group ${cmd.groupingIdentifier} is unknown", "error")
-      return
+    logger("Association group ${cmd.groupingIdentifier} is unknown", "error");
+    return
   }
 
   updateDataValue("$group_name", "${final_string}")

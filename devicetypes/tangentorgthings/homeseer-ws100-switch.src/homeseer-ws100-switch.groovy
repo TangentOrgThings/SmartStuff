@@ -732,7 +732,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
   for (def x = 1; x <= cmd.supportedScenes; x++) {
     cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
   }
-  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
+  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: device.deviceNetworkId)
 
   result << sendCommands(cmds)
 }
