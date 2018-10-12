@@ -281,7 +281,16 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
+  logger("$device.displayName $cmd")
   result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeReport cmd, result) {
+  logger("$device.displayName $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedReport cmd, result) {
+  logger("$device.displayName $cmd")
 }
 
 def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
