@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.71"
+  return "v4.73"
 }
 
 def getIndicatorParam() {
