@@ -689,7 +689,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     return
   }
 
-  String final_string
+  String final_string = ""
   if (cmd.nodeId ) {
     def string_of_assoc = ""
     cmd.nodeId.each {
