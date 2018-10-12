@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.69"
+  return "v4.71"
 }
 
 def getIndicatorParam() {
@@ -31,7 +31,7 @@ metadata {
     capability "Button"
     capability "Energy Meter"
     capability "Indicator"
-    capability "Polling"
+    // capability "Polling"
     capability "Refresh"
     capability "Sensor"
     capability "Switch"
@@ -157,8 +157,8 @@ metadata {
       state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
     }
 
-    valueTile("driverVersion", "device.driverVersion", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-      state "driverVersion", label:'${currentValue}'
+    valueTile("driverVersion", "device.driverVersion", width:2, height: 2) {
+      state "val", label: '${currentValue}', defaultState: true
     }
 
     valueTile("scene", "device.Scene", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
@@ -302,7 +302,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchtogglebinaryv1.SwitchToggleBin
   result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "physical")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicGet cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicGet cmd, result) {
   def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
   result << response(delayBetween([
     zwave.basicV1.basicReport(value: currentValue).format(),
@@ -318,7 +318,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  result << createEvent(name: "switch", value: cmd.value ? "on" : "off", type: "digital")
+  result << response(zwave.switchBinaryV1.switchBinaryGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -330,14 +330,15 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd")
 
-  result << createEvent(name: "switch", value: cmd.switchValue ? "on" : "off", type: "digital")
+  result << response(zwave.switchBinaryV1.switchBinaryGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
   logger("$device.displayName $cmd")
 
+  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
   result << response(delayBetween([
-    zwave.basicV1.switchBinaryReport(value: device.currentValue("switch")).format(),
+    zwave.basicV1.switchBinaryReport(value: currentValue),
   ]))
 }
 
@@ -706,10 +707,23 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     } else {
       state.isAssociated = false
     }
+
+    if (! state.isAssociated ) {
+      result << zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format()
+    }
   }
 
-  if (cmd.groupingIdentifier == 1) {
-    if (! state.isAssociated ) {
+  if (cmd.groupingIdentifier == 2) {
+    // A check for model should be added here
+    if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+      zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format()
+    } else {
+    }
+  }
+
+  if (cmd.groupingIdentifier == 3) {
+    if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+    } else {
       result << zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format()
     }
   }
@@ -800,7 +814,7 @@ def on() {
 
 private trueOn(Boolean physical = true) {
   if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
-    logger("$device.displayName bounce", "warn")
+    logger("$device.displayName bounce on()", "warn")
     return
   }
   state.lastBounce = Calendar.getInstance().getTimeInMillis()
@@ -836,7 +850,7 @@ def disconnect() {
 
 private trueOff(Boolean physical = true) {
   if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
-    logger("$device.displayName bounce", "warn")
+    logger("$device.displayName bounce off()", "warn")
     return
   }
   state.lastBounce = Calendar.getInstance().getTimeInMillis()
@@ -906,7 +920,7 @@ def prepDevice() {
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.switchAllV1.switchAllGet(),
     zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.zwaveCmdClassV1.requestNodeInfo(),
+    // zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 

@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.23"
+  return "v4.25"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -49,10 +49,6 @@ metadata {
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
     attribute "FirmwareMdReport", "string"
-
-    attribute "LifeLine", "string"
-    attribute "AssociationSet", "string"
-    attribute "DoubleTap", "string"
 
     attribute "Group 1", "string"
     attribute "Group 2", "string"
@@ -111,8 +107,8 @@ metadata {
       state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
     }
 
-    valueTile("driverVersion", "device.driverVersion", width:2, height: 2, decoration: "flat", inactiveLabel: false) {
-      state "default", label: '${currentValue}'
+    valueTile("driverVersion", "device.driverVersion", width:2, height: 2) {
+      state "val", label: '${currentValue}', defaultState: true
     }
 
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
@@ -282,6 +278,13 @@ private switchEvents(Short value, boolean isPhysical, result) {
   result << createEvent(name: "switch", value: value ? "on" : "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicGet cmd, result) {
+  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
+  result << response(delayBetween([
+    zwave.basicV1.basicReport(value: currentValue).format(),
+  ]))
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd NIF CHECKED")
   switchEvents(cmd.value, true, result);
@@ -289,6 +292,8 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
+
+  result << response(zwave.switchBinaryV1.switchBinaryGet())
 
   if (0) {
     if ( cmd.value ) {
@@ -316,19 +321,15 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
 
-  if ( cmd.switchValue ) {
-    response( trueOn(false) )
-    return
-  }
-
-  response( trueOff(false) )
+  result << response(zwave.switchBinaryV1.switchBinaryGet())
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
   logger("$device.displayName $cmd")
 
+  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
   result << response(delayBetween([
-    zwave.basicV1.switchBinaryReport(value: device.currentValue("switch")).format(),
+    zwave.basicV1.switchBinaryReport(value: currentValue),
   ]))
 }
 
