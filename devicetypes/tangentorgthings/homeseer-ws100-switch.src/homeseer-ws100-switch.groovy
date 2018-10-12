@@ -894,7 +894,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       state.isAssociated = true
     } else {
       state.isAssociated = false
-      result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
+      result << response( delayBetween([
+        zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format(),
+        zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+      ]))
     }
   }
 
@@ -904,7 +907,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     group_name = "Lifeline"
       break;
     case 2:
-    group_name = "On/Off/Dimming control"
+    group_name = "On/Off/Dimming Aux Control"
     break;
     default:
     group_name = "Unknown";
