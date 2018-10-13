@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.17"
+  return "v7.19"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -901,6 +901,15 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     }
   }
 
+  if (cmd.groupingIdentifier == 2) {
+    if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+      result << response( delayBetween([
+        zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format(),
+        zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+      ]))
+    }
+  }
+
   String group_name = ""
   switch (cmd.groupingIdentifier) {
     case 1:
@@ -972,6 +981,7 @@ def installed() {
   sendEvent(name: "numberOfButtons", value: 6, displayed: false)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  sendEvent(name: "Scene", value: 0, isStateChange: true)
   indicatorWhenOff()
 
   sendCommands( [
@@ -994,6 +1004,7 @@ def updated() {
   state.unknownCommandErrorCount = 0
 
   sendEvent(name: "numberOfButtons", value: 6, displayed: true, isStateChange: true)
+  sendEvent(name: "Scene", value: 0, isStateChange: true)
 
   if (1) {
     switch ( device.currentValue("indicatorStatus") ) {

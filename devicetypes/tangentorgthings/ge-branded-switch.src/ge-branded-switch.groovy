@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.27"
+  return "v4.29"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -211,6 +211,7 @@ def updated() {
   updateDataValue("manufacturer", null)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
+  sendEvent(name: "Scene", value: 0, isStateChange: true)
 
   sendCommands(prepDevice(), 3000)
 
@@ -224,6 +225,7 @@ def installed() {
   sendEvent(name: "ledIndicator", value: "when off", displayed: true, isStateChange: true)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
+  sendEvent(name: "Scene", value: 0, isStateChange: true)
 
   initialize()
 
@@ -628,6 +630,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
         state.hasLifeLine = true
     } else {
       state.hasLifeLine = false
+      result << response(delayBetween([
+        zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
+        zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+      ]))
     }
 
     state.Lifeline = final_string;
@@ -638,6 +644,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       state.hasAssociationSet = true
     } else {
       state.hasAssociationSet = false
+      result << response(delayBetween([
+        zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
+        zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+      ]))
     }
 
     state.AssociationSet = final_string;
@@ -648,6 +658,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       state.hasDoubleTap = true
     } else {
       state.DoubleTap = false
+      result << response( delayBetween([
+        zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format(),
+        zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+      ]))
     }
 
     state.DoubleTap = final_string;
@@ -658,28 +672,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   }
 
   updateDataValue("$group_name", "${final_string}")
-
-
-  if ( state.hasDoubleTap == true && state.hasLifeLine == true ) {
-    state.isAssociated = true
-  } else {
-    state.isAssociated = false
-  }
-
-  if (! state.isAssociated && cmd.groupingIdentifier != 2 ) {
-    result << response(delayBetween([
-      zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
-      // zwave.associationV1.associationGet(groupingIdentifier: 0x01).format(),
-      // zwave.associationV1.associationGet(groupingIdentifier: 0x02).format(),
-      // zwave.associationV1.associationGet(groupingIdentifier: 0x03).format(),
-    ], 5000))
-  }
-
-  if ( state.hasAssociationSet == true && cmd.groupingIdentifier == 2 ) {
-    result << response(delayBetween([
-      zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format()
-    ], 5000))
-  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd, result) {
