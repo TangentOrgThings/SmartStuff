@@ -62,7 +62,6 @@ metadata {
     attribute "firmwareVersion", "string"
     attribute "zWaveProtocolVersion", "string"
     attribute "FirmwareMdReport", "string"
-    attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
     attribute "MSR", "string"
     attribute "NIF", "string"
@@ -473,8 +472,15 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   if ( cmd.manufacturerId == 0x000C ) {
     updateDataValue("manufacturer", "HomeSeer")
+
     if (! cmd.manufacturerName ) {
       state.manufacturer= "HomeSeer"
+    }
+
+    if (cmd.productId == 0x3035) {
+      if (! childDevices) {
+        createChildDevices()
+      }
     }
   } else if ( cmd.manufacturerId == 0x0184 ) {
     updateDataValue("manufacturer", "Dragon Tech Industrial, Ltd.")
@@ -515,7 +521,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
   result << response(delayBetween(cmds, 1000))
   result << response( zwave.versionV1.versionGet() )
 }
@@ -959,6 +964,23 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
   } else {
     result << createEvent(name: "SwitchAll", value: msg, isStateChange: true, displayed: true)
   }
+}
+
+private void createChildDevices() {
+  // Save the device label for updates by updated()
+  state.oldLabel = device.label
+
+  // Add child devices for four button presses
+  addChildDevice(
+    "TangentOrgThings",
+    "Homeseer WS200 Child",
+    "${device.deviceNetworkId}/Status",
+    "",
+    [
+    label         : "$device.displayName Switch Status",
+    completedSetup: true,
+    isComponent: true,
+    ])
 }
 
 def prepDevice() {

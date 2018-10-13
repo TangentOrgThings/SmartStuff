@@ -101,6 +101,7 @@ def on() {
 
 def off() {
   log.debug "off()"
+  sendEvent(name: "switch", value: "off", isStateChange: false)
 }
 
 def showVersion(){
