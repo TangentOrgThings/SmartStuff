@@ -777,7 +777,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
   for (def x = 1; x <= cmd.supportedScenes; x++) {
     cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
   }
-  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: device.deviceNetworkId)
+  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: integerHex(device.deviceNetworkId))
 
   result << sendCommands(cmds)
 }
@@ -1090,6 +1090,15 @@ def updated() {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
+
+// convert a hex string to integer 
+def integerHex(String v) { 
+  if (v == null) { 
+    return 0 
+  } 
+
+  return Integer.parseInt(v, 16) 
+} 
 
 /**
  *  encapCommand(cmd)
