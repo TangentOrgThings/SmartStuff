@@ -710,8 +710,24 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
   result << createEvent(name: "Power", value: device_power_level)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferScene cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferGroup cmd, result) {
   logger("$device.displayName $cmd")
+  updateDataValue("CtrlReplicationTransferGroup", "$cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferGroupName cmd, result) {
+  logger("$device.displayName $cmd")
+  updateDataValue("CtrlReplicationTransferGroupName", "$cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferScene cmd, result) {
+  logger("$device.displayName $cmd")
+  updateDataValue("CtrlReplicationTransferScene", "$cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferSceneName cmd, result) {
+  logger("$device.displayName $cmd")
+  updateDataValue("CtrlReplicationTransferSceneName", "$cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.protectionv1.ProtectionReport cmd, result) {    
