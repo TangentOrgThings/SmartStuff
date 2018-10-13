@@ -45,7 +45,6 @@ metadata {
     capability "Button"
     capability "Indicator"
     capability "Light"    
-    capability "Polling"
     capability "Refresh"
     capability "Sensor"
     capability "Switch"
@@ -111,23 +110,10 @@ metadata {
   }
 
   tiles(scale: 2) {
-    multiAttributeTile(name:"lightswitch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
-      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
-      }
-
-      tileAttribute("device.indicatorStatus", key: "SECONDARY_CONTROL") {
-        attributeState "when off", icon: "st.indicators.lit-when-off"
-        attributeState "when on", icon: "st.indicators.lit-when-on"
-        attributeState "never", icon: "st.indicators.never-lit"
-      }
-    }
-
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+        attributeState "on", label: '${name}', action: "switch.disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
+        attributeState "off", label: '${name}', action: "switch.connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
       }
     }
 
@@ -138,20 +124,20 @@ metadata {
     }
 
     valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat") {
-      state "val", label: '${currentValue}', defaultState: true
+      state "default", label: '${currentValue}', defaultState: true
     }
 
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label:'', action:"refresh.refresh", icon: "st.secondary.refresh"
     }
 
-    valueTile("driverVersion", "device.driverVersion", width:2, height: 2) {
-      state "val", label: '${currentValue}', defaultState: true
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
     }
 
     standardTile("reset", "device.DeviceReset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-      state "false", label:'', backgroundColor:"#ffffff"
-      state "true", label:'reset', backgroundColor:"#e51426"
+      state "false", label: '', backgroundColor:"#ffffff", defaultState: true
+      state "true", label: 'reset', backgroundColor:"#e51426"
     }
 
     main "lightSwitch"
