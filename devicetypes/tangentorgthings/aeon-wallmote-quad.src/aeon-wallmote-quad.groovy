@@ -37,7 +37,7 @@ def getConfigurationOptions(Integer model) {
 }
 
 metadata {
-  definition (name: "Aeon Wallmote Quard", namespace: "TangentOrgThings", author: "brian@tangent.org") {
+  definition (name: "Aeon Wallmote Quad", namespace: "TangentOrgThings", author: "brian@tangent.org") {
     capability "Actuator"
     capability "Button"
     capability "Battery"
