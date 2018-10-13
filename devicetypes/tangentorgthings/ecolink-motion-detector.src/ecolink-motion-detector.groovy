@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.85"
+  return "v4.87"
 }
 
 Boolean isPlus() {
@@ -99,6 +99,7 @@ metadata {
   preferences {
     input name: "followupCheck", type: "bool", title: "Follow up check", description: "Follow up check to turn off after 300 seconds.", required: false, defaultValue: false
     input name: "newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
+    input name: "extraDevice", type: "number", title: "Extra Device", description: "Send direct z-wave message to device", range: "1..232", displayDuringSetup: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
   }
 
@@ -598,6 +599,15 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       }
       isAssociated = true
     }
+
+    if (settings.extraDevice) {
+      if (cmd.nodeId.any { it == settings.extraDevice }) {
+      } else {
+        cmds << zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [ settings.extraDevice ]).format();
+        cmds << zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format();
+      }
+    }
+
     result << createEvent(name: "Repeated",
       value: "${final_string}",
       displayed: true,
