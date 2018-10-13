@@ -29,12 +29,12 @@
  */
 
 String getDriverVersion () {
-  return "v7.19"
+  return "v7.21"
 }
 
 def getConfigurationOptions(Integer model) {
   if ( model == 12341 ) {
-    return [ 13, 14, 21, 3, 31, 4 ]
+    return [ 13, 14, 21, 3, 31, 4, 6 ]
   }
   return [ 3, 4 ]
 }
@@ -375,10 +375,12 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
     case 4:
     if (1) {
       if ( cmd.configurationValue[0] != invertSwitch) {
-        return response( [
+        return response( delayBetween(
+          [
           zwave.configurationV1.configurationSet(scaledConfigurationValue: invertSwitch ? 1 : 0, parameterNumber: cmd.parameterNumber, size: 1).format(),
           zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
-        ])
+          ]
+        ))
       }
 
       result << createEvent(name: "invertedState", value: invertedStatus, display: true)
@@ -585,6 +587,28 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 def connect() {
   logger("$device.displayName connect()") 
   trueOn(true)
+}
+
+def childOn(String childID) {
+  logger("$device.displayName childOn($childID)") 
+
+  return response( delayBetween(
+    [
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: 1, parameterNumber: 21, size: 1).format(),
+    zwave.configurationV1.configurationGet(parameterNumber: 21).format(),
+    ]
+  ))
+}
+
+def childOff(String childID) {
+  logger("$device.displayName childOff($childID)") 
+
+  return response( delayBetween(
+    [
+    zwave.configurationV1.configurationSet(scaledConfigurationValue: 0, parameterNumber: 21, size: 1).format(),
+    zwave.configurationV1.configurationGet(parameterNumber: 21).format(),
+    ]
+  ))
 }
 
 def on() {
@@ -977,7 +1001,7 @@ private void createChildDevices() {
     "${device.deviceNetworkId}/Status",
     "",
     [
-    label         : "$device.displayName Switch Status",
+    label         : "$device.displayName Status",
     completedSetup: true,
     isComponent: true,
     ])
