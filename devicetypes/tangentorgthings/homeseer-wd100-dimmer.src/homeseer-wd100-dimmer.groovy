@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.27"
+  return "v7.29"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -49,7 +49,6 @@ metadata {
     capability "Actuator"
     capability "Button"
     capability "Light"
-    capability "Polling"
     capability "Refresh"
     capability "Sensor"
     capability "Switch Level"
@@ -176,7 +175,7 @@ def getCommandClassVersions() { // 26, 27, 2B, 2C, 59, 5A, 5B, 5E, 70, 72, 73, 7
   0x5B: 1,  // Central Scene
   0x70: 1,  // Configuration
   0x72: 2,  // Manufacturer Specific
-  // 0x73: 1, // Powerlevel
+  0x73: 1, // Powerlevel
   0x7A: 2,  // Firmware Update Md
   0x86: 1,  // Version
   0x85: 2,  // Association  0x85  V1 V2
@@ -555,7 +554,14 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
 
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << response( zwave.commands.powerlevelv1.PowerlevelGet() )
+}
+
+def testPowerLevel() {
+  sendCommands([
+    zwave.powerlevelV1.powerlevelTestNodeSet(powerLevel: 0, testFrameCount: 20, testNodeid: zwaveHubNodeId ),
+    zwave.powerlevelV1.powerlevelTestNodeGet(),
+    zwave.powerlevelV1.powerlevelGet(),
+  ])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
