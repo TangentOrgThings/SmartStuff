@@ -240,7 +240,7 @@ def sensorValueEvent(happened, result) {
   if (happened) {
     logger("  is active", "info")
     
-    state.lastActive = new Date.format("MMM dd HH:mm:ss") 
+    state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
     result << createEvent(name: "lastActive", value: state.lastActive)
   }
 
@@ -306,7 +306,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd, r
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
   logger("$device.displayName $cmd")
-  state.lastActive = new Date.format("MMM dd HH:mm:ss") 
+  state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
   result << createEvent(name: "LastAwake", value: state.lastActive, descriptionText: "${device.displayName} woke up", isStateChange: false)
 }
 
