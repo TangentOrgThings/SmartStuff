@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.87"
+  return "v4.89"
 }
 
 Boolean isPlus() {
@@ -516,12 +516,15 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
       0x00 (Default) Sensor sends Sensor Binary Reports when sensor is faulted and restored for backwards compatibility in addition to Notification Reports.
       0xFF Sensor will send only Notification Reports and NOT Sensor Binary Reports when the sensor is faulted and restored.
    */
-    result << createEvent(name: "Lifeline Sensor Binary Report", value: cmd.configurationValue == 0xFF ? "Off" : "On", displayed: true)
-    if ( cmd.configurationValue == 0x00 ) {
-      result << response(delayBetween([
+    result << createEvent(name: "Lifeline Sensor Binary Report", value: cmd.configurationValue == 0xFF ? "Off" : "On", displayed: true);
+
+    if (0) { // Disable default setting of...
+      if ( cmd.configurationValue == 0x00 ) {
+        result << response(delayBetween([
         zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
-      ], 800))
+        ], 800))
+      }
     }
     _isConfigured = true
   } else {
