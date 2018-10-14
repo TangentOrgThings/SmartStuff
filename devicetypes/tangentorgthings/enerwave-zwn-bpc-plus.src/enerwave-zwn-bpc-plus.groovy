@@ -17,7 +17,7 @@
 
 
 String getDriverVersion() {
-  return "v3.41"
+  return "v3.43"
 }
 
 def getDefaultWakeupInterval() {
@@ -85,7 +85,6 @@ metadata {
     attribute "NIF", "string"
 
     attribute "MSR", "string"
-    attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
@@ -240,7 +239,8 @@ def sensorValueEvent(happened, result) {
 
   if (happened) {
     logger("  is active", "info")
-    state.lastActive = new Date().time
+    
+    state.lastActive = new Date.format("MMM dd HH:mm:ss") 
     result << createEvent(name: "lastActive", value: state.lastActive)
   }
 
@@ -306,7 +306,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd, r
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
   logger("$device.displayName $cmd")
-  state.lastActive = new Date().time
+  state.lastActive = new Date.format("MMM dd HH:mm:ss") 
   result << createEvent(name: "LastAwake", value: state.lastActive, descriptionText: "${device.displayName} woke up", isStateChange: false)
 }
 
@@ -446,19 +446,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     break;
   }
 
-  if (0) {
-    group_name = getDataValue("Group #${cmd.groupingIdentifier}");
-  }
   updateDataValue("$group_name", "$final_string")
-
-  result << createEvent(
-              name: group_name,
-              value: "${final_string}",
-              descriptionText: "Association group ${cmd.groupingIdentifier}",
-              displayed: true,
-              isStateChange: true);
-
-  result << createEvent(descriptionText: "$device.displayName assoc: ${cmd.groupingIdentifier}", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
@@ -512,8 +500,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.MSR = msr
 
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-
-  result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
 
   if (isPlus()) {
     Integer[] parameters = getConfigurationOptions()
@@ -570,15 +556,11 @@ def checkConfigure() {
       int MotionTimout = settings.motionTimeout as Integer
 
       if (isPlus()) {
-        cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
-        cmds << zwave.configurationV1.configurationSet(parameterNumber: getParamater(), configurationValue: [(MotionTimout)]).format()
-        cmds << zwave.configurationV1.configurationGet(parameterNumber: getParamater()).format()
+        cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format();
         cmds << zwave.powerlevelV1.powerlevelGet().format()
         // cmds << zwave.configurationV2.configurationGet(parameterNumber: getParamater()).format()
       } else {
         cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
-        cmds << zwave.configurationV1.configurationSet(parameterNumber: getParamater(), configurationValue: [(MotionTimout)]).format()
-        cmds << zwave.configurationV1.configurationGet(parameterNumber: getParamater()).format()
       }
       cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
     }
