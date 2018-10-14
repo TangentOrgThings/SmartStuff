@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.89"
+  return "v4.91"
 }
 
 Boolean isPlus() {
@@ -202,6 +202,8 @@ def parse(String description) {
   } else if (! description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
+    // Z-wave event
+    state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
   
     if (1) {
       def cmds_result = []
@@ -233,32 +235,22 @@ def parse(String description) {
 def followupStateCheck() {
   logger("$device.displayName followupStateCheck")
 
-  if (state.isHappening) { // No lock checking, this is not a critical operation
-    def now = new Date().time
-    def last = state.lastActive + 300
-
-    logger("$device.displayName ... $last < $now", "debug")
-    if (state.lastActive + 300 < now) {
-      sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on followupStateCheck $last < $now", isStateChange: true, displayed: true)
-      state.isHappening = false
-    }
+  if (device.currentState("motion").value.equals("active")) {
+    sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on followupStateCheck $last < $now", isStateChange: true, displayed: true)
   }
 }
 
 def sensorValueEvent(Boolean happening, result) {
   logger "sensorValueEvent() $happening"
 
+  sendEvent(name: "LastActive", value: state.lastActive)
   if (happening) {
-    state.lastActive = new Date().time
-//    sendEvent(name: "LastActive", value: Date.format('MM/dd HH:mm:ss'), displayed: false)
-
     if (settings.followupCheck) {
       runIn(360, followupStateCheck)
     }
   }
 
   result << createEvent(name: "motion", value: happening ? "motion" : "inactive", descriptionText: "$device.displayName active", isStateChange: true, displayed: true)
-  state.isHappening = happening
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
