@@ -450,7 +450,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
     result << createEvent(name: "blinkFrequency", value: cmd.configurationValue[0])
     break;
     default:
-    logger("$device.displayName has unknown configuration parameter $cmd.parameterNumber : $cmd.configurationValue[0]", "error")
+    logger("$device.displayName has unknown configuration parameter $cmd.parameterNumber", "warn")
     break;
   }
 }
@@ -587,7 +587,7 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
-  logger("$device.displayName command not implemented: $cmd", "error")
+  logger("$device.displayName command not implemented: $cmd", "warn")
 }
 
 def connect() {

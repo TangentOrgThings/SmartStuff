@@ -770,8 +770,6 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
 
   def cmds = []
 
-  state.lastActive = new Date().time
-
   switch (cmd.sceneNumber) {
     case 1:
     switch (cmd.keyAttributes) {
