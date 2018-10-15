@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.91"
+  return "v4.92"
 }
 
 Boolean isPlus() {
@@ -145,7 +145,7 @@ metadata {
   }
 }
 
-private deviceCommandClasses() {
+def getCommandClassVersions() {
   if (isPlus()) {
     return [
       0x20: 1,  // Basic
@@ -166,22 +166,22 @@ private deviceCommandClasses() {
       0x25: 1,  //
       0x31: 5,  // Sensor MultLevel V1
     ]
-  } else {
-    return [
-      0x20: 1,  // Basic
-      0x30: 2,  // Sensor Binary
-      0x70: 2,  // Configuration V1
-      0x71: 2,  // Notification v2 ( Alarm V2 )
-      0x72: 2,  // Manufacturer Specific V1
-      0x80: 1,  // Battery
-      0x84: 2,  // Wake Up
-      0x85: 2,  // Association  0x85  V1 V2
-      0x86: 1,  // Version
-      0x01: 1,  // Z-wave command class
-      0x22: 1,  // Application Status
-      0x31: 5,  // Sensor MultLevel V1
-    ]
   }
+
+  return [
+    0x20: 1,  // Basic
+    0x30: 2,  // Sensor Binary
+    0x70: 2,  // Configuration V1
+    0x71: 2,  // Notification v2 ( Alarm V2 )
+    0x72: 2,  // Manufacturer Specific V1
+    0x80: 1,  // Battery
+    0x84: 2,  // Wake Up
+    0x85: 2,  // Association  0x85  V1 V2
+    0x86: 1,  // Version
+    0x01: 1,  // Z-wave command class
+    0x22: 1,  // Application Status
+    0x31: 5,  // Sensor MultLevel V1
+  ]
 }
 
 def parse(String description) {
@@ -203,7 +203,7 @@ def parse(String description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
     // Z-wave event
-    state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
+    // state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
   
     if (1) {
       def cmds_result = []
@@ -214,7 +214,7 @@ def parse(String description) {
       }      
     }
     
-    def cmd = zwave.parse(description, deviceCommandClasses())
+    def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (cmd) {
       zwaveEvent(cmd, result)
