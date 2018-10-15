@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v3.35"
+  return "v3.37"
 }
 
 Integer getAssociationGroup() {
@@ -51,6 +51,7 @@ metadata {
     attribute "Power", "string"
     attribute "AlarmTypeSupportedReport", "string"
     attribute "SensorMultilevelSupportedScaleReport", "string"
+    attribute "SensorMultilevelSupportedSensorReport", "string" 
 
     attribute "WakeUp", "string"
     attribute "WakeUpInterval", "number"
@@ -128,9 +129,9 @@ metadata {
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 }
-
-private deviceCommandClasses () {
+def getCommandClassVersions() {
   return [
+    // , [0x20: 1, 0x85: 2, 0x59: 1, 0x71: 3, 0x80: 1, 0x5A: 1, 0x84: 2, 0x72: 2, 0x86: 1, 0x31: 5])
     // 0x20: 1, 0x30: 1, 0x70: 2, 0x72: 1, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1
     0x20: 1,  // Basic
     0x59: 1,  // Association Grp Info
@@ -143,6 +144,7 @@ private deviceCommandClasses () {
     0x85: 2,  // Association	0x85	V1 V2
     0x86: 1,  // Version
     0x01: 1,  // Z-wave command class
+    0x31: 1,  // Sensor Multilevel
   ]
 }
 
@@ -236,8 +238,7 @@ def parse(String description) {
   def result = []
 
   if (description && description.startsWith("Err")) {
-    log.error "parse error: ${description}"
-    result << createEvent(name: "lastError", value: "Error parse() ${description}", descriptionText: description)
+    logger("parse error: ${description}", "warn")
 
     if (description.startsWith("Err 106")) {
       result << createEvent(
@@ -249,9 +250,13 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    result << createEvent(name: "logMessage", value: "parse() called with NULL description", descriptionText: "$device.displayName")
+    logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
-    def cmd = zwave.parse(description, deviceCommandClasses())// , [0x20: 1, 0x85: 2, 0x59: 1, 0x71: 3, 0x80: 1, 0x5A: 1, 0x84: 2, 0x72: 2, 0x86: 1, 0x31: 5])
+    def cmd = zwave.parse(description, getCommandClassVersions())
+
+    if (! cmd ) {
+      logger("zwave.parse(getCommandClassVersion()) failed for: ${description}", "warn")
+    }
 	
     if (cmd) {
       def cmds_result = []
@@ -263,8 +268,7 @@ def parse(String description) {
       zwaveEvent(cmd, result)
 
     } else {
-      log.warn "zwave.parse() failed for: ${description}"
-      result << createEvent(name: "lastError", value: "zwave.parse() failed for: ${description}", descriptionText: description)
+      logger("zwave.parse() failed for: ${description}", "warn")
     }
   }
 
@@ -392,6 +396,13 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmTypeSupportedReport cmd
   result << createEvent(name: "AlarmTypeSupportedReport", value: cmd.toString(), descriptionText: "$device.displayName recieved: $cmd", displayed: true)
 }
 */
+
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelSupportedSensorReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  state.SensorMultilevelSupportedSensorReport = "${cmd}"
+  result << createEvent(name: "SensorMultilevelSupportedSensorReport ", value: cmd.toString(), descriptionText: "$device.displayName recieved: $cmd", displayed: true)
+}
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelSupportedScaleReport cmd, result) {
   logger("$device.displayName $cmd")
