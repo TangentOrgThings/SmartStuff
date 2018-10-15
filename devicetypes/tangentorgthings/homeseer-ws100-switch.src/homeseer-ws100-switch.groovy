@@ -534,7 +534,6 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
 
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << response( zwave.commands.powerlevelv1.PowerlevelGet() )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.controllerreplicationv1.CtrlReplicationTransferGroup cmd, result) {
