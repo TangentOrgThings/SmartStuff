@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.23"
+  return "v7.25"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -632,9 +632,6 @@ private trueOn(Boolean physical = true) {
   if (physical) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
-  
-  String active_time = new Date(state.lastOnBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
 
   delayBetween([
     zwave.basicV1.basicSet(value: 0xFF).format(),
@@ -669,8 +666,6 @@ private trueOff(Boolean physical = true) {
     buttonEvent("off()", 2, false, "digital")
   }
 
-  String active_time = new Date(state.lastOffBounce).format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-  sendEvent(name: "lastActive", value: active_time, isStateChange: true);
   def cmds = []
   if (settings.delayOff) {
     // cmds << zwave.versionV1.versionGet()
@@ -785,16 +780,16 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotification cmd, result) {
   log.debug("$device.displayName $cmd")
 
-  if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
-    logger(descriptionText: "Late sequenceNumber  ${state.sequenceNumber} < $cmd", "info")
-    return
+  if (0) {
+    if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
+      logger(descriptionText: "Late sequenceNumber  ${state.sequenceNumber} < $cmd", "info")
+      return
+    }
+    state.sequenceNumber= cmd.sequenceNumber
   }
-  state.sequenceNumber= cmd.sequenceNumber
 
   def cmds = []
   
-  state.lastActive = new Date().time
-
   switch (cmd.sceneNumber) {
     case 1:
     // Up
