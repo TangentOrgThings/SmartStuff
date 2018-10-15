@@ -37,7 +37,7 @@
 
 
 String getDriverVersion() {
-  return "v7.29"
+  return "v7.31"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -558,10 +558,10 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeRepor
 
 def testPowerLevel() {
   sendCommands([
+    zwave.powerlevelV1.powerlevelGet(),
     zwave.powerlevelV1.powerlevelTestNodeSet(powerLevel: 0, testFrameCount: 20, testNodeid: zwaveHubNodeId ),
     zwave.powerlevelV1.powerlevelTestNodeGet(),
-    zwave.powerlevelV1.powerlevelGet(),
-  ])
+  ], 8000)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {

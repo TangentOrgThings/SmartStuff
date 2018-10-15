@@ -26,7 +26,7 @@
  */
 
 def versionNum(){
-  def txt = "1.0.7 (10/11/18)"
+  def txt = "1.0.9 (10/15/18)"
 }
 
 metadata {
@@ -46,17 +46,18 @@ metadata {
   // UI tile definitions
   tiles(scale: 2) {
     multiAttributeTile(name: "switch", type: "generic", width: 6, height: 4, canChangeIcon: false, canChangeBackground: true) {
-      tileAttribute("device.push", key: "PRIMARY_CONTROL") {
-        attributeState "off", label: 'push', action: "momentary.push", backgroundColor: "#ffffff", nextState: "on"
+      tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
+        attributeState "off", label: 'push', action: "momentary.push", backgroundColor: "#ffffff", nextState: "turningOn", defaultState: true
         attributeState "on", label: 'on', backgroundColor: "#00a0dc"
+        attributeState "turningOn", label:'PUSHED', backgroundColor:"#00A0DC", nextState:"turningOn"
       }
     }
 
-    valueTile("aboutTxt", "device.about", inactiveLabel: false, decoration: "flat", width: 6, height:2) {
+    valueTile("aboutTxt", "device.about", decoration: "flat", width: 6, height:2) {
       state "default", label:'${currentValue}'
     }
 
-    main "switch"
+    main(["switch"])
     details (["switch", "aboutTxt"])
   }
 }
@@ -64,26 +65,18 @@ metadata {
 def installed() {
   log.debug "installed()"
   sendEvent(name: "numberOfButtons", value: 1, isStateChange: true, displayed: false)
+  off()
   showVersion() 
 }
 
 def updated() {
   log.debug "updated()"
   sendEvent(name: "numberOfButtons", value: 1, isStateChange: true, displayed: false)
+  off()
   showVersion() 
 }
 
 def parse(String description) {
-  if (description) {
-    log.debug("$device.displayName ${description}")
-  }
-}
-
-def followupOff() {
-  log.debug("$device.displayName followupStateCheck")
-
-  sendEvent(name: "button", value: "default", descriptionText: "$device.displayName $exec_cmd button released", isStateChange: true, type: "$buttonType")
-  sendEvent(name: "switch", value: "off", isStateChange: true, display: false)
 }
 
 def push() {
@@ -95,8 +88,10 @@ def push() {
 def on() {
   log.debug "on()"
   sendEvent(name: "switch", value: "on", isStateChange: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-  runIn(20, followupOff)
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
+  sendEvent(name: "switch", value: "off", isStateChange: true, display: false)
+  
+//  runIn(20, followupOff)
 }
 
 def off() {
