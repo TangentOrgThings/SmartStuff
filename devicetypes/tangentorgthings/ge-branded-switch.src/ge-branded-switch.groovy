@@ -575,9 +575,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   logger("$device.displayName $cmd")
 
   def name = new String(cmd.name as byte[])
-  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
-
-  result << createEvent(name: "Group #${cmd.groupingIdentifier}", value: "${name}", isStateChange: true)
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
 
   result << response(delayBetween([
     zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
