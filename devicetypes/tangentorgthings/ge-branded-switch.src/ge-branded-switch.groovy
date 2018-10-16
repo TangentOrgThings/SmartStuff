@@ -609,13 +609,12 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       return
   }
 
-  String final_string = ""
   String string_of_assoc = ""
   cmd.nodeId.each {
     string_of_assoc += "${it}, "
   }
   def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
-  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
+  String final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
   if (cmd.groupingIdentifier == 0x01) { // Lifeline
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
