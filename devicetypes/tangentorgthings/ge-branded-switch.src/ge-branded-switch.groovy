@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.29"
+  return "v4.31"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -376,24 +376,22 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "productId", value: productId)
 
   def cmds = []
-  if (state.productId == 0x3036) {
+  if (productId == "3036") {
     result << createEvent(name: "numberOfButtons", value: 4, displayed: false)
-    sendCommands(
-      [
-      zwave.associationV2.associationGroupingsGet(),
-      ], 2000)
-    if (! state.FirmwareMdReport ) {
-      sendCommands(
-        [
-        // zwave.configurationV1.configurationGet(parameterNumber: 3),
-        // zwave.configurationV1.configurationGet(parameterNumber: 4),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId),
-        zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: device.deviceNetworkId),
-        zwave.firmwareUpdateMdV2.firmwareMdGet(),
-        // zwave.associationV2.associationGroupingsGet(),
-        ], 2000)
+
+    cmds << zwave.associationV2.associationGroupingsGet().format()
+
+    if (!  state.hasFirmwareReport ) {
+      if (0) {
+        cmds << zwave.configurationV1.configurationGet(parameterNumber: 3).format()
+        cmds << zwave.configurationV1.configurationGet(parameterNumber: 4).format()
+      }
+
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format()
+      cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: integerHex(device.deviceNetworkId)).format()
+      cmds << zwave.firmwareUpdateMdV2.firmwareMdGet().format()
     }
   }
 
@@ -699,6 +697,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
   logger("$device.displayName $cmd")
   def firmware_report = String.format("%s-%s-%s", cmd.checksum, cmd.firmwareId, cmd.manufacturerId)
+  state.hasFirmwareReport = "yes"
   updateDataValue("FirmwareMdReport", firmware_report)
   result << createEvent(name: "FirmwareMdReport", value: firmware_report, descriptionText: "$device.displayName FIRMWARE_REPORT: $firmware_report", displayed: true, isStateChange: true)
 }
@@ -927,6 +926,15 @@ def invertSwitch(invert=true) {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
+
+// convert a hex string to integer 
+def integerHex(String v) { 
+  if (v == null) { 
+    return 0 
+  } 
+
+  return Integer.parseInt(v, 16) 
+} 
 
 /**
  *  encapCommand(cmd)
