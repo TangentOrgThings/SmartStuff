@@ -50,11 +50,6 @@ metadata {
     attribute "firmwareVersion", "string"
     attribute "FirmwareMdReport", "string"
 
-    attribute "Group 1", "string"
-    attribute "Group 2", "string"
-    attribute "Group 3", "string"
-    attribute "Group 4", "string"
-
     attribute "invertedStatus", "enum", ["false", "true"]
 
     attribute "keyAttributes", "number"
@@ -375,8 +370,12 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "productType", value: productTypeId)
   result << createEvent(name: "productId", value: productId)
 
+  String msr = String.format("%04X-%04X-%04X", state.manufacturerId, state.productTypeId, state.productId)
+  updateDataValue("MSR", msr)
+  state.MSR = "$msr"
+
   def cmds = []
-  if (productId == "3036") {
+  if (productId == "3036" || state.MSR == "0063-4F50-3032") {
     result << createEvent(name: "numberOfButtons", value: 4, displayed: false)
 
     cmds << zwave.associationV2.associationGroupingsGet().format()
@@ -394,10 +393,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       cmds << zwave.firmwareUpdateMdV2.firmwareMdGet().format()
     }
   }
-
-  String msr = String.format("%04X-%04X-%04X", state.manufacturerId, state.productTypeId, state.productId)
-  updateDataValue("MSR", msr)
-  state.MSR = "$msr"
 
   updateDataValue("manufacturer", state.manufacturerName)
 
