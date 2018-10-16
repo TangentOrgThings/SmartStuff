@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.25"
+  return "v7.27"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -46,6 +46,7 @@ metadata {
     capability "Indicator"
     capability "Light"    
     capability "Refresh"
+    capability "Polling"
     capability "Sensor"
     capability "Switch"
 
