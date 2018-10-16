@@ -371,7 +371,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "productId", value: productId)
 
   String msr = String.format("%04X-%04X-%04X", state.manufacturerId, state.productTypeId, state.productId)
-  updateDataValue("MSR", msr)
+  updateDataValue("MSR", "$msr")
   state.MSR = "$msr"
 
   def cmds = []
