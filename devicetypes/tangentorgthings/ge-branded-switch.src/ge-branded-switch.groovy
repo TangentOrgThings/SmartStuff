@@ -14,7 +14,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.31"
+  return "v4.33"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -609,25 +609,17 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       return
   }
 
-  String final_string
-  if (cmd.nodeId ) {
-    def string_of_assoc = ""
-    cmd.nodeId.each {
-      string_of_assoc += "${it}, "
-    }
-    def lengthMinus2 = string_of_assoc.length() - 3
-    final_string = string_of_assoc.getAt(0..lengthMinus2)
+  String final_string = ""
+  String string_of_assoc = ""
+  cmd.nodeId.each {
+    string_of_assoc += "${it}, "
   }
-
-  Boolean isStateChange
-  state.isAssociated = true
+  def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
+  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
   if (cmd.groupingIdentifier == 0x01) { // Lifeline
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      isStateChange = state.hasLifeLine ? false : true
-        state.hasLifeLine = true
     } else {
-      state.hasLifeLine = false
       result << response(delayBetween([
         zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
         zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
@@ -638,26 +630,20 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   } else if ( cmd.groupingIdentifier == 0x02 ) { // AssociationSet
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      isStateChange = state.hasAssociationSet ? false : true
-      state.hasAssociationSet = true
-    } else {
-      state.hasAssociationSet = false
       result << response(delayBetween([
-        zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
+        zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format(),
         zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
       ]))
+    } else {
     }
 
     state.AssociationSet = final_string;
 
   } else if ( cmd.groupingIdentifier == 0x03 ) { // DoubleTap
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-      isStateChange = state.hasDoubleTap ? false : true
-      state.hasDoubleTap = true
     } else {
-      state.DoubleTap = false
       result << response( delayBetween([
-        zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format(),
+        zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]).format(),
         zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
       ]))
     }
