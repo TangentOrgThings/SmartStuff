@@ -17,8 +17,12 @@ String getDriverVersion() {
   return "v4.33"
 }
 
-def getConfigurationOptions(Integer model) {
-  return [ 3, 4 ]
+def getConfigurationOptions(String msr) {
+  if (msr.endsWith("3036") || msr.endsWith("3032")) {
+    return [ 3, 4 ]
+  }
+
+  return []
 }
 
 metadata {
@@ -28,6 +32,7 @@ metadata {
     capability "Health Check"
     capability "Indicator"
     capability "Light"    
+    capability "Polling"
     capability "Refresh"
     capability "Sensor"
     capability "Switch"
@@ -290,17 +295,13 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
 
-  result << response(zwave.switchBinaryV1.switchBinaryGet())
+  switchEvents(cmd.value, true, result);
 
-  if (0) {
     if ( cmd.value ) {
       response( trueOn(false) )
-      return
     }
 
     response( trueOff(false) )
-    return
-  }
 
   if (cmd.value == 255) {
     createEvent(name: "button", value: "pushed", data: [buttonNumber: 3], descriptionText: "Double-tap up (button 1) on $device.displayName", isStateChange: true, type: "physical")
@@ -375,7 +376,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   state.MSR = "$msr"
 
   def cmds = []
-  if (productId == "3036" || state.MSR == "0063-4F50-3032") {
+  if (msr.endsWith("3036") || msr.endsWith("3032")) {
     result << createEvent(name: "numberOfButtons", value: 4, displayed: false)
 
     cmds << zwave.associationV2.associationGroupingsGet().format()
@@ -396,7 +397,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   updateDataValue("manufacturer", state.manufacturerName)
 
-  Integer[] parameters = getConfigurationOptions(cmd.productId)
+  Integer[] parameters = getConfigurationOptions(msr)
 
   parameters.each {
     cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
@@ -852,14 +853,6 @@ def refresh() {
     zwave.switchBinaryV1.switchBinaryGet()
   ]
 
-  if ( state.productId == 0x3032 || state.productId == 3036 ) {
-    Integer[] parameters = getConfigurationOptions(cmd.productId)
-
-    parameters.each {
-      cmds << zwave.configurationV1.configurationGet(parameterNumber: it)
-    }
-  }
-
   cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet()
 
   if (device.currentState('firmwareVersion') == null) {
@@ -870,21 +863,21 @@ def refresh() {
 }
 
 void indicatorWhenOn() {
-  if ( state.productTypeId != 0x4F50) {
+  if ( 1 ) {
     sendEvent(name: "indicatorStatus", value: "when on", displayed: false)
     sendHubCommand(new physicalgraph.device.HubAction(zwave.configurationV1.configurationSet(configurationValue: [1], parameterNumber: 3, size: 1).format()))
   }
 }
 
 void indicatorWhenOff() {
-  if ( state.productTypeId != 0x4F50) {
+  if ( 1 ) {
     sendEvent(name: "indicatorStatus", value: "when off", displayed: false)
     sendHubCommand(new physicalgraph.device.HubAction(zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 3, size: 1).format()))
   }
 }
 
 void indicatorNever() {
-  if ( state.productTypeId != 0x4F50) {
+  if ( 1 ) {
     sendEvent(name: "indicatorStatus", value: "never", displayed: false)
     sendHubCommand(new physicalgraph.device.HubAction(zwave.configurationV1.configurationSet(configurationValue: [2], parameterNumber: 3, size: 1).format()))
   }

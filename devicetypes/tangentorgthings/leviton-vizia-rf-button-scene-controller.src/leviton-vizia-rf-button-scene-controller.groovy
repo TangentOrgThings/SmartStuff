@@ -23,14 +23,13 @@
 
 
 String getDriverVersion () {
-  return "v1.65"
+  return "v1.67"
 }
 
 metadata {
   definition (name: "Leviton Vizia RF Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
-    capability "Holdable Button"
     capability "Sensor"
     capability "Switch"
 
@@ -440,21 +439,17 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   updateDataValue("MSR", msr)
 
   state.buttons = 0
-  if (cmd.productId == 0x0224) { // VRCS1
+  if (msr == "001D-0902-0224") { // VRCS1
     state.buttons = 1
 
     sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
-
-    for (def x = 1; x <= state.buttons * 2; x++) {
-      cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
-    }
-
-  } else if (cmd.productId == 0x0261) { // VRCS4
+    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 1).format()
+  } else if (msr == "001D-0802-0261") { // VRCS4
     state.buttons = 4
 
     sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
 
-    for (def x = 1; x <= state.buttons * 2; x++) {
+    for (def x = 1; x <= state.buttons; x++) {
       cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
     }
   }
