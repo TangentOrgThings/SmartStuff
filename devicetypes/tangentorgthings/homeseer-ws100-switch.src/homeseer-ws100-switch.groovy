@@ -639,8 +639,8 @@ def on() {
 
   delayBetween([
     zwave.basicV1.basicSet(value: 0xFF).format(),
-    // zwave.switchBinaryV1.switchBinaryGet().format(),
-  ], 5000)
+    zwave.switchBinaryV1.switchBinaryGet().format(),
+  ], 2000)
 }
 
 def off() {
@@ -665,8 +665,8 @@ def off() {
   // cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: 2).format();
   // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
   cmds << zwave.basicV1.basicSet(value: 0x00).format()
-  cmds << "delay 5000"
-  // cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  cmds << "delay 1000"
+  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
 
   delayBetween( cmds )
 }
