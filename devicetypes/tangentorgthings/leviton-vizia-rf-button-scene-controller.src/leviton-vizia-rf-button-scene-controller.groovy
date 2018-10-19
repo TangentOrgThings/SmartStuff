@@ -352,6 +352,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   logger("$device.displayName $cmd")
   def cmds = []
 
+  result << createEvent(name: "numberOfButtons", value: cmd.supportedGroupings * 2, isStateChange: true, displayed: false)
+
   if (cmd.supportedGroupings) {
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
       cmds << zwave.associationV1.associationGet(groupingIdentifier: x).format();
@@ -386,13 +388,24 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     logger("Hub is not associated", "warn")
 
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
+    return
   }
+
+  def cmds = []
+  for (def x = (cmd.groupingIdentifier * 2) -1; x <= cmd.groupingIdentifier * 2; x++) {
+    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format();
+  }
+
 
   if ( associatedDevice  && ! cmd.nodeId.any { it == associatedDevice }) {
-    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice) )
+    cmds << zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice).format()
   }
 
-  String group_association_name =  "Group ${cmd.groupingIdentifier}"
+  if ( cmds.size ) {
+    result << response(delayBetween(cmds, 1000))
+  }
+
+  String group_association_name =  "Group #${cmd.groupingIdentifier}"
   updateDataValue("$group_association_name", "${final_string}");
 }
 
@@ -429,19 +442,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
-
-  state.buttons = 0
-  if (msr == "001D-0902-0224") { // VRCS1
-    state.buttons = 1
-  } else if (msr == "001D-0802-0261") { // VRCS4
-    state.buttons = 4
-  }
-
-  sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
-
-  for (def x = 1; x <= state.buttons * 2; x++) {
-    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
-  }
 
   if (0 && ! childDevices) {
     createChildDevices(state.buttons)
@@ -520,12 +520,8 @@ def prepDevice() {
   [
     zwave.powerlevelV1.powerlevelSet(powerLevel: 0, timeout: 0),
     zwave.associationV1.associationGroupingsGet(),
-    // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:1, sceneId:1),
-    // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:2, sceneId:2),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     // zwave.remoteAssociationActivateV1.remoteAssociationActivate(groupingIdentifier:1),
-    // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 1),
-    // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 2),
     // zwave.versionV1.versionGet(),
     // zwave.associationV1.associationGet(groupingIdentifier: 0x01),
     // zwave.basicV1.basicGet(),
