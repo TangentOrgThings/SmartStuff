@@ -23,7 +23,7 @@
 
 
 String getDriverVersion () {
-  return "v1.69"
+  return "v1.71"
 }
 
 metadata {
@@ -359,6 +359,11 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   }
 
   result << response( delayBetween(cmds, 2000) )
+}
+
+def zwaveEvent(zwave.commands.remoteassociationactivatev1.RemoteAssociationActivate cmd, result) {
+  logger("$device.displayName $cmd")
+  updateDataValue("RemoteAssociationActivate", "${cmd.groupingIdentifier}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
