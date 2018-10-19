@@ -361,7 +361,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   result << response( delayBetween(cmds, 2000) )
 }
 
-def zwaveEvent(zwave.commands.remoteassociationactivatev1.RemoteAssociationActivate cmd, result) {
+def zwaveEvent(physicalgraph.zwave.commands.remoteassociationactivatev1.RemoteAssociationActivate cmd, result) {
   logger("$device.displayName $cmd")
   updateDataValue("RemoteAssociationActivate", "${cmd.groupingIdentifier}")
 }
@@ -374,10 +374,6 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     associate +=  1 // Add SIS (assumption)
   }
 
-  Boolean isStateChange
-  String event_value
-  String event_descriptionText
-
   def string_of_assoc = ""
   cmd.nodeId.each {
     string_of_assoc += "${it}, "
@@ -385,32 +381,19 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
   String final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
-  updateDataValue("Association Group #${cmd.groupingIdentifier}", "${final_string}")
-
-  event_value = final_string
-
-  isStateChange = state.isAssociated ?: false
-
   state.isAssociated = true
   if (! cmd.nodeId.any { it == zwaveHubNodeId }) {
-    isStateChange = true
-    associate += zwaveHubNodeId
-    state.isAssociated = false
-    event_descriptionText = "Hub is not associated"
+    logger("Hub is not associated", "warn")
 
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
   }
 
   if ( associatedDevice  && ! cmd.nodeId.any { it == associatedDevice }) {
-    associate += associatedDevice
-    state.isAssociated = false
-    isStateChange = true
-
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice) )
   }
 
   String group_association_name =  "Group ${cmd.groupingIdentifier}"
-  updateDataValue("$group_association_name", "${event_value}");
+  updateDataValue("$group_association_name", "${final_string}");
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
@@ -421,6 +404,16 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
   result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
+  logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
+  String device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  updateDataValue("Powerlevel Report", "Power: ${device_power_level}, Timeout: ${cmd.timeout}")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
@@ -440,20 +433,14 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   state.buttons = 0
   if (msr == "001D-0902-0224") { // VRCS1
     state.buttons = 1
-
-    sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
-
-    for (def x = 1; x <= state.buttons * 2; x++) {
-      cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
-    }
   } else if (msr == "001D-0802-0261") { // VRCS4
     state.buttons = 4
+  }
 
-    sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
+  sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
 
-    for (def x = 1; x <= state.buttons * 2; x++) {
-      cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
-    }
+  for (def x = 1; x <= state.buttons * 2; x++) {
+    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
   }
 
   if (0 && ! childDevices) {
