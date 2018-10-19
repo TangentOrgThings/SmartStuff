@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.27"
+  return "v7.29"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -84,8 +84,8 @@ metadata {
     attribute "statusLEDColor", "enum", ["Off", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan", "White"]
     attribute "blinkFrequency", "number" 
     
-    command "connect"
-    command "disconnect"
+    command "basicOn"
+    command "basicOff"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
     fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
@@ -112,10 +112,12 @@ metadata {
 
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
-      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "switch.disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', action: "switch.connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
-      }
+			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+				attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
+				attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
+				attributeState "turningOn", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
+				attributeState "turningOff", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
+			}
     }
 
     standardTile("indicator", "device.indicatorStatus", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
@@ -141,8 +143,16 @@ metadata {
       state "true", label: 'reset', backgroundColor:"#e51426"
     }
 
-    main "lightSwitch"
-    details(["switch", "indicator", "scene", "driverVersion", "refresh", "reset"])
+    standardTile("basicOn", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "on", label:'test on', action:"basicOn", icon: "st.switches.switch.on"
+    }
+
+    standardTile("basicOff", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "off", label:'test off', action:"basicOff", icon: "st.switches.switch.off"
+    }
+
+    main "switch"
+    details(["switch", "indicator", "scene", "driverVersion", "refresh", "reset", "basicOn", "basicOff"])
   }
 }
 
@@ -256,11 +266,11 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
   if (cmd.sensorValue) {
-    response( trueOn(false) )
+    on()
     return
   }
 
-  response( trueOff(false) )
+  off()
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
@@ -590,11 +600,6 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "warn")
 }
 
-def connect() {
-  logger("$device.displayName connect()") 
-  trueOn(true)
-}
-
 def childOn(String childID) {
   logger("$device.displayName childOn($childID)") 
 
@@ -604,6 +609,14 @@ def childOn(String childID) {
     zwave.configurationV1.configurationGet(parameterNumber: 21).format(),
     ]
   ))
+}
+
+def basicOn() {
+  response(zwave.basicV1.basicSet(value: 0xFF))
+}
+
+def basicOff() {
+  response(zwave.basicV1.basicSet(value: 0x00))
 }
 
 def childOff(String childID) {
@@ -619,23 +632,14 @@ def childOff(String childID) {
 
 def on() {
   logger("$device.displayName on()")
-  trueOn(false)
-}
 
-private trueOn(Boolean physical = true) {
-  if (state.lastOnBounce && (Calendar.getInstance().getTimeInMillis() - state.lastOnBounce) < 2000 ) {
-    logger("$device.displayName bounce", "warn")
-    return
-  }
-  state.lastOnBounce = Calendar.getInstance().getTimeInMillis()
-
-  if (physical) { // Add option to have digital commands execute buttons
+  if (1) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
   delayBetween([
     zwave.basicV1.basicSet(value: 0xFF).format(),
-    zwave.switchBinaryV1.switchBinaryGet().format(),
+    // zwave.switchBinaryV1.switchBinaryGet().format(),
   ], 5000)
 }
 
@@ -646,23 +650,8 @@ def off() {
     logger("..off() disabled")
     return zwave.switchBinaryV1.switchBinaryGet().format();
   }
-  
-  trueOff(false)
-}
 
-def disconnect() {
-  logger("$device.displayName disconnect()") 
-  trueOff(true)
-}
-
-private trueOff(Boolean physical = true) {
-  if (state.lastOffBounce && (Calendar.getInstance().getTimeInMillis() - state.lastOffBounce) < 2000 ) {
-    logger("$device.displayName bounce", "warn")
-    return
-  }
-  state.lastOffBounce = Calendar.getInstance().getTimeInMillis()
-  
-  if (physical) { // Add option to have digital commands execute buttons
+  if (1) { // Add option to have digital commands execute buttons
     buttonEvent("off()", 2, false, "digital")
   }
 
@@ -677,10 +666,9 @@ private trueOff(Boolean physical = true) {
   // cmds << physical ? zwave.basicV1.basicSet(value: 0x00).format() : zwave.switchBinaryV1.switchBinarySet(switchValue: 0x00).format();
   cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << "delay 5000"
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  // cmds << zwave.switchBinaryV1.switchBinaryGet().format()
 
-  delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
-  // sendCommands(cmds)
+  delayBetween( cmds )
 }
 
 /**
@@ -770,11 +758,13 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupported
   def cmds = []
 
   for (def x = 1; x <= cmd.supportedScenes; x++) {
-    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x).format()
   }
-  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: integerHex(device.deviceNetworkId))
+  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: integerHex(device.deviceNetworkId)).format()
 
-  result << sendCommands(cmds)
+  if (cmds.size) {
+    result << response(delayBetween(cmds))
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotification cmd, result) {
