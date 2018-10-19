@@ -526,10 +526,12 @@ private void createChildDevices(Integer numberOfSwitches) {
 
 def prepDevice() {
   [
+    zwave.powerlevelV1.powerlevelSet(powerLevel: 0, timeout: 0),
     zwave.associationV1.associationGroupingsGet(),
     // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:1, sceneId:1),
     // zwave.sceneControllerConfV1.sceneControllerConfSet(dimmingDuration: 0xFF, groupId:2, sceneId:2),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    // zwave.remoteAssociationActivateV1.remoteAssociationActivate(groupingIdentifier:1),
     // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 1),
     // zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 2),
     // zwave.versionV1.versionGet(),
