@@ -23,7 +23,7 @@
 
 
 String getDriverVersion () {
-  return "v1.67"
+  return "v1.69"
 }
 
 metadata {
