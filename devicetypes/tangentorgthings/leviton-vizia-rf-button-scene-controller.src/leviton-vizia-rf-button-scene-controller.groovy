@@ -38,9 +38,7 @@ metadata {
     attribute "parseErrorCount", "number"        // Last error message
     attribute "unknownCommandErrorCount", "number"        // Last error message
 
-    attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
-    attribute "MSR", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
     attribute "firmwareVersion", "string"
@@ -282,6 +280,11 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
   logger("$device.displayName $cmd")
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfGet cmd, result) {
+  logger("$device.displayName $cmd")
+  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -443,13 +446,16 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
     state.buttons = 1
 
     sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
-    cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 1).format()
+
+    for (def x = 1; x <= state.buttons * 2; x++) {
+      cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
+    }
   } else if (msr == "001D-0802-0261") { // VRCS4
     state.buttons = 4
 
     sendEvent(name: "numberOfButtons", value: state.buttons, isStateChange: true, displayed: false)
 
-    for (def x = 1; x <= state.buttons; x++) {
+    for (def x = 1; x <= state.buttons * 2; x++) {
       cmds << zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: x).format()
     }
   }
@@ -466,8 +472,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
 
-  result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: true)
-  result << createEvent(name: "Manufacturer", value: "${manufacturerName}", descriptionText: "$device.displayName", isStateChange: true)
   result << response(zwave.versionV1.versionGet())
 }
 
@@ -567,11 +571,6 @@ def updated() {
   sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
-
-  // Check in case the device has been changed
-  state.manufacturer = null
-  updateDataValue("MSR", null)
-  updateDataValue("Manufacturer", null)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
