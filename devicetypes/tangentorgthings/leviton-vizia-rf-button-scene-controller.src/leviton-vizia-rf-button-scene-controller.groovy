@@ -50,11 +50,6 @@ metadata {
     attribute "Scene", "number"
     attribute "setScene", "enum", ["Unknown", "Set", "Setting"]
 
-    attribute "Group 1 Association", "number"
-    attribute "Group 2 Association", "number"
-    attribute "Group 3 Association", "number"
-    attribute "Group 4 Association", "number"
-
     attribute "NIF", "string"
 
     command "getparamState"
@@ -409,12 +404,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: associatedDevice) )
   }
 
-  String group_association_name =  "Group ${cmd.groupingIdentifier} Association"
-  result << createEvent(name: "$group_association_name",
-    value: "${event_value}",
-    descriptionText: "${event_descriptionText}",
-    displayed: true,
-    isStateChange: isStateChange)
+  String group_association_name =  "Group ${cmd.groupingIdentifier}"
+  updateDataValue("$group_association_name", "${event_value}");
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
