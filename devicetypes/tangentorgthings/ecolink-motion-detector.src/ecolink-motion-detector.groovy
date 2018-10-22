@@ -98,6 +98,7 @@ metadata {
 
   preferences {
     input name: "followupCheck", type: "bool", title: "Follow up check", description: "Follow up check to turn off after 300 seconds.", required: false, defaultValue: false
+    input name: "resetUpdate", type: "bool", title: "Reset on update", description: "Reset when active on update.", required: false, defaultValue: false
     input name: "newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
     input name: "extraDevice", type: "number", title: "Extra Device", description: "Send direct z-wave message to device", range: "1..232", displayDuringSetup: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
@@ -717,14 +718,13 @@ def updated() {
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
 
-  // We don't send the prepDevice() because we don't know if the device is awake
-  if (0) {
-    sendCommands(prepDevice())
+  if (settings.resetUpdate) {
+    sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
   }
+
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
   initIsAssociated()
   initIsConfigured()
-  // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on update", isStateChange: true, displayed: true)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -740,6 +740,9 @@ def installed() {
       sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
     }
   }
+
+  initIsAssociated()
+  initIsConfigured()
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
   sendCommands(prepDevice())
