@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.92"
+  return "v4.93"
 }
 
 Boolean isPlus() {
@@ -203,7 +203,8 @@ def parse(String description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
     // Z-wave event
-    // state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
+    def timeDate = location.timeZone ? new Date().format("MMM dd EEE h:mm:ss a", location.timeZone) : new Date().format("yyyy MMM dd EEE h:mm:ss")
+    state.lastActive = "$timeDate"
   
     if (1) {
       def cmds_result = []
@@ -256,9 +257,8 @@ def sensorValueEvent(Boolean happening, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.value, result)
-  } else {
+  sensorValueEvent((Boolean)cmd.value, result)
+  if (isLifeLine()) {
     logger("duplicate BasicReport", "warn")
   }
 }
@@ -266,9 +266,8 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.value, result)
-  } else {
+  sensorValueEvent((Boolean)cmd.value, result)
+  if (isLifeLine()) {
     logger("duplicate BasicSet", "warn")
   }
 }
@@ -276,9 +275,8 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.value, result)
-  } else {
+  sensorValueEvent((Boolean)cmd.value, result)
+  if (isLifeLine()) {
     logger("duplicate SwitchBinaryReport", "warn")
   }
 }
@@ -286,9 +284,8 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.switchValue, result)
-  } else {
+  sensorValueEvent((Boolean)cmd.switchValue, result)
+  if (isLifeLine()) {
     logger("duplicate SwitchBinarySet", "warn")
   }
 }
@@ -592,7 +589,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       if (getAssociationGroup() == 1) {
         cmds << zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format()
       }
-      isAssociated = true
+
+      if (getAssociationGroup() == 2) {
+        isAssociated = true
+      }
     }
 
     if (settings.extraDevice) {
@@ -648,7 +648,9 @@ def checkConfigure() {
   }
   state.checkConfigure = new Date().time
 
-  if (! isConfigured()) {
+  if (isConfigured()) {
+    updateDataValue("Last Configured", "${state.checkConfigure}")
+  } else {
     if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
@@ -664,7 +666,9 @@ def checkConfigure() {
     state.lastConfigure = new Date().time
   }
 
-  if (! isAssociated()) {
+  if (isAssociated()) {
+    updateDataValue("Last Associated", "${state.lastAssociated}")
+  } else {
     if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
       cmds << zwave.associationV2.associationGroupingsGet().format()
     }
