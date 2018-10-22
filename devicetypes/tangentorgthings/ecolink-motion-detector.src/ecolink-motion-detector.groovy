@@ -677,10 +677,9 @@ def checkConfigure() {
   }
 
   if (0) { // Misconfigure fix
-    cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format()
-      cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 25).format()
-      cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
-      cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
+    cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format();
+    cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format();
+    cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format();
   }
 
   return cmds
