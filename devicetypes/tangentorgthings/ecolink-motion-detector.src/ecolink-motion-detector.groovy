@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.93"
+  return "v4.95"
 }
 
 Boolean isPlus() {
@@ -181,7 +181,7 @@ def getCommandClassVersions() {
     0x86: 1,  // Version
     0x01: 1,  // Z-wave command class
     0x22: 1,  // Application Status
-    0x31: 5,  // Sensor MultLevel V1
+    0x31: 1,  // Sensor MultLevel V1
   ]
 }
 
@@ -377,19 +377,47 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
   logger("$device.displayName $cmd")
 }
 
-// SensorMultilevelReport() SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
+// SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   log.debug("$device.displayName $cmd")
 
-  if (cmd.sensorType == 1) {
+
+	switch (cmd.sensorType) {
+		case 1:
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit:"dF", isStateChange: true, displayed: true)
-  } else if (cmd.sensorType == 5) {
+    break
+		case 3:
+    logger("Unknown Illum value ${cmd.scaledSensorValue}", "warn")
+    break
+		case 5:
     logger("Unknown Relative Humidity value ${cmd.scaledSensorValue}", "warn")
-  } else if (cmd.sensorType == 7) {
-    Boolean current_status = cmd.notificationStatus == 255 ? true : false
-    sensorValueEvent(current_status, result)
-  } else {
-    logger("Unkown SensorMultilevelReport() $cmd", "Error")
+    break
+		case 7:
+    sensorValueEvent(( cmd.scaledSensorValue.toInteger() ? true : false ) , result)
+    break
+    default:
+    logger("Unkown SensorMultilevelReport(v5) type ${cmd.sensorType}", "error")
+    break;
+  }
+}
+
+// SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 28, sensorType: 5, sensorValue: [28], size: 1)
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv1.SensorMultilevelReport cmd, result) {
+  log.debug("$device.displayName $cmd")
+
+	switch (cmd.sensorType) {
+		case 1:
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit:"dF", isStateChange: true, displayed: true)
+    break
+		case 2:
+    sensorValueEvent(( cmd.scaledSensorValue.toInteger() ? true : false ) , result)
+    break
+		case 3:
+    logger("Unknown Illum value ${cmd.scaledSensorValue}", "warn")
+    break
+    default:
+    logger("Unkown SensorMultilevelReport(v1) type ${cmd.sensorType}", "error")
+    break;
   }
 }
 
