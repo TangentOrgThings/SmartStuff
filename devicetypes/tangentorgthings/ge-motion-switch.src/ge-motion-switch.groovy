@@ -19,7 +19,7 @@
  */
 
 def getDriverVersion () {
-  return "v2.01"
+  return "v2.03"
 }
 
 metadata {
@@ -271,26 +271,57 @@ def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd, result)
   logger("zwaveEvent(): Could not extract command from ${cmd}")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd, result) {
-  logger("$device.displayName $cmd")
-
-  def encapsulatedCommand = cmd.encapsulatedCommand([0x71: 3, 0x25: 1, 0x20: 1])
-  if (encapsulatedCommand) {
-    zwaveEvent(encapsulatedCommand, result)
-    return
-  }
-  
-  logger("Unknown MultiChannelCmdEncap: $cmd", "error")
-}
-
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointReport cmd, result) {
   logger("$device.displayName $cmd")
   updateDataValue("endpoints", cmd.endPoints.toString())
+
+	def epC = cmd.endPoints
+
+	def cmds = []
+  for (x in 1..epC) { 
+    cmds << (encapCommand(zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: x))).format()
+  }
+
+  result << response(delayBetween(cmds))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, result) {
   logger("$device.displayName $cmd")
   updateDataValue("MultiChannelCapabilityReport ", cmd.endPoints.toString())
+
+	def endP = cmd.endPoint
+	
+	if (!childDevices.find{ it.deviceNetworkId.endsWith("-ep${endP}") || !childDevices}) {
+		createChildDevices( cmd.commandClass, endP )
+	}
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd, result) {
+  logger("$device.displayName $cmd")
+
+  def ep = cmd.sourceEndPoint
+  def childDevice = null
+
+  childDevices.each {
+    if (it.deviceNetworkId =="${device.deviceNetworkId}-ep${ep}") {
+      childDevice = it
+    }
+  }
+
+  if (childDevice) {
+    logger("Parse ${childDevice.deviceNetworkId}, cmd: ${cmd}", "warn")
+    childDevice.parse(cmd.encapsulatedCommand().format())
+  } else {
+    logger( "Child device not found.cmd: ${cmd}", "warn")
+
+    def encapsulatedCommand = cmd.encapsulatedCommand([0x71: 3, 0x25: 1, 0x20: 1])
+    if (encapsulatedCommand) {
+      zwaveEvent(encapsulatedCommand, result)
+      return
+    }
+
+    logger("Unknown MultiChannelCmdEncap: $cmd", "warn")
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
@@ -831,6 +862,72 @@ private parseAssocGroupList(list, group) {
   }
 
   return nodes
+}
+
+// handle commands
+void createChildDevices(def cc, def ep) {
+  return // Not working yet
+  try {
+    def deviceCCHandler = ""
+    def deviceCCType = ""
+
+    for (def i = 0; i < cc.size(); i++) {
+      switch (cc[i]) {
+        case 0x26: 
+        deviceCCType = "Multilevel Switch"
+        deviceCCHandler = "Child Multilevel Switch"
+        break
+
+        case 0x25: 
+        deviceCCType =  "Binary Switch"
+        deviceCCHandler = "Child Binary Switch"
+        break
+
+        case 0x31: 
+        deviceCCType = "Multilevel Sensor"
+        deviceCCHandler = "Child Multilevel Sensor"
+        break
+
+        case 0x32:
+        deviceCCType = "Meter"
+        deviceCCHandler = "Child Meter"
+        break
+
+        case 0x71: 
+        deviceCCType = "Notification";
+        deviceCCHandler = "Child Notification";
+        break
+
+        case 0x40:					
+        case 0x43: 
+        deviceCCType = "Thermostat"
+        deviceCCHandler = "Child Thermostat"
+        break
+
+        default:
+        logger("No Child Device Handler case for command class: '$cc'", "debug")
+      }
+
+      // stop on the first matched CC
+      if (deviceCCHandler != "") {
+        break
+      }
+    }
+
+    if (deviceCCHandler != "") {
+      try {
+        addChildDevice(deviceCCHandler, "${device.deviceNetworkId}-ep${ep}", null,
+        [completedSetup: true, label: "${deviceCCType}-${ep}", 
+        isComponent: false, componentName: "${deviceCCType}-${ep}", componentLabel: "${deviceCCType}-${ep}"])
+      } catch (e) {
+        log.error "Creation child devices failed with error = ${e}"
+      }
+    }
+
+    // associationSet()
+  } catch (e) {
+    logger("Child device creation failed with error = ${e}", "warn")
+  }
 }
 
 /*****************************************************************************************************************

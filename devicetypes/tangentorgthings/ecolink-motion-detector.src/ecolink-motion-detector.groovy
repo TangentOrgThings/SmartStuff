@@ -106,12 +106,12 @@ metadata {
 
   tiles {
     standardTile("motion", "device.motion", width: 2, height: 2) {
-      state("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0")
-      state("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff")
+      state("active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
+      state("inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
     }
 
     valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat") {
-      state("battery", label:'${currentValue}', unit:"%")
+      state("battery", label: '${currentValue}', unit: "%")
     }
 
     valueTile("driverVersion", "device.driverVersion", inactiveLabel: true, decoration: "flat") {
@@ -119,8 +119,8 @@ metadata {
     }
 
     valueTile("temperature", "device.temperature", width: 2, height: 2) {
-      state("temperature", label:'${currentValue}', unit:"dF",
-      backgroundColors:[
+      state("temperature", label: '${currentValue}', unit: "dF",
+      backgroundColors: [
       [value: 31, color: "#153591"],
       [value: 44, color: "#1e9cbb"],
       [value: 59, color: "#90d2a7"],
@@ -252,7 +252,7 @@ def sensorValueEvent(Boolean happening, result) {
     }
   }
 
-  result << createEvent(name: "motion", value: happening ? "motion" : "inactive", descriptionText: "$device.displayName active", isStateChange: true, displayed: true)
+  result << createEvent(name: "motion", value: happening ? "motion" : "inactive", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
@@ -298,7 +298,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinarySupportedSensorReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(name: "SupportedSensors", value: "$cmd", descriptionText: "$device.displayName", isStateChange: true, displayed: true)
+  result << createEvent(name: "SupportedSensors", value: "$cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
@@ -380,7 +380,6 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
 // SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   log.debug("$device.displayName $cmd")
-
 
 	switch (cmd.sensorType) {
 		case 1:
@@ -678,7 +677,6 @@ def checkConfigure() {
   state.checkConfigure = new Date().time
 
   if (isConfigured()) {
-    updateDataValue("Last Configured", "${state.checkConfigure}")
   } else {
     if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
       if (isPlus()) {
@@ -693,16 +691,17 @@ def checkConfigure() {
     }
 
     state.lastConfigure = new Date().time
+    updateDataValue("Last Configured", "${state.lastActive}"
   }
 
   if (isAssociated()) {
-    updateDataValue("Last Associated", "${state.lastAssociated}")
   } else {
     if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
       cmds << zwave.associationV2.associationGroupingsGet().format()
     }
 
     state.lastAssociated = new Date().time
+    updateDataValue("Last Associated", "${state.lastActive}"
   }
 
   if (0) { // Misconfigure fix
