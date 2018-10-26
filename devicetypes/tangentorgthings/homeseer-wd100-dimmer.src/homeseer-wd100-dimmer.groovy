@@ -989,11 +989,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  Boolean isStateChange
-  String event_value
-  String event_descriptionText
-
-  if (cmd.groupingIdentifier != 1) {
+  if (cmd.groupingIdentifier > 2) {
     logger("Unknown Group Identifier", "error");
     return
   }
@@ -1006,18 +1002,13 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   Integer lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
   String final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
-  event_value = "${final_string}"
-
   if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    isStateChange = state.isAssociated == true ? false : true
-    event_descriptionText = "Device is associated"
     state.isAssociated = true
   } else {
-    isStateChange = state.isAssociated == false ? false : true
-    event_descriptionText = "Hub was not found in lifeline"
-    state.isAssociated = false
-
-    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
+    if (cmd.groupingIdentifier == 1) {
+      state.isAssociated = false
+      result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: [zwaveHubNodeId]) )
+    }
   }
 
 
@@ -1034,7 +1025,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     break;
   }
 
-  updateDataValue("$group_name", "$event_value")
+  updateDataValue("$group_name", "${final_string}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
