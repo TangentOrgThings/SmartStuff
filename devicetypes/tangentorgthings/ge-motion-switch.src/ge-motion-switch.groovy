@@ -49,6 +49,9 @@ metadata {
 
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
+    attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "driverVersion", "string"
     attribute "Manufacturer", "string"
@@ -66,6 +69,7 @@ metadata {
     attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
+    attribute "Power", "string"
 
     fingerprint mfr:"0063", prod:"494D", model: "3032", deviceJoinName: "GE Z-Wave Plus Motion Wall Switch"
   }
@@ -625,6 +629,57 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
+  logger("$device.displayName $cmd")
+  result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
+  logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
+  String device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
+  result << createEvent(name: "Power", value: device_power_level)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
+  logger("$device.displayName $cmd")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  state.switchAllModeCache = cmd.mode
+
+  def msg = ""
+  switch (cmd.mode) {
+    case 0:
+    msg = "Device is excluded from the all on/all off functionality."
+    break
+
+    case 1:
+    msg = "Device is excluded from the all on functionality but not all off."
+    break
+
+    case 2:
+    msg = "Device is excluded from the all off functionality but not all on."
+    break
+
+    default:
+    msg = "Device is included in the all on/all off functionality."
+    break
+  }
+  logger("Switch All Mode: ${msg}","info")
+
+  if (cmd.mode != 0) {
+    sendCommands([
+      zwave.switchAllV1.switchAllSet(mode: 0x00),
+      zwave.switchAllV1.switchAllGet(),
+    ])
+  } else {
+    result << createEvent(name: "SwitchAll", value: msg, isStateChange: true, displayed: true)
+  }
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -794,6 +849,8 @@ def prepDevice() {
     zwave.associationV2.associationGroupingsGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
     zwave.multiChannelV3.multiChannelEndPointGet(),
+    zwave.switchAllV1.switchAllGet(),
+    zwave.powerlevelV1.powerlevelGet(),
   ]
 }
 
@@ -809,6 +866,13 @@ def updated() {
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   sendEvent(name: "numberOfButtons", value: 2, displayed: false)
+
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   if (state.lastUpdated && now() <= state.lastUpdated + 3000) {
     return
