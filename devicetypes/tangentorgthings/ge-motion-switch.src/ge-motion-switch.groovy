@@ -22,6 +22,10 @@ def getDriverVersion () {
   return "v2.03"
 }
 
+def getConfigurationOptions(String model) {
+  return [ 1, 13, 14, 15, 19, 2, 3, 4, 5, 6 ]
+}
+
 metadata {
   definition (name: "GE Motion Switch", namespace: "TangentOrgThings", author: "Brian Aker", ocfDeviceType: "oic.d.switch", executeCommandsLocally: true) {
     capability "Motion Sensor"
@@ -554,7 +558,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   updateDataValue("MSR", "$msr")
   updateDataValue("manufacturer", "${state.manufacturer}")
 
-  Integer[] parameters = getConfigurationOptions(cmd.productId)
+  Integer[] parameters = getConfigurationOptions(productCode)
 
   def cmds = []
   parameters.each {
