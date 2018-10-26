@@ -19,7 +19,7 @@
  */
 
 def getDriverVersion () {
-  return "v2.03"
+  return "v2.05"
 }
 
 def getConfigurationOptions(String model) {
@@ -249,6 +249,7 @@ def getCommandClassVersions() {
     0x85: 2,
     0x86: 1, // V2
     0x8e: 2, // V3
+    0x31: 5, // Note: this one shows up from logs
   ]
 }
 
@@ -689,6 +690,19 @@ def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
   result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: false)
 }
 
+// SensorMultilevelReport(scale: 1, sensorValue: [2, 234], precision: 1, sensorType: 1, scaledSensorValue: 74.6, size: 2)
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  switch (sensorType) {
+    case SENSOR_TYPE_TEMPERATURE_VERSION_1:
+    logger("Temperature Report: ${cmd.scaledSensorValue}", "info")
+    break;
+    default:
+    logger("Unknown SensorReport(${cmd.sensorType}: ${cmd.scaledSensorValue}", "info")
+    break;
+  }
+}
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
   logger("$device.displayName $cmd")
