@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v7.29"
+  return "v7.33"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -59,8 +59,10 @@ metadata {
     attribute "invertedState", "enum", ["false", "true"]
 
     attribute "driverVersion", "string"
+
     attribute "firmwareVersion", "string"
     attribute "zWaveProtocolVersion", "string"
+
     attribute "FirmwareMdReport", "string"
     attribute "ManufacturerCode", "string"
     attribute "MSR", "string"
@@ -68,13 +70,8 @@ metadata {
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
-    attribute "keyAttributes", "number"
-
     attribute "Scene", "number"
-    attribute "Scene_1", "number"
-    attribute "Scene_1_Duration", "number"
-    attribute "Scene_2", "number"
-    attribute "Scene_2_Duration", "number"
+    attribute "keyAttributes", "number"
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
@@ -115,8 +112,8 @@ metadata {
 			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
 				attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
 				attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
-				attributeState "turningOn", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
-				attributeState "turningOff", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
+				attributeState "turningOn", label: '${name}', icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
+				attributeState "turningOff", label: '${name}', icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
 			}
     }
 
@@ -341,7 +338,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
-  log.debug("$device.displayName $cmd")
+  logger("$device.displayName $cmd")
+  result << createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
@@ -646,13 +644,13 @@ def on() {
 def off() {
   logger("$device.displayName off()")
 
+  if (1) { // Add option to have digital commands execute buttons
+    buttonEvent("off()", 2, false, "digital")
+  }
+
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
     return zwave.switchBinaryV1.switchBinaryGet().format();
-  }
-
-  if (1) { // Add option to have digital commands execute buttons
-    buttonEvent("off()", 2, false, "digital")
   }
 
   def cmds = []
@@ -799,7 +797,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       buttonEvent("CentralSceneNotification()", 5, false, "physical")
       break;
       default:
-      log.error ("unexpected up press keyAttribute: $cmd")
+      logger("unexpected up press keyAttribute: $cmd", "error")
     }
     break
 
@@ -821,23 +819,13 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
       buttonEvent("CentralSceneNotification()", 6, false, "physical")
       break;
       default:
-      log.error ("unexpected up press keyAttribute: $cmd")
+      logger("unexpected down press keyAttribute: $cmd", "error")
     }
     break
 
     default:
     // unexpected case
-    log.debug ("unexpected scene: $cmd.sceneNumber")
-  }
-
-  if (0) {
-    result << createEvent(name: "keyAttributes", value: cmd.keyAttributes, isStateChange: true, displayed: true)
-    result << createEvent(name: "Scene", value: cmd.sceneNumber, isStateChange: true, displayed: true)
-  }
-
-  if ( 0 ) { // cmd.keyAttributes ) {
-    cmds << "delay 2000"
-    cmds << zwave.switchBinaryV1.switchBinaryGet().format();
+    logger("unexpected scene: $cmd.sceneNumber", "error")
   }
 
   if (cmds.size) {
