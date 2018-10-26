@@ -297,7 +297,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointR
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, result) {
   logger("$device.displayName $cmd")
-  updateDataValue("MultiChannelCapabilityReport ", cmd.endPoints.toString())
+  updateDataValue("MultiChannelCapabilityReport ", cmd.endPoint.toString())
 
 	def endP = cmd.endPoint
 	
