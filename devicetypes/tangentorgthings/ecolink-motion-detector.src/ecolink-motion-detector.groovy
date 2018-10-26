@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.95"
+  return "v4.97"
 }
 
 Boolean isPlus() {
@@ -114,8 +114,8 @@ metadata {
       state("battery", label: '${currentValue}', unit: "%")
     }
 
-    valueTile("driverVersion", "device.driverVersion", inactiveLabel: true, decoration: "flat") {
-      state("driverVersion", label: getDriverVersion())
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
     }
 
     valueTile("temperature", "device.temperature", width: 2, height: 2) {
@@ -245,7 +245,7 @@ def followupStateCheck() {
 def sensorValueEvent(Boolean happening, result) {
   logger "sensorValueEvent() $happening"
 
-  sendEvent(name: "LastActive", value: state.lastActive)
+  sendEvent(name: "LastActive", value: "${state.lastActive}")
   if (happening) {
     if (settings.followupCheck) {
       runIn(360, followupStateCheck)
@@ -590,7 +590,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   def cmds = []
 
-  String final_string
+  String final_string = ""
   
   // Association
   if (cmd.nodeId) {
@@ -691,7 +691,7 @@ def checkConfigure() {
     }
 
     state.lastConfigure = new Date().time
-    updateDataValue("Last Configured", "${state.lastActive}"
+    updateDataValue("Last Configured", "${state.lastActive}")
   }
 
   if (isAssociated()) {
@@ -701,7 +701,7 @@ def checkConfigure() {
     }
 
     state.lastAssociated = new Date().time
-    updateDataValue("Last Associated", "${state.lastActive}"
+    updateDataValue("Last Associated", "${state.lastActive}")
   }
 
   if (0) { // Misconfigure fix
