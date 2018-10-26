@@ -186,6 +186,16 @@ metadata {
         type: "text",
         required: false
       )
+
+      input (
+        name: "debugLevel",
+        type: "number",
+        title: "Debug Level",
+        description: "Adjust debug level for log",
+        range: "1..5",
+        displayDuringSetup: false,
+        defaultValue: 3
+      )
   }
 
   tiles(scale: 2) {
