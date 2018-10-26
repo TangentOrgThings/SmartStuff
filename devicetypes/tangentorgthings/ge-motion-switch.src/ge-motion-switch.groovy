@@ -347,7 +347,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
   } else {
     logger( "Child device not found.cmd: ${cmd}", "warn")
 
-    def encapsulatedCommand = cmd.encapsulatedCommand([0x71: 3, 0x25: 1, 0x20: 1])
+    def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
     if (encapsulatedCommand) {
       zwaveEvent(encapsulatedCommand, result)
       return
