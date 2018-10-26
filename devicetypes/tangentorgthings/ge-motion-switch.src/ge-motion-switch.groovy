@@ -63,10 +63,6 @@ metadata {
     attribute "keyAttributes", "number"
 
     attribute "Scene", "number"
-    attribute "Scene_1", "number"
-    attribute "Scene_1_Duration", "number"
-    attribute "Scene_2", "number"
-    attribute "Scene_2_Duration", "number"
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
