@@ -602,6 +602,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
   }
 
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${final_string}")
+
   Boolean isAssociated = false
 
   if (cmd.groupingIdentifier == 0x01) { // Lifeline

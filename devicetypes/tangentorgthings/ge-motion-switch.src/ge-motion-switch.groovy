@@ -356,13 +356,38 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   }
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.multichannelassociationv2.MultiChannelAssociationGroupingsReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  if (cmd.supportedGroupings) {
+    def cmds = []
+
+    for (def x = 1; x <= cmd.supportedGroupings; x++) {
+      cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet( groupingIdentifier: x );
+    }
+
+    sendCommands(cmds, 1000)
+
+    return
+  }
+
+  logger("No groups reported", "warn")
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.multichannelassociationv2.MultiChannelAssociationReport cmd, result) {
+  logger("$device.displayName $cmd")
+
+  String nodes = cmd.nodeId.join(", ")
+  updateDataValue("MultiGroup #${cmd.groupingIdentifier}", "${name}")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
 
   if (cmd.supportedGroupings) {
     def cmds = []
 
-    for (def x = cmd.supportedGroupings; x <= cmd.supportedGroupings; x++) {
+    for (def x = 1; x <= cmd.supportedGroupings; x++) {
       cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x01, refreshCache: true);
       cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x);
       cmds << zwave.associationV2.associationGet(groupingIdentifier: x);
@@ -745,6 +770,16 @@ def LightSenseOff() {
   sendHubCommand(cmds.collect{ new physicalgraph.device.HubAction(it.format()) }, 1000)
 }
 
+def prepDevice() {
+  [
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    zwave.associationV2.associationGroupingsGet(),
+    zwave.zwaveCmdClassV1.requestNodeInfo(),
+    zwave.multiChannelV3.multiChannelEndPointGet(),
+    // zwave.configurationV1.configurationGet(parameterNumber: 0x63),
+  ]
+}
+
 def installed() {
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
@@ -808,16 +843,7 @@ def updated() {
   }
    */
 
-  cmds << zwave.versionV1.versionGet()
-  cmds << zwave.firmwareUpdateMdV1.firmwareMdGet()
-  cmds << zwave.associationV2.associationGroupingsGet()
-
-  cmds << zwave.zwaveCmdClassV1.requestNodeInfo()
-
-  cmds << zwave.multiChannelV3.multiChannelEndPointGet()
-
-  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0x01)
-  cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0x02)
+  cmds += prepDevice()
 
   sendHubCommand(cmds.collect{ new physicalgraph.device.HubAction(it.format()) }, 5000)
 }
