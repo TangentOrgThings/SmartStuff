@@ -229,9 +229,27 @@ metadata {
   }
 }
 
-
 def getCommandClassVersions() {
-  [0x20: 1, 0x25: 1, 0x2C: 1,  0x56: 1, 0x59: 1, 0x60: 3, 0x70: 2, 0x72: 2, 0x7A: 2, 0x85: 2, 0x8E: 2, 0x71: 3]
+  [
+    0x20: 1,
+    0x25: 1,
+    0x27: 1,
+    0x2b: 1,
+    0x2c: 1,
+    0x56: 1,
+    0x59: 1,
+    0x5a: 1,
+    // 0x5e: 2,
+    0x60: 3, // V4
+    0x70: 2, // V1
+    0x71: 3, // V4
+    0x72: 2,
+    0x73: 1,
+    0x7a: 2,
+    0x85: 2,
+    0x86: 1, // V2
+    0x8e: 2, // V3
+  ]
 }
 
 def parse(String description) {
@@ -776,7 +794,6 @@ def prepDevice() {
     zwave.associationV2.associationGroupingsGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
     zwave.multiChannelV3.multiChannelEndPointGet(),
-    // zwave.configurationV1.configurationGet(parameterNumber: 0x63),
   ]
 }
 
