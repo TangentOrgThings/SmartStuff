@@ -312,10 +312,10 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointR
 
 	def cmds = []
   for (def x = 1; x <= cmd.endPoints; x++) {
-    cmds << (encapCommand(zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: x))).format()
+    cmds << zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: x).format()
   }
 
-  result << delayBetween(cmds)
+  result << response(delayBetween(cmds))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, result) {
@@ -342,7 +342,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
   }
 
   if (childDevice) {
-    logger("Parse ${childDevice.deviceNetworkId}, cmd: ${cmd}", "warn")
+    logger("Parse ${childDevice.deviceNetworkId}, cmd: ${cmd}", "info")
     childDevice.parse(cmd.encapsulatedCommand().format())
   } else {
     logger( "Child device not found.cmd: ${cmd}", "warn")
@@ -429,12 +429,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   }
 
   // Lifeline
-  def string_of_assoc = ""
-  cmd.nodeId.each {
-    string_of_assoc += "${it}, "
-  }
-  def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
-  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
+  String nodes = cmd.nodeId.join(", ")
 
   String group_name = ""
   switch (cmd.groupingIdentifier) {
@@ -452,7 +447,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     break;
   }
 
-  updateDataValue("$group_name", "$final_string")
+  updateDataValue("$group_name", "$nodes")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationSpecificGroupReport cmd, result) {
@@ -851,6 +846,9 @@ def LightSenseOff() {
   def cmds = []
   cmds << zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 14, size: 1)
   sendHubCommand(cmds.collect{ new physicalgraph.device.HubAction(it.format()) }, 1000)
+}
+
+def parentCommand() {
 }
 
 def prepDevice() {
