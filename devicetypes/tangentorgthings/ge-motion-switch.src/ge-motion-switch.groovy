@@ -995,10 +995,9 @@ private parseAssocGroupList(list, group) {
 
 // handle commands
 void createChildDevices(def cc, def ep) {
-  return // Not working yet
   try {
-    def deviceCCHandler = ""
-    def deviceCCType = ""
+    String deviceCCHandler = ""
+    String deviceCCType = ""
 
     for (def i = 0; i < cc.size() && 0; i++) {
       switch (cc[i]) {
