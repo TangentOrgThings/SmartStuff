@@ -52,8 +52,6 @@ metadata {
 
     attribute "NIF", "string"
 
-    command "getparamState"
-
     fingerprint mfr: "001D", prod: "0902", model: "0224", deviceJoinName: "Leviton VRCS1-1LZ Vizia RF + 1-Button Scene Controller"
     fingerprint mfr: "001D", prod: "0802", model: "0261", deviceJoinName: "Leviton VRCS4-M0Z Vizia RF + 4-Button Remote Scene Controller"
   }

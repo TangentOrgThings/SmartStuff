@@ -45,6 +45,8 @@ metadata {
     command "LightSenseOn"
     command "LightSenseOff"
 
+		command "parentCommand"
+
     attribute "operatingMode", "enum", ["Manual", "Vacancy", "Occupancy"]
 
     attribute "DeviceReset", "enum", ["false", "true"]
@@ -308,14 +310,12 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointR
   logger("$device.displayName $cmd")
   updateDataValue("endpoints", cmd.endPoints.toString())
 
-	def epC = cmd.endPoints
-
 	def cmds = []
-  for (x in 1..epC) { 
+  for (def x = 1; x <= cmd.endPoints; x++) {
     cmds << (encapCommand(zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: x))).format()
   }
 
-  result << response(delayBetween(cmds))
+  result << delayBetween(cmds)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, result) {
@@ -1002,7 +1002,7 @@ void createChildDevices(def cc, def ep) {
     def deviceCCHandler = ""
     def deviceCCType = ""
 
-    for (def i = 0; i < cc.size(); i++) {
+    for (def i = 0; i < cc.size() && 0; i++) {
       switch (cc[i]) {
         case 0x26: 
         deviceCCType = "Multilevel Switch"
@@ -1043,6 +1043,11 @@ void createChildDevices(def cc, def ep) {
       if (deviceCCHandler != "") {
         break
       }
+    }
+
+    if (deviceCCHandler == "") {
+      deviceCCType = "Universal"
+      deviceCCHandler = "Child Universal"
     }
 
     if (deviceCCHandler != "") {
