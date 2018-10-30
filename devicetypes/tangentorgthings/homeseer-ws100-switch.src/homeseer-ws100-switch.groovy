@@ -643,13 +643,15 @@ def deviceNotification(String notification) {
 
   Integer colorNum = 0
 
-  switch (notification) {
+  String notificationLower = notification.toLowerCase()
+
+  switch (notificationLower) {
     case "off": // Off
     colorNum = 0;
     break;
 
     case "red":
-    colorNum = "Red"
+    colorNum = 1
     break;
 
     case "green":
