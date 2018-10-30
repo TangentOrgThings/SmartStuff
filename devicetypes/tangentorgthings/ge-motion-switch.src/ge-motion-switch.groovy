@@ -315,7 +315,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelEndPointR
     cmds << zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: x).format()
   }
 
-  result << response(delayBetween(cmds), 4000)
+  result << response(delayBetween(cmds, 4000))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, result) {
