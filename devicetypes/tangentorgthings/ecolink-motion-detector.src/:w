@@ -34,7 +34,7 @@ String getDriverVersion () {
 
 def getConfigurationOptions(Integer model) {
   if ( model == 12341 ) {
-    return [ 13, 14, 21, 3, 31, 4 ] // Removed 6, support of this has not arrived
+    return [ 13, 14, 21, 3, 31, 4, 6 ]
   }
   return [ 3, 4 ]
 }
@@ -78,13 +78,12 @@ metadata {
     attribute "Power", "string"
     
     attribute "statusMode", "enum", ["default", "status"]
-    attribute "defaultLEDColor", "enum", ["white", "red", "green", "blue", "magenta", "yellow", "cyan"]    
-    attribute "statusLEDColor", "enum", ["off", "red", "green", "blue", "magenta", "yellow", "cyan", "white"]
+    attribute "defaultLEDColor", "enum", ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"]    
+    attribute "statusLEDColor", "enum", ["Off", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan", "White"]
     attribute "blinkFrequency", "number" 
     
     command "basicOn"
     command "basicOff"
-    command "codeRed"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
     fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
@@ -150,12 +149,8 @@ metadata {
       state "off", label:'test off', action:"basicOff", icon: "st.switches.switch.off"
     }
 
-    standardTile("codeRed", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "default", label:'', action: "device.codeRed", icon: "st.secondary.refresh"
-    }
-
     main "switch"
-    details(["switch", "indicator", "scene", "driverVersion", "refresh", "reset", "basicOn", "basicOff", "codeRed"])
+    details(["switch", "indicator", "scene", "driverVersion", "refresh", "reset", "basicOn", "basicOff"])
   }
 }
 
@@ -397,25 +392,25 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
       String color
       switch (cmd.configurationValue[0]) {
         case 0: // White
-        color = "white";
+        color = "White";
         break;
         case 1:
-        color = "red";
+        color = "Red";
         break;
         case 2:
-        color = "green"
+        color = "Green"
         break;
         case 3:
-        color = "blue"
+        color = "Blue"
         break; 
         case 4:
-        color = "magenta"
+        color = "Magenta"
         break;
         case 5:
-        color = "yellow"
+        color = "Yellow"
         break;
         case 6:
-        color = "cyan"
+        color = "Cyan"
         break;    
         default:
         logger("Unknown default color ${cmd.configurationValue[0]}", "error")
@@ -430,28 +425,28 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
       String color = "error"
       switch (cmd.configurationValue[0]) {
         case 0: // Off
-        color = "off";
+        color = "Off";
         break;
         case 1:
-        color = "red";
+        color = "Red";
         break;
         case 2:
-        color = "green"
+        color = "Green"
         break;
         case 3:
-        color = "blue"
+        color = "Blue"
         break; 
         case 4:
-        color = "magenta"
+        color = "Magenta"
         break;
         case 5:
-        color = "yellow"
+        color = "Yellow"
         break;
         case 6:
-        color = "cyan"
+        color = "Cyan"
         break; 
         case 7:
-        color = "white"
+        color = "White"
         break;    
         default:
         logger("Unknown status color ${cmd.configurationValue[0]}", "error")
@@ -634,64 +629,39 @@ def childOff(String childID) {
   ))
 }
 
-def codeRed() {
-  deviceNotification("red")
-}
-
 def deviceNotification(String notification) {
   logger("$device.displayName deviceNotification()");
 
-  Integer colorNum = 0
-
   switch (notification) {
     case "off": // Off
-    colorNum = 0;
+    color = "Off";
     break;
-
     case "red":
-    colorNum = "Red"
+    color = "Red";
     break;
-
-    case "green":
-    colorNum = 2
+    case 2:
+    color = "Green"
     break;
-
-    case "blue":
-    colorNum = 3
+    case 3:
+    color = "Blue"
     break; 
-
-    case "magenta":
-    colorNum = 4
+    case 4:
+    color = "Magenta"
     break;
-
-    case "yellow":
-    colorNum = 5
+    case 5:
+    color = "Yellow"
     break;
-
-    case "cyan":
-    colorNum = 6
+    case 6:
+    color = "Cyan"
     break; 
-
-    case "white":
-    colorNum = 7
+    case 7:
+    color = "White"
     break;    
-
     default:
-    logger("Unknown notification ${notification}", "error")
+    logger("Unknown status color ${cmd.configurationValue[0]}", "error")
     return
     break;
   }
-
-  sendEvent(name: "statusLEDColor", value: color);
-
-  return response( delayBetween(
-    [
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: 1, parameterNumber: 13, size: 1).format(),
-    zwave.configurationV1.configurationSet(scaledConfigurationValue: colorNum, parameterNumber: 21, size: 1).format(),
-    zwave.configurationV1.configurationGet(parameterNumber: 13).format(),
-    zwave.configurationV1.configurationGet(parameterNumber: 21).format(),
-    ]
-  ))
 }
 
 def on() {
