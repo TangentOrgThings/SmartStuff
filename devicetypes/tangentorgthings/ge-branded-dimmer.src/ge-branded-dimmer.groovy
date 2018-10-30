@@ -288,6 +288,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   def name = ""
   def value = ""
   def reportValue = cmd.configurationValue[0]
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${reportValue}")
+
   switch (cmd.parameterNumber) {
     case 3:
     name = "indicatorStatus"
@@ -467,19 +470,13 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
     }
   }
 
-  String scene_name = "Scene_$cmd.sceneId"
-  String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
-
-  result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
-  result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
+  updateDataValue("Scene #${cmd.sceneId}", "Level ${cmd.level}, Duration ${cmd.dimmingDuration}")
+  
   result << response(cmds)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
-
-  state.groups = cmd.supportedGroupings
 
   if (cmd.supportedGroupings) {
     def cmds = []
@@ -499,23 +496,33 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  updateDataValue("Group #${cmd.groupingIdentifier} Info", "$cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
   logger("$device.displayName $cmd")
 
   def name = new String(cmd.name as byte[])
-  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+  updateDataValue("Group #${cmd.groupingIdentifier} Name", "$name")
 
   result << response( zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  String commandList = cmd.command.join(", ")
+
+  updateDataValue("Group #${cmd.groupingIdentifier} CMD", "$commandList")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  String nodes = cmd.nodeId.join(", ")
+  
+  updateDataValue("Group #${cmd.groupingIdentifier}", "$nodes")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
