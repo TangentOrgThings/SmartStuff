@@ -269,8 +269,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelR
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
-  def level = Math.max(Math.min(cmd.value, 99), 0)
-  result << createEvent(name: "level", value: level, unit: "%", displayed: true)
+  dimmerEvents(cmd.value, false, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
