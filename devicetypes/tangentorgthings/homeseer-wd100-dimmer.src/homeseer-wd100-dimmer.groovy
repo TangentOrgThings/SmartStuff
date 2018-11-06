@@ -268,8 +268,9 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelR
 
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelSet cmd, result) {
-  logger("$device.displayName $cmd")
-  dimmerEvents(cmd.value, true, result)
+  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  def level = Math.max(Math.min(cmd.value, 99), 0)
+  result << createEvent(name: "level", value: level, unit: "%", displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
@@ -280,12 +281,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 // physical device events ON/OFF
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
-  if (cmd.value) {
-    response( trueOn(false) )
-    return
-  }
-
-  response( trueOff(false) )
+  dimmerEvents(cmd.value, true, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -294,13 +290,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
-  logger("$device.displayName $cmd -- BEING CONTROLLED")
-  if (cmd.switchValue) {
-    response( trueOn(false) )
-    return
-  }
-
-  response( trueOff(false) )
+  dimmerEvents(cmd.switchValue, true, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
@@ -365,48 +355,31 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 }
 
 private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
-  if (value == 254) {
-    logger("$device.displayName returned Unknown for status.", "warn")
+  if (cmd_value == 255) {
+    logger("$device.displayName returned default value so request current value.", "info")
+    result << zwave.basicV1.basicGet().format()
     return
   }
 
-  if (cmd_value > 99 && cmd_valuelevel < 255) {
-    logger("$device.displayName returned Unknown for status.", "warn")
-    result << response(delayBetween([
-      zwave.switchMultilevelV1.switchMultilevelGet().format(),
-    ]))
+  if (cmd_value == 254) {
+    logger("$device.displayName returned Unknown for level.", "info")
+    result << zwave.basicV1.basicGet().format()
     return
   }
 
-  Integer level = cmd_value
+  if (cmd_value > 99 && cmd_value < 255) {
+    logger("$device.displayName returned invalid level value.", "warn")
+    result << zwave.basicV1.basicGet().format()
+    return
+  }
+
+  Integer level = Math.max(Math.min(cmd_value, 99), 0)
 
   def cmds = []
 
-  /* if (level == 1) { // Some manufactures will 1 to turn on a single LED to represent state, homeseer does not
-    // cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 0x00).format()
-    response( zwave.switchMultilevelV1.switchMultilevelSet(value: 33).format() )
-    response( zwave.switchMultilevelV1.switchMultilevelGet().format() )
-    return
-    //cmds << zwave.basicV1.basicGet().format()
-    level = 254 // Let the update change the display
-  } else */ 
   if (level >= 1 && level <= 32) {  // Make sure we don't burn anything out
     cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 33).format()
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    level = 254 // Let the update change the display
-  } else if (level > 33 && level < 69) {  // Make sure we don't burn anything out
-    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 69).format()
-    cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    level = 254 // Let the update change the display
-  } else if (level > 69 && level < 99) {  // Make sure we don't burn anything out
-    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 99).format()
-    cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-    level = 254 // Let the update change the display
-  } else if (level == 255) {
-    // Spec at 100%
-    // cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
-  } else if (level > 99 && level < 255) { // Repeat
-    return
   }
 
   // state.lastLevel = cmd.value
@@ -415,13 +388,10 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
     result << createEvent(name: "level", value: ( level == 99 ) ? 100 : level, unit: "%", displayed: true)
   } else if (level == 0) {
     result << createEvent(name: "switch", value: "off", type: isPhysical ? "physical" : "digital", displayed: true )
-  } else if (cmd_value && level == 255) {
-    result << createEvent(name: "switch", value: "on", type: isPhysical ? "physical" : "digital", displayed: true )
-    result << createEvent(name: "level", value: 100, unit: "%", displayed: true)
   }
 
   if (cmds) {
-    result << response(delayBetween(cmds, 1000))
+    result << delayBetween(cmds, 1000)
   }
 }
 
@@ -1138,6 +1108,15 @@ def updated() {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
+
+// convert a hex string to integer 
+def integerHex(String v) { 
+  if (v == null) { 
+    return 0 
+  } 
+
+  return Integer.parseInt(v, 16) 
+} 
 
 /**
  *  encapCommand(cmd)
