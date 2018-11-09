@@ -39,7 +39,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v7.33"
+  return "v7.35"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -224,6 +224,116 @@ def parse(String description) {
   return result
 }
 
+def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
+  logger("$cmd")
+
+  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
+  result << zwave.basicV1.basicReport(value: currentValue).format()
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: basic == 255 ? 100 : value, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicReport unknown state (254)", "warn")
+  } else {
+    logger("BasicReport reported value unknown to API ($value)", "warn")
+  }
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicSet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicSet unknown state (254)", "warn")
+  } else {
+    logger("BasicSet reported value unknown to API ($value)", "warn")
+  }
+} 
+
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
+  logger("$cmd")
+
+  def value = device.currentState("switch").value.equals("on") ? 255 : 0
+  result << zwave.basicV1.switchBinaryReport(value: value).format()
+}
+
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("SwitchBinaryReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("SwitchBinaryReport unknown state (254)", "warn")
+  } else {
+    logger("SwitchBinaryReport reported value unknown to API ($value)", "warn")
+  }
+}
+
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.switchValue
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("SwitchBinarySet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("SwitchBinarySet unknown state (254)", "warn")
+  } else {
+    logger("SwitchBinarySet reported value unknown to API ($value)", "warn")
+  }
+} 
+
 def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, result) {
   logger("$cmd")
 
@@ -274,64 +384,6 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelS
   dimmerEvents(cmd.value, false, result)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$cmd")
-  dimmerEvents(cmd.value, true, result)
-}
-
-// physical device events ON/OFF
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$cmd -- BEING CONTROLLED")
-  dimmerEvents(cmd.value, true, result)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
-  logger("$cmd")
-
-  Short value = cmd.switchValue
-
-  if (value == 0) {
-    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
-    if (device.displayName.endsWith("Dimmer")) {
-      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
-    }
-  } else if (value == 255) {
-    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
-    if (device.displayName.endsWith("Dimmer")) {
-      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
-    }
-  } else if (value < 254) {
-    logger("SwitchBinaryReport returned reserved state ($value)", "warn")
-    else if (value == 254) {
-    logger("SwitchBinaryReport unknown state (254)", "warn")
-  } else {
-    logger("SwitchBinaryReport reported value unknown to API ($value)", "warn")
-  }
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
-  logger("$cmd")
-
-  Short value = cmd.switchValue
-
-  if (value == 0) {
-    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
-    if (device.displayName.endsWith("Dimmer")) {
-      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
-    }
-  } else if (value < 100 || value == 255) {
-    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
-    if (device.displayName.endsWith("Dimmer")) {
-      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
-    }
-  } else if (value < 254) {
-    logger("SwitchBinaryReport returned reserved state ($value)", "warn")
-    else if (value == 254) {
-    logger("SwitchBinaryReport unknown state (254)", "warn")
-  } else {
-    logger("SwitchBinaryReport reported value unknown to API ($value)", "warn")
-  }
-}
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
   result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
