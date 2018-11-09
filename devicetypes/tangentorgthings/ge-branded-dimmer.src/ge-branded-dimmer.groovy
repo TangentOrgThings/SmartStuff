@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+
 /**
  *  Copyright 2017-2018 Brian Aker <brian@tangent.org>
  *  Original version derived from Smartthings Dimmer Device
