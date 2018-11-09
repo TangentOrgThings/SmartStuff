@@ -1256,14 +1256,14 @@ private sendCommands(cmds, delay=200) {
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
 private logger(msg, level = "trace") {
-  Switch device_name = "$device.displayName"
+  String device_name = "$device.displayName"
 
   switch(level) {
     case "warn":
     if (settings.debugLevel >= 2) {
       log.warn "$device_name ${msg}"
     }
-    sendEvent(name: "logMessage", value: " ${msg}", displayed: false, isStateChange: true)
+    sendEvent(name: "logMessage", value: "${msg}", displayed: false, isStateChange: true)
     break;
 
     case "info":
