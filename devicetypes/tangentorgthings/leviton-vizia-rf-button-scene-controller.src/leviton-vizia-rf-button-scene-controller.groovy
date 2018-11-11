@@ -275,7 +275,7 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfGet cmd, result) {
   logger("$device.displayName $cmd")
-  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.sceneId))
+  result << zwave.sceneControllerConfV1.sceneControllerConfReport(groupId: cmd.groupId, dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.groupId).format()
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
@@ -334,11 +334,11 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   logger("$device.displayName lastScene: $state.lastScene")
 
   result << createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
-  result << response(zwave.sceneActuatorConfV1.sceneActuatorConfReport(
+  result << zwave.sceneActuatorConfV1.sceneActuatorConfReport(
     dimmingDuration: 0xFF, 
     level: 0xFF, 
     sceneId: cmd.sceneId == 0 ? state.lastScene : cmd.sceneId
-  ))
+  ).format()
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
