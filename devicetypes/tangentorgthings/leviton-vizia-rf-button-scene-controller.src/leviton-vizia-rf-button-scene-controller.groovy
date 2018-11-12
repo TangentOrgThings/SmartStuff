@@ -379,7 +379,9 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
 
 def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfGet cmd, result) {
   logger("$device.displayName $cmd")
-  result << zwave.sceneControllerConfV1.sceneControllerConfReport(groupId: cmd.groupId, dimmingDuration: 0xFF, level: 0xFF, sceneId: cmd.groupId).format()
+  sendCommands([
+    zwave.sceneControllerConfV1.sceneControllerConfReport(groupId: cmd.groupId, dimmingDuration: 0xFF, sceneId: cmd.groupId),
+  ])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
@@ -437,12 +439,21 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   logger("$device.displayName $cmd")
   logger("$device.displayName lastScene: $state.lastScene")
 
+  Short scene_id = 0
+
+  if ( cmd.sceneId ) {
+    scene_id = cmd.sceneId
+  } else if ( state.sceneId ) {
+    scene_id = state.sceneId
+  }
+
   result << createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
-  result << zwave.sceneActuatorConfV1.sceneActuatorConfReport(
-    dimmingDuration: 0xFF, 
+  sendCommands( [ zwave.sceneActuatorConfV1.sceneActuatorConfReport(
+    dimmingDuration: 0,
     level: 0xFF, 
-    sceneId: cmd.sceneId == 0 ? state.lastScene : cmd.sceneId
-  ).format()
+    sceneId: scene_id
+  ),
+  ])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
