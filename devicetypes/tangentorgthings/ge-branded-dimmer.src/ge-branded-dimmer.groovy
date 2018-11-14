@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+
 /**
  *  Copyright 2017-2018 Brian Aker <brian@tangent.org>
  *  Original version derived from Smartthings Dimmer Device
@@ -215,12 +216,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  if ( cmd.value ) {
-    response( trueOn(false) )
-    return
-  }
-
-  response( trueOff(false) )
+  dimmerEvents(cmd.value, true, result);
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
@@ -232,12 +228,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd -- BEING CONTROLLED")
 
-  if ( cmd.switchValue ) {
-    response( trueOn(false) )
-    return
-  }
-
-  response( trueOff(false) )
+  dimmerEvents(cmd.switchValue, true, result);
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
@@ -249,7 +240,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelR
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelSet cmd, result) {
   logger("$device.displayName $cmd")
 
-  setLevel(cmd.value)
+  dimmerEvents(cmd.value, true, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStartLevelChange cmd, result) {
@@ -272,15 +263,46 @@ def zwaveEvent(physicalgraph.zwave.commands.nodenamingv1.NodeNamingNodeLocationR
   state.nodeLocation = cmd.nodeLocation
 }
 
-private dimmerEvents(Integer dimmer_level, boolean isPhysical, result) {
-  def switch_value = (dimmer_level ? "on" : "off")
-  result << createEvent(name: "switch", value: switch_value, type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
+private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
+  if (cmd_value == 255) {
+    logger("$device.displayName returned default value so request current value.", "info")
+    result << zwave.basicV1.basicGet().format()
+    return
+  }
 
-  if (dimmer_level && dimmer_level <= 100) {
-    result << createEvent(name: "level", value: dimmer_level, unit: "%", isStateChange: true, displayed: true)
+  if (cmd_value == 254) {
+    logger("$device.displayName returned Unknown for level.", "info")
+    result << zwave.basicV1.basicGet().format()
+    return
+  }
+
+  if (cmd_value > 99 && cmd_value < 255) {
+    logger("$device.displayName returned invalid level value.", "warn")
+    result << zwave.basicV1.basicGet().format()
+    return
+  }
+
+  Integer level = Math.max(Math.min(cmd_value, 99), 0)
+
+  def cmds = []
+
+  if (level >= 1 && level <= 32) {  // Make sure we don't burn anything out
+    cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 33).format()
+    cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
+  }
+
+  // state.lastLevel = cmd.value
+  if (cmd_value && level < 100) {
+    result << createEvent(name: "switch", value: "on", type: isPhysical ? "physical" : "digital", displayed: true )
+    result << createEvent(name: "level", value: ( level == 99 ) ? 100 : level, unit: "%", displayed: true)
+  } else if (level == 0) {
+    result << createEvent(name: "switch", value: "off", type: isPhysical ? "physical" : "digital", displayed: true )
+  }
+
+  if (cmds) {
+    result << delayBetween(cmds, 1000)
   }
 }
-
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
@@ -288,9 +310,15 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   def name = ""
   def value = ""
   def reportValue = cmd.configurationValue[0]
+<<<<<<< HEAD
   
   updateDataValue("Configuration #${cmd.parameterNumber}", "${reportValue}")
   
+=======
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${reportValue}")
+
+>>>>>>> origin/master
   switch (cmd.parameterNumber) {
     case 3:
     name = "indicatorStatus"
@@ -470,18 +498,21 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
     }
   }
 
+<<<<<<< HEAD
   String scene_name = "Scene_$cmd.sceneId"
   String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
 
   updateDataValue("${scene_name} Name", "Level ${cmd.level}, Duration ${cmd.dimmingDuration}")
 
+=======
+  updateDataValue("Scene #${cmd.sceneId}", "Level ${cmd.level}, Duration ${cmd.dimmingDuration}")
+  
+>>>>>>> origin/master
   result << response(cmds)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
-
-  state.groups = cmd.supportedGroupings
 
   if (cmd.supportedGroupings) {
     def cmds = []
@@ -501,6 +532,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
   logger("$device.displayName $cmd")
+
+  updateDataValue("Group #${cmd.groupingIdentifier} Info", "$cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
@@ -514,11 +547,19 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
   logger("$device.displayName $cmd")
+<<<<<<< HEAD
   updateDataValue("Group #${cmd.groupingIdentifier} CMD", "$cmd")
+=======
+
+  String commandList = cmd.command.join(", ")
+
+  updateDataValue("Group #${cmd.groupingIdentifier} CMD", "$commandList")
+>>>>>>> origin/master
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
+<<<<<<< HEAD
   
   def string_of_assoc = ""
   cmd.nodeId.each {
@@ -528,6 +569,12 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
 
   updateDataValue("Group #${cmd.groupingIdentifier}", "$final_string")
+=======
+
+  String nodes = cmd.nodeId.join(", ")
+  
+  updateDataValue("Group #${cmd.groupingIdentifier}", "$nodes")
+>>>>>>> origin/master
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {

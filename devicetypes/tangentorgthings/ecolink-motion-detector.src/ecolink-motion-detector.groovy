@@ -15,8 +15,10 @@
  *
  */
 
+import physicalgraph.*
+
 String getDriverVersion() {
-  return "v4.92"
+  return "v4.99"
 }
 
 Boolean isPlus() {
@@ -98,6 +100,7 @@ metadata {
 
   preferences {
     input name: "followupCheck", type: "bool", title: "Follow up check", description: "Follow up check to turn off after 300 seconds.", required: false, defaultValue: false
+    input name: "resetUpdate", type: "bool", title: "Reset on update", description: "Reset when active on update.", required: false, defaultValue: false
     input name: "newModel", type: "bool", title: "Newer model", description: "... ", required: false, defaultValue: false
     input name: "extraDevice", type: "number", title: "Extra Device", description: "Send direct z-wave message to device", range: "1..232", displayDuringSetup: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
@@ -105,21 +108,21 @@ metadata {
 
   tiles {
     standardTile("motion", "device.motion", width: 2, height: 2) {
-      state("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0")
-      state("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff")
+      state("active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
+      state("inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
     }
 
     valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat") {
-      state("battery", label:'${currentValue}', unit:"%")
+      state("battery", label: '${currentValue}', unit: "%")
     }
 
-    valueTile("driverVersion", "device.driverVersion", inactiveLabel: true, decoration: "flat") {
-      state("driverVersion", label: getDriverVersion())
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
     }
 
     valueTile("temperature", "device.temperature", width: 2, height: 2) {
-      state("temperature", label:'${currentValue}', unit:"dF",
-      backgroundColors:[
+      state("temperature", label: '${currentValue}', unit: "dF",
+      backgroundColors: [
       [value: 31, color: "#153591"],
       [value: 44, color: "#1e9cbb"],
       [value: 59, color: "#90d2a7"],
@@ -180,7 +183,7 @@ def getCommandClassVersions() {
     0x86: 1,  // Version
     0x01: 1,  // Z-wave command class
     0x22: 1,  // Application Status
-    0x31: 5,  // Sensor MultLevel V1
+    0x31: 1,  // Sensor MultLevel V1
   ]
 }
 
@@ -203,7 +206,8 @@ def parse(String description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
     // Z-wave event
-    // state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
+    def timeDate = location.timeZone ? new Date().format("MMM dd EEE h:mm:ss a", location.timeZone) : new Date().format("yyyy MMM dd EEE h:mm:ss")
+    state.lastActive = "$timeDate"
   
     if (1) {
       def cmds_result = []
@@ -243,42 +247,76 @@ def followupStateCheck() {
 def sensorValueEvent(Boolean happening, result) {
   logger "sensorValueEvent() $happening"
 
-  sendEvent(name: "LastActive", value: state.lastActive)
+  sendEvent(name: "LastActive", value: "${state.lastActive}")
   if (happening) {
     if (settings.followupCheck) {
       runIn(360, followupStateCheck)
     }
   }
 
-  result << createEvent(name: "motion", value: happening ? "motion" : "inactive", descriptionText: "$device.displayName active", isStateChange: true, displayed: true)
+  result << createEvent(name: "motion", value: happening ? "motion" : "inactive", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$device.displayName $cmd")
+def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
+  logger("$cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.value, result)
+  def currentValue = device.currentState("${state.Basic}").value.equals("${state.BaiscOn}") ? 255 : 0
+  result << zwave.basicV1.basicReport(value: currentValue).format()
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOff}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOn}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: basic == 255 ? 100 : value, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicReport unknown state (254)", "warn")
   } else {
-    logger("duplicate BasicReport", "warn")
+    logger("BasicReport reported value unknown to API ($value)", "warn")
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd")
+def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.value, result)
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOff}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOn}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicSet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicSet unknown state (254)", "warn")
   } else {
-    logger("duplicate BasicSet", "warn")
+    logger("BasicSet reported value unknown to API ($value)", "warn")
   }
-}
+} 
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.value, result)
-  } else {
+  sensorValueEvent((Boolean)cmd.value, result)
+  if (isLifeLine()) {
     logger("duplicate SwitchBinaryReport", "warn")
   }
 }
@@ -286,9 +324,8 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (! isLifeLine()) {
-    sensorValueEvent((Boolean)cmd.switchValue, result)
-  } else {
+  sensorValueEvent((Boolean)cmd.switchValue, result)
+  if (isLifeLine()) {
     logger("duplicate SwitchBinarySet", "warn")
   }
 }
@@ -300,7 +337,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinarySupportedSensorReport cmd, result) {
   logger("$device.displayName $cmd")
-  result << createEvent(name: "SupportedSensors", value: "$cmd", descriptionText: "$device.displayName", isStateChange: true, displayed: true)
+  result << createEvent(name: "SupportedSensors", value: "$cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
@@ -379,19 +416,46 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
   logger("$device.displayName $cmd")
 }
 
-// SensorMultilevelReport() SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
+// SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   log.debug("$device.displayName $cmd")
 
-  if (cmd.sensorType == 1) {
+	switch (cmd.sensorType) {
+		case 1:
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit:"dF", isStateChange: true, displayed: true)
-  } else if (cmd.sensorType == 5) {
+    break
+		case 3:
+    logger("Unknown Illum value ${cmd.scaledSensorValue}", "warn")
+    break
+		case 5:
     logger("Unknown Relative Humidity value ${cmd.scaledSensorValue}", "warn")
-  } else if (cmd.sensorType == 7) {
-    Boolean current_status = cmd.notificationStatus == 255 ? true : false
-    sensorValueEvent(current_status, result)
-  } else {
-    logger("Unkown SensorMultilevelReport() $cmd", "Error")
+    break
+		case 7:
+    sensorValueEvent(( cmd.scaledSensorValue.toInteger() ? true : false ) , result)
+    break
+    default:
+    logger("Unkown SensorMultilevelReport(v5) type ${cmd.sensorType}", "error")
+    break;
+  }
+}
+
+// SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 28, sensorType: 5, sensorValue: [28], size: 1)
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv1.SensorMultilevelReport cmd, result) {
+  log.debug("$device.displayName $cmd")
+
+	switch (cmd.sensorType) {
+		case 1:
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit:"dF", isStateChange: true, displayed: true)
+    break
+		case 2:
+    sensorValueEvent(( cmd.scaledSensorValue.toInteger() ? true : false ) , result)
+    break
+		case 3:
+    logger("Unknown Illum value ${cmd.scaledSensorValue}", "warn")
+    break
+    default:
+    logger("Unkown SensorMultilevelReport(v1) type ${cmd.sensorType}", "error")
+    break;
   }
 }
 
@@ -565,7 +629,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   def cmds = []
 
-  String final_string
+  String final_string = ""
   
   // Association
   if (cmd.nodeId) {
@@ -576,6 +640,8 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
     def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
     final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
   }
+
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${final_string}")
 
   Boolean isAssociated = false
 
@@ -592,7 +658,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
       if (getAssociationGroup() == 1) {
         cmds << zwave.associationV1.associationRemove(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId).format()
       }
-      isAssociated = true
+
+      if (getAssociationGroup() == 2) {
+        isAssociated = true
+      }
     }
 
     if (settings.extraDevice) {
@@ -648,7 +717,8 @@ def checkConfigure() {
   }
   state.checkConfigure = new Date().time
 
-  if (! isConfigured()) {
+  if (isConfigured()) {
+  } else {
     if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
@@ -662,21 +732,23 @@ def checkConfigure() {
     }
 
     state.lastConfigure = new Date().time
+    updateDataValue("Last Configured", "${state.lastActive}")
   }
 
-  if (! isAssociated()) {
+  if (isAssociated()) {
+  } else {
     if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
       cmds << zwave.associationV2.associationGroupingsGet().format()
     }
 
     state.lastAssociated = new Date().time
+    updateDataValue("Last Associated", "${state.lastActive}")
   }
 
   if (0) { // Misconfigure fix
-    cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format()
-      cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 25).format()
-      cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
-      cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
+    cmds << zwave.associationV1.associationRemove(groupingIdentifier: 2, nodeId: 1).format();
+    cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format();
+    cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format();
   }
 
   return cmds
@@ -697,6 +769,10 @@ def updated() {
   }
   log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
+  state.Basic = "motion"
+  state.BasicOn = "active"
+  state.BasicOff = "inactive"
+
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
@@ -714,14 +790,13 @@ def updated() {
   state.parseErrorCount = 0
   state.unknownCommandErrorCount = 0
 
-  // We don't send the prepDevice() because we don't know if the device is awake
-  if (0) {
-    sendCommands(prepDevice())
+  if (settings.resetUpdate) {
+    sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
   }
+
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
   initIsAssociated()
   initIsConfigured()
-  // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName reset on update", isStateChange: true, displayed: true)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -730,6 +805,10 @@ def updated() {
 def installed() {
   log.debug "$device.displayName installed()"
 
+  state.Basic = "motion"
+  state.BasicOn = "active"
+  state.BasicOff = "inactive"
+
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
@@ -737,6 +816,9 @@ def installed() {
       sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
     }
   }
+
+  initIsAssociated()
+  initIsConfigured()
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
   sendCommands(prepDevice())

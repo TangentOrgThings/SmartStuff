@@ -23,11 +23,11 @@
  */
 
 def getDriverVersion() {
-  return "v0.43"
+  return "v0.45"
 }
 
 metadata {
-  definition (name: "Enerwave ZWN-SC7 Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
+  definition (name: "Enerwave ZWNSC7 Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
     capability "Configuration"

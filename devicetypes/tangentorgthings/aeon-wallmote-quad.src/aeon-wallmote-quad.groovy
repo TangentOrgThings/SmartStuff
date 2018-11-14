@@ -354,7 +354,7 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
 
     default:
     // unexpected case
-    log.error ("unexpected scene: $cmd.sceneNumber")
+    logger("unexpected scene: $cmd.sceneNumber", "warn")
     break;
   }
 }

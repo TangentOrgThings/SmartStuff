@@ -31,11 +31,12 @@ metadata {
     capability "Button"
     capability "Energy Meter"
     capability "Indicator"
-    // capability "Polling"
+    capability "Outlet"
+    capability "Polling"
+    capability "Power Meter"
     capability "Refresh"
     capability "Sensor"
     capability "Switch"
-    capability "Power Meter"
 
     command "reset"
 

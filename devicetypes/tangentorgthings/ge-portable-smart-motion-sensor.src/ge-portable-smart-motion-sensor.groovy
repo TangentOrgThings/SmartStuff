@@ -18,8 +18,8 @@
  *  Date: 2013-11-25
  */
 
- def getDriverVersion () {
-  return "v1.05"
+def getDriverVersion () {
+  return "v1.07"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -39,16 +39,19 @@ metadata {
     attribute "firmwareVersion", "string"
     attribute "zWaveProtocolVersion", "string"
     attribute "FirmwareMdReport", "string"
-    attribute "Manufacturer", "string"
     attribute "ManufacturerCode", "string"
-    attribute "MSR", "string"
     attribute "NIF", "string"
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
-    attribute "reset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
+    attribute "DeviceReset", "enum", ["false", "true"]
+    attribute "logMessage", "string"        // Important log messages.
+    attribute "lastError", "string"        // Last error message
+    attribute "parseErrorCount", "number"        // Last error message
+    attribute "unknownCommandErrorCount", "number"        // Last error message
+    
 
     attribute "Power", "string"
 
@@ -65,6 +68,7 @@ metadata {
     input name: "parameterEighteen", type: "number", title: "PIR Timeout Duration", description: "PIR Timeout Duration (minutes): default=4, 1-60",  defaultValue: 4, range: "1..60", required: false, displayDuringSetup: true
     input name: "parameterTwenty", type: "number", title: "Controlled Class", description:"Basic Set, Notification and Basic Report: default=1, 1=Notification, 2=Basic Set, 3=Basic Report",  defaultValue: 1, range: "1..3", required: false, displayDuringSetup: true
     input name: "parameterTwentyEight", type: "number", title: "LED Flash Indicator" , description: "Enable/Disable LED Flash Indicator: default=1, 0=Disable, 1=Enable",  defaultValue: 1, range: "0..1", required: false, displayDuringSetup: true
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 
   tiles(scale: 2) {
@@ -263,11 +267,11 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   state.manufacturer= cmd.manufacturerName
 
-  def manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  def productTypeCode = String.format("%04X", cmd.productTypeId)
-  def productCode = String.format("%04X", cmd.productId)
+  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
+  String productTypeCode = String.format("%04X", cmd.productTypeId)
+  String productCode = String.format("%04X", cmd.productId)
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", "${state.manufacturer}")
 
@@ -281,8 +285,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
-  result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
   result << response(delayBetween(cmds, 1000))
   result << response( zwave.versionV1.versionGet() )
 }
@@ -367,9 +369,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   logger("$device.displayName $cmd")
 
   def name = new String(cmd.name as byte[])
-  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
-
-  result << response( zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
@@ -379,43 +379,19 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  Boolean isStateChange
-  String event_value
-  String event_descriptionText
+  String nodes = cmd.nodeId.join(", ")
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
 
   if (cmd.groupingIdentifier != 1) {
     logger("Unknown Group Identifier", "error");
     return
   }
 
-  // Lifeline
-  def string_of_assoc = ""
-  cmd.nodeId.each {
-    string_of_assoc += "${it}, "
-  }
-  def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
-  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
-
-  event_value = "${final_string}"
-
   if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    isStateChange = state.isAssociated == true ? false : true
-    event_descriptionText = "Device is associated"
-    state.isAssociated = true
   } else {
-    isStateChange = state.isAssociated == false ? false : true
-    event_descriptionText = "Hub was not found in lifeline"
-    state.isAssociated = false
-
-    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) )
+    result << response( zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId) );
+    result << response( zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier) );
   }
-
-  // result << createEvent(name: "Lifeline",
-  sendEvent(name: "Lifeline",
-      value: event_value,
-      descriptionText: event_descriptionText,
-      displayed: true,
-      isStateChange: true) // isStateChange)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
@@ -437,8 +413,7 @@ def prepDevice() {
 }
 
 def installed() {
-  log.debug ("installed()")
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
+  logger("installed()", "info")
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
@@ -446,11 +421,14 @@ def installed() {
 }
 
 def updated() {
-  state.loggingLevelIDE = settings.debugLevel ? settings.debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  logger("$device.displayName updated() debug: ${settings.debugLevel}", "info")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
+  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
+  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
@@ -517,40 +495,48 @@ private sendCommands(cmds, delay=200) {
  *    messages by sending events for the device's logMessage attribute and lastError attribute.
  *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
  **/
-private logger(msg, level = "debug") {
+private logger(msg, level = "trace") {
   switch(level) {
-    case "error":
-    if (state.loggingLevelIDE >= 1) {
-      log.error msg
-    }
-    if (state.loggingLevelDevice >= 1) {
-      sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-    }
+    case "unknownCommand":
+    state.unknownCommandErrorCount += 1
+    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
+    break
+
+    case "parse":
+    state.parseErrorCount += 1
+    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
+    if (settings.debugLevel >= 2) {
       log.warn msg
-    }
-    if (state.loggingLevelDevice >= 2) {
       sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
     }
-    break
+    return
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      break
+    if (settings.debugLevel >= 3) {
+      log.info msg
+    }
+    return
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      break
+    if (settings.debugLevel >= 4) {
+      log.debug msg
+    }
+    return
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      break
+    if (settings.debugLevel >= 5) {
+      log.trace msg
+    }
+    return
 
+    case "error":
     default:
-    log.debug msg
     break
   }
+
+  log.error msg
+  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

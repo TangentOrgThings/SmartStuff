@@ -1,7 +1,7 @@
 // vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
 
 /**
- *  Homeseer WS200 Child
+ *  Homeseer Status Child
  *
  *  Copyright 2018 Brian Aker
  *
@@ -21,7 +21,7 @@ def getDriverVersion() {
 }
 
 metadata {
-	definition (name: "Homeseer WS200 Child", namespace: "TangentOrgThings", author: "Brian Aker") {
+	definition (name: "Homeseer Status Child", namespace: "TangentOrgThings", author: "Brian Aker") {
 		capability "Actuator"
 		capability "Sensor"
 		capability "Switch"
