@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion() {
-  return "v4.97"
+  return "v4.99"
 }
 
 Boolean isPlus() {
@@ -255,23 +255,60 @@ def sensorValueEvent(Boolean happening, result) {
   result << createEvent(name: "motion", value: happening ? "motion" : "inactive", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$device.displayName $cmd")
+def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
+  logger("$cmd")
 
-  sensorValueEvent((Boolean)cmd.value, result)
-  if (isLifeLine()) {
-    logger("duplicate BasicReport", "warn")
+  def currentValue = device.currentState("${state.Basic}").value.equals("${state.BaiscOn}") ? 255 : 0
+  result << zwave.basicV1.basicReport(value: currentValue).format()
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOff}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOn}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: basic == 255 ? 100 : value, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicReport unknown state (254)", "warn")
+  } else {
+    logger("BasicReport reported value unknown to API ($value)", "warn")
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd")
+def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$cmd")
 
-  sensorValueEvent((Boolean)cmd.value, result)
-  if (isLifeLine()) {
-    logger("duplicate BasicSet", "warn")
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOff}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "${state.Basic}", value: "${state.BasicOn}", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicSet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicSet unknown state (254)", "warn")
+  } else {
+    logger("BasicSet reported value unknown to API ($value)", "warn")
   }
-}
+} 
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
@@ -730,6 +767,10 @@ def updated() {
   }
   log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
+  state.Basic = "motion"
+  state.BasicOn = "active"
+  state.BasicOff = "inactive"
+
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
@@ -761,6 +802,10 @@ def updated() {
 
 def installed() {
   log.debug "$device.displayName installed()"
+
+  state.Basic = "motion"
+  state.BasicOn = "active"
+  state.BasicOff = "inactive"
 
   if (0) {
     def zwInfo = getZwaveInfo()
