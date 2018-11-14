@@ -15,7 +15,7 @@
  */
 
 String getDriverVersion() {
-  return "v2.93"
+  return "v2.97"
 }
 
 metadata {
@@ -288,6 +288,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   def name = ""
   def value = ""
   def reportValue = cmd.configurationValue[0]
+  
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${reportValue}")
+  
   switch (cmd.parameterNumber) {
     case 3:
     name = "indicatorStatus"
@@ -470,9 +473,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   String scene_name = "Scene_$cmd.sceneId"
   String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
 
-  result << createEvent(name: "$scene_name", value: cmd.level, isStateChange: true, displayed: true)
-  result << createEvent(name: "$scene_duration_name", value: cmd.dimmingDuration, isStateChange: true, displayed: true)
-  result << createEvent(name: "Scene", value: cmd.sceneId, isStateChange: true, displayed: true)
+  updateDataValue("${scene_name} Name", "Level ${cmd.level}, Duration ${cmd.dimmingDuration}")
+
   result << response(cmds)
 }
 
@@ -505,17 +507,27 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
   logger("$device.displayName $cmd")
 
   def name = new String(cmd.name as byte[])
-  logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
+  updateDataValue("Group #${cmd.groupingIdentifier} Name", "$name")
 
   result << response( zwave.associationV2.associationGet(groupingIdentifier: cmd.groupingIdentifier) )
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
   logger("$device.displayName $cmd")
+  updateDataValue("Group #${cmd.groupingIdentifier} CMD", "$cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
+  
+  def string_of_assoc = ""
+  cmd.nodeId.each {
+    string_of_assoc += "${it}, "
+  }
+  def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
+  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
+
+  updateDataValue("Group #${cmd.groupingIdentifier}", "$final_string")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
