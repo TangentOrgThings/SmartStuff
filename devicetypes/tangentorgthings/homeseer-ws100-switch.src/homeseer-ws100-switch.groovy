@@ -180,6 +180,8 @@ def getCommandClassVersions() {
       0x86: 1,  // Version
       // 0x55: 1,  // Transport Service Command Class
       // 0x9F: 1,  // Security 2 Command Class  
+      // Controlled
+      0x21: 1,  // Application Status
     ]
   }
 
@@ -203,6 +205,8 @@ def getCommandClassVersions() {
     0x86: 1,  // Version
     // 0x55: 1,  // Transport Service Command Class
     // 0x9F: 1,  // Security 2 Command Class  
+    // Controlled
+    0x21: 1,  // Application Status
   ]
 }
 
@@ -679,7 +683,22 @@ def zwaveEvent(zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
 }
 
 def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
-  logger("$cmd")
+  logger("$device.displayName $cmd")
+
+  switch (cmd.status) {
+    case 0:
+    logger("Try again later ${cmd.waitTime}")
+    break
+    case 1:
+    logger("Try again in ${cmd.waitTime} seconds")
+    break
+    case 2:
+    logger("Request queued ${cmd.waitTime}")
+    break
+    default:
+    logger("Unknown Status ${cmd.status}", "error")
+    break
+  }
 }
 
 def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
