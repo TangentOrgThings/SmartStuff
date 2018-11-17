@@ -671,15 +671,14 @@ def zwaveEvent(zwave.commands.versionv1.VersionReport cmd, result) {
   String text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
   String zWaveProtocolVersion = "${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
   state.firmwareVersion = cmd.applicationVersion+'.'+cmd.applicationSubVersion
-  result << createEvent(name: "firmwareVersion", value: "V ${state.firmwareVersion}", descriptionText: "$text", isStateChange: true)
-  result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
+  updateDataValue("firmwareVersion", "${state.firmwareVersion}")
+  updateDataValue("zWaveProtocolVersion", "${zWaveProtocolVersion}")
 }
 
 def zwaveEvent(zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
   logger("$cmd")
   String firmware_report = String.format("%s-%s-%s", cmd.checksum, cmd.firmwareId, cmd.manufacturerId)
-  updateDataValue("FirmwareMdReport", firmware_report)
-  result << createEvent(name: "FirmwareMdReport", value: firmware_report, descriptionText: "$device.displayName FIRMWARE_REPORT: $firmware_report", displayed: true, isStateChange: true)
+  updateDataValue("FirmwareMdReport", "$firmware_report")
 }
 
 def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {

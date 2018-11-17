@@ -22,6 +22,8 @@
  *
  */
 
+import physicalgraph.*
+
 def getDriverVersion() {
   return "v0.45"
 }
@@ -126,6 +128,8 @@ def getCommandClassVersions() {
     0x72: 1,  // Manufacturer Specific
     0x85: 1,  // Association  0x85  V1 V2
     0x86: 1,  // Version
+    // Controlled
+    0x2B: 1,  // Scene Activation
   ]
 }
 
