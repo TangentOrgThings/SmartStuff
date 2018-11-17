@@ -181,7 +181,7 @@ def getCommandClassVersions() {
       // 0x55: 1,  // Transport Service Command Class
       // 0x9F: 1,  // Security 2 Command Class  
       // Controlled
-      0x21: 1,  // Application Status
+      0x22: 1,  // Application Status
     ]
   }
 
@@ -206,7 +206,7 @@ def getCommandClassVersions() {
     // 0x55: 1,  // Transport Service Command Class
     // 0x9F: 1,  // Security 2 Command Class  
     // Controlled
-    0x21: 1,  // Application Status
+    0x22: 1,  // Application Status
   ]
 }
 
