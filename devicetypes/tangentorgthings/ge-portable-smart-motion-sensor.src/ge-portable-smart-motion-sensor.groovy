@@ -18,6 +18,8 @@
  *  Date: 2013-11-25
  */
 
+import physicalgraph.*
+
 def getDriverVersion () {
   return "v1.07"
 }

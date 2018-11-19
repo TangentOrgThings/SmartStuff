@@ -18,6 +18,8 @@
  *
  */
 
+import physicalgraph.*
+
 def getDriverVersion () {
   return "v2.05"
 }

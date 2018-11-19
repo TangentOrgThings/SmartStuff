@@ -15,8 +15,10 @@
  *
  */
 
+import physicalgraph.*
+
 String getDriverVersion() {
-  return "v2.97"
+  return "v2.99"
 }
 
 metadata {
@@ -394,6 +396,15 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
   }
 }
 
+def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, result) {
+  logger("$cmd")
+
+  updateDataValue("deviceIdData", "${cmd.deviceIdData}")
+  updateDataValue("deviceIdDataFormat", "${cmd.deviceIdDataFormat}")
+  updateDataValue("deviceIdDataLengthIndicator", "${cmd.deviceIdDataLengthIndicator}")
+  updateDataValue("deviceIdType", "${cmd.deviceIdType}")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
@@ -416,6 +427,8 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   parameters.each {
     cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
   }
+
+  cmds << zwave.manufacturerSpecificV2.deviceSpecificGet().format()
   
   result << createEvent(name: "manufacturerId", value: manufacturerId)
   result << createEvent(name: "productType", value: productType)

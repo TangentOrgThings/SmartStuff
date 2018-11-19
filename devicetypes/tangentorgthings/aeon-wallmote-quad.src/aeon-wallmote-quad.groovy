@@ -20,6 +20,8 @@
  *
  */
 
+import physicalgraph.*
+
 String getDriverVersion () {
   return "v0.59"
 }
