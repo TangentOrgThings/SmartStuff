@@ -18,7 +18,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v3.41"
+  return "v3.43"
 }
 
 Integer getAssociationGroup() {
@@ -36,8 +36,6 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Configured", "enum", ["false", "true"]
     attribute "Lifeline", "string"
@@ -154,7 +152,7 @@ def checkConfigure() {
       state.lastConfigure = Calendar.getInstance().getTimeInMillis()
 
       cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
-			cmds << zwave.versionV1.versionGet().format()
+      cmds << zwave.manufacturerSpecificV2.deviceSpecificGet().format()
 			cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
 		}
   }
@@ -173,6 +171,7 @@ def checkConfigure() {
 def prepDevice() {
   [
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
+    zwave.manufacturerSpecificV2.deviceSpecificGet(),
     zwave.associationV2.associationGroupingsGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
@@ -209,17 +208,13 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   if (0) {
-  def zwInfo = getZwaveInfo()
-  if ($zwInfo) {
-    log.debug("$device.displayName $zwInfo")
-    sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
-  }
+    def zwInfo = getZwaveInfo()
+    if ($zwInfo) {
+      log.debug("$device.displayName $zwInfo")
+      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+    }
   }
 
   state.isAssociated = false
@@ -250,6 +245,14 @@ def parse(String description) {
   } else if (! description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
+    if (1) {
+      def cmds = checkConfigure()
+
+      if (cmds) {
+        result << response( delayBetween ( cmds ))
+      }
+    }
+
     def cmd = zwave.parse(description, getCommandClassVersions())
 
     if (! cmd ) {
@@ -258,14 +261,7 @@ def parse(String description) {
     }
 	
     if (cmd) {
-      def cmds_result = []
-      def cmds = checkConfigure()
-
-      if (cmds) {
-        result << response( delayBetween ( cmds ))
-      }
       zwaveEvent(cmd, result)
-
     } else {
       logger("zwave.parse() failed for: ${description}", "warn")
     }
@@ -291,6 +287,15 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, res
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
   logger("$device.displayName $cmd")
   result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
+}
+
+def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, result) {
+  logger("$cmd")
+
+  updateDataValue("deviceIdData", "${cmd.deviceIdData}")
+  updateDataValue("deviceIdDataFormat", "${cmd.deviceIdDataFormat}")
+  updateDataValue("deviceIdDataLengthIndicator", "${cmd.deviceIdDataLengthIndicator}")
+  updateDataValue("deviceIdType", "${cmd.deviceIdType}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
@@ -580,52 +585,42 @@ private sendCommands(cmds, delay=1000) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
   String msg_text = (msg != null) ? "$msg" : "<null>"
 
-  switch(level) {
-    case "error":
-    if (settings.debugLevel >= 1) {
-      log.error "$msg_text"
-      sendEvent(name: "lastError", value: "${msg_text}", displayed: false, isStateChange: true)
-    }
-    break
+  Integer log_level = state.defaultLogLevel ? = settings.debugLevel
 
+  switch(level) {
     case "warn":
-    if (settings.debugLevel  >= 2) {
-      log.warn "$msg_text"
-      sendEvent(name: "logMessage", value: "${msg_text}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_txt}"
     }
-    break
+    sendEvent(name: "logMessage", value: "${msg_txt}", displayed: false, isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel  >= 3) {
-      log.info "$msg_text"
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_txt}"
     }
-    break
+    break;
 
     case "debug":
-    if (settings.debugLevel  >= 4) {
-      log.debug "$msg_textmsg"
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_txt}"
     }
-    break
+    break;
 
     case "trace":
-    if (settings.debugLevel  >= 5) {
-      log.trace "$msg_text"
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_txt}"
     }
-    break
+    break;
 
+    case "error":
     default:
-    log.debug "$msg_text"
-    break
+    log.error "$device_name ${msg_txt}"
+    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    break;
   }
 }
