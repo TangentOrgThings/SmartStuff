@@ -15,8 +15,10 @@
  *
  */
 
+import physicalgraph.*
+
 String getDriverVersion() {
-  return "v3.39"
+  return "v3.41"
 }
 
 Integer getAssociationGroup() {
@@ -367,11 +369,30 @@ def motionEvent(value, result) {
   result << createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd DUPLICATE")
+def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$cmd")
 
-  // motionEvent(cmd.value, result)
-}
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "motion", value: "active", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicSet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicSet unknown state (254)", "warn")
+  } else {
+    logger("BasicSet reported value unknown to API ($value)", "warn")
+  }
+} 
+
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
