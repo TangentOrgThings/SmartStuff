@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
+
 /**
  *  Copyright 2017-2018 SmartThings
  *
@@ -13,8 +14,10 @@
  *
  */
 
+import physicalgraph.*
+
 String getDriverVersion() {
-  return "v4.33"
+  return "v4.35"
 }
 
 def getConfigurationOptions(String msr) {
@@ -280,56 +283,115 @@ private switchEvents(Short value, boolean isPhysical, result) {
   result << createEvent(name: "switch", value: value ? "on" : "off", type: isPhysical ? "physical" : "digital", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicGet cmd, result) {
+def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
+  logger("$cmd")
+
   def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
-  result << response(delayBetween([
-    zwave.basicV1.basicReport(value: currentValue).format(),
-  ]))
+  result << zwave.basicV1.basicReport(value: currentValue).format()
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$device.displayName $cmd NIF CHECKED")
-  switchEvents(cmd.value, true, result);
-}
+def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
+  logger("$cmd")
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  Short value = cmd.value
 
-  switchEvents(cmd.value, true, result);
-
-    if ( cmd.value ) {
-      response( trueOn(false) )
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
     }
-
-    response( trueOff(false) )
-
-  if (cmd.value == 255) {
-    createEvent(name: "button", value: "pushed", data: [buttonNumber: 3], descriptionText: "Double-tap up (button 1) on $device.displayName", isStateChange: true, type: "physical")
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: basic == 255 ? 100 : value, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicReport unknown state (254)", "warn")
+  } else {
+    logger("BasicReport reported value unknown to API ($value)", "warn")
   }
-  else if (cmd.value == 0) {
-    createEvent(name: "button", value: "pushed", data: [buttonNumber: 4], descriptionText: "Double-tap down (button 2) on $device.displayName", isStateChange: true, type: "physical")
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicSet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicSet unknown state (254)", "warn")
+  } else {
+    logger("BasicSet reported value unknown to API ($value)", "warn")
+  }
+} 
+
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
+  logger("$cmd")
+
+  def value = device.currentState("switch").value.equals("on") ? 255 : 0
+  result << zwave.basicV1.switchBinaryReport(value: value).format()
+}
+
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("SwitchBinaryReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("SwitchBinaryReport unknown state (254)", "warn")
+  } else {
+    logger("SwitchBinaryReport reported value unknown to API ($value)", "warn")
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
-  logger("$device.displayName $cmd")
-  switchEvents(cmd.value, false, result);
-}
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
+  logger("$cmd")
 
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
-  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  Short value = cmd.switchValue
 
-  result << response(zwave.switchBinaryV1.switchBinaryGet())
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
-  logger("$device.displayName $cmd")
-
-  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
-  result << response(delayBetween([
-    zwave.basicV1.switchBinaryReport(value: currentValue),
-  ]))
-}
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("SwitchBinarySet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("SwitchBinarySet unknown state (254)", "warn")
+  } else {
+    logger("SwitchBinarySet reported value unknown to API ($value)", "warn")
+  }
+} 
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
@@ -353,6 +415,15 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
   }
 
   result << createEvent(name: name, value: value)
+}
+
+def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, result) {
+  logger("$cmd")
+
+  updateDataValue("deviceIdData", "${cmd.deviceIdData}")
+  updateDataValue("deviceIdDataFormat", "${cmd.deviceIdDataFormat}")
+  updateDataValue("deviceIdDataLengthIndicator", "${cmd.deviceIdDataLengthIndicator}")
+  updateDataValue("deviceIdType", "${cmd.deviceIdType}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
@@ -391,11 +462,10 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
       cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format()
       cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format()
       cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: integerHex(device.deviceNetworkId)).format()
+      cmds << zwave.manufacturerSpecificV2.deviceSpecificGet().format()
       cmds << zwave.firmwareUpdateMdV2.firmwareMdGet().format()
     }
   }
-
-  updateDataValue("manufacturer", state.manufacturerName)
 
   Integer[] parameters = getConfigurationOptions(msr)
 

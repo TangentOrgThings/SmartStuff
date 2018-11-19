@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
+
 /**
  *  Zooz ZSE02 Motion Sensor
  *
@@ -508,12 +509,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
 	String final_string = ""
 	if (cmd.nodeId) {
-		def string_of_assoc = ""
-		cmd.nodeId.each {
-			string_of_assoc += "${it}, "
-		}
-		def lengthMinus2 = string_of_assoc.length() - 3
-		final_string = string_of_assoc.getAt(0..lengthMinus2)
+		final_string = cmd.nodeId.join(",")
 	}
 
 	String group_name = ""
