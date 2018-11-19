@@ -589,7 +589,7 @@ private logger(msg, level = "trace") {
   String device_name = "$device.displayName"
   String msg_text = (msg != null) ? "$msg" : "<null>"
 
-  Integer log_level = state.defaultLogLevel ? = settings.debugLevel
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
 
   switch(level) {
     case "warn":
