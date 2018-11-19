@@ -310,15 +310,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   def name = ""
   def value = ""
   def reportValue = cmd.configurationValue[0]
-<<<<<<< HEAD
   
   updateDataValue("Configuration #${cmd.parameterNumber}", "${reportValue}")
   
-=======
-
-  updateDataValue("Configuration #${cmd.parameterNumber}", "${reportValue}")
-
->>>>>>> origin/master
   switch (cmd.parameterNumber) {
     case 3:
     name = "indicatorStatus"
@@ -355,6 +349,8 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     default:
     break
   }
+
+  updateDataValue("Configuration $name(#${cmd.parameterNumber})", "value(${reportValue})")
 
   result <<  createEvent(name: name, value: value)
 }
@@ -498,16 +494,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
     }
   }
 
-<<<<<<< HEAD
-  String scene_name = "Scene_$cmd.sceneId"
-  String scene_duration_name = String.format("Scene_%d_Duration", cmd.sceneId)
-
-  updateDataValue("${scene_name} Name", "Level ${cmd.level}, Duration ${cmd.dimmingDuration}")
-
-=======
   updateDataValue("Scene #${cmd.sceneId}", "Level ${cmd.level}, Duration ${cmd.dimmingDuration}")
   
->>>>>>> origin/master
   result << response(cmds)
 }
 
@@ -547,34 +535,20 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
   logger("$device.displayName $cmd")
-<<<<<<< HEAD
-  updateDataValue("Group #${cmd.groupingIdentifier} CMD", "$cmd")
-=======
 
   String commandList = cmd.command.join(", ")
-
   updateDataValue("Group #${cmd.groupingIdentifier} CMD", "$commandList")
->>>>>>> origin/master
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
-<<<<<<< HEAD
-  
-  def string_of_assoc = ""
-  cmd.nodeId.each {
-    string_of_assoc += "${it}, "
+
+  String nodes = ""
+  if (cmd.nodeId) {
+    nodes = cmd.nodeId.join(", ")
   }
-  def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
-  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
-
-  updateDataValue("Group #${cmd.groupingIdentifier}", "$final_string")
-=======
-
-  String nodes = cmd.nodeId.join(", ")
   
   updateDataValue("Group #${cmd.groupingIdentifier}", "$nodes")
->>>>>>> origin/master
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
