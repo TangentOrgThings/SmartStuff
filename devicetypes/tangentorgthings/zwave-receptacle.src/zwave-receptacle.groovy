@@ -606,58 +606,55 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
   result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", displayed: true, isStateChange: true)
 
+  def cmds = []
+  cmds << zwave.versionV1.versionGet().format()
+
   switch (msr) {
     case "UNUSED":
-    result << response(delayBetween([
-      zwave.versionV1.versionGet().format(),
-      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
-      zwave.associationV2.associationGroupingsGet().format(),
-    ]))
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format()
+    cmds << zwave.associationV2.associationGroupingsGet().format()
     break;
+
     case "011A-0101-0103":
-    result << response(delayBetween([
-      zwave.versionV1.versionGet().format(),
-      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
-      zwave.associationV1.associationGet(groupingIdentifier: 1).format(),
-      ]))
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format()
+    cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
     break;
+
     case "0063-4952-3031":
-    result << response(delayBetween([
-      zwave.versionV1.versionGet().format(),
-      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
-      zwave.powerlevelV1.powerlevelGet().format(),
-      zwave.protectionV1.protectionGet().format(),
-      ]))
+    cmds << zwave.powerlevelV1.powerlevelGet().format()
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format()
+    cmds << zwave.protectionV1.protectionGet().format()
     break
+
+    case "0063-4F50-3032":
+    cmds << zwave.powerlevelV1.powerlevelGet().format()
+    cmds << zwave.associationV2.associationGroupingsGet().format()
+    cmds << zwave.manufacturerSpecificV2.deviceSpecificGet().format()
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1).format()
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format()
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format()
+    break;
+
     case "0063-4952-3133":
     case "0184-4447-3031":
-    result << response(delayBetween([
-      zwave.versionV1.versionGet().format(),
-      zwave.associationV2.associationGroupingsGet().format(),
-      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format(),
-      zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1).format(),
-      zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format(),
-      zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format(),
-      zwave.powerlevelV1.powerlevelGet().format(),
-      zwave.manufacturerSpecificV2.deviceSpecificGet().format(),
-      ]))
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(3)).format()
+    cmds << zwave.associationV2.associationGroupingsGet().format()
+    cmds << zwave.manufacturerSpecificV2.deviceSpecificGet().format()
+    cmds << zwave.powerlevelV1.powerlevelGet().format()
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 1).format()
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 2).format()
+    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: zwaveHubNodeId).format()
     break;
+
     case "011A-0101-0603":
-    result << response(delayBetween([
-      zwave.versionV1.versionGet().format(),
-      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
-      ]))
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format()
     break
     default:
-    result << response(delayBetween([
-      zwave.versionV1.versionGet().format(),
-      zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format(),
-    ]))
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: setIndicatorParam(1)).format()
     break;
   }
 
-  result << response(delayBetween(cmds, 1000))
-  result << response( zwave.versionV1.versionGet() )
+  result << response( delayBetween(cmds, 1000) )
   
 }
 
