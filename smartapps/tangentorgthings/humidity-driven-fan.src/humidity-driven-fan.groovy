@@ -1,4 +1,4 @@
-// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 
 /**
  *  Logitech Harmony Activity
@@ -30,7 +30,7 @@ definition(
 preferences {
   section("Monitor the humidity..."){
     input "humiditySensor1", "capability.relativeHumidityMeasurement", title: "Humidity Sensor?", required: true
-  }    
+  }
   section("Choose a Switch that controls a Fan..."){
     input "fanSwitch1", "capability.switch", title: "Fan Location?", required: true
   }
@@ -52,8 +52,9 @@ def updated() {
 
 def followupOff() {
   log.debug("followupStateCheck")
-  
-  fanSwitch1.off()   
+
+  fanSwitch1.off()
+  unschedule()
 }
 
 def humidityHandler(evt) {
@@ -71,7 +72,8 @@ def humidityHandler(evt) {
   if (humNum >= tooHumid) {
     if ( fanSwitch1.currentValue("switch") == "off" ) {
       // Turn on if the switch is off
-      fanSwitch1.on()   
+      fanSwitch1.on()
+      runIn(60*30, followupOff)
     }
   } else {
 
@@ -80,8 +82,9 @@ def humidityHandler(evt) {
       log.debug "Humidity is Less than Setting"
       if ( fanSwitch1.currentValue("switch") == "on" ) {
         // Turn off if the switch is on
-        fanSwitch1.off()   
+        fanSwitch1.off()
+        unschedule()
       }
-    }    
+    }
   }
 }
