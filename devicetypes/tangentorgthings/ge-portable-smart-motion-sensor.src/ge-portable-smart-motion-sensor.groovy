@@ -367,6 +367,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 
   def name = new String(cmd.name as byte[])
   updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
+
+  result << response(delayBetween([
+    zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format(),
+  ]))
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
@@ -377,7 +381,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   logger("$device.displayName $cmd")
 
   String nodes = cmd.nodeId.join(", ")
-  updateDataValue("Group #${cmd.groupingIdentifier}", "${nodes}")
+  updateDataValue("Group #${cmd.groupingIdentifier} nodes", "${nodes}")
 
   if (cmd.groupingIdentifier != 1) {
     logger("Unknown Group Identifier", "error");
