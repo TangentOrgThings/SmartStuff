@@ -1,4 +1,5 @@
-// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
+
 /**
  *  Momentary Button Tile
  *
@@ -26,7 +27,7 @@
  */
 
 def versionNum(){
-  def txt = "1.0.9 (10/15/18)"
+  def txt = "1.1.9 (10/15/18)"
 }
 
 metadata {
@@ -81,22 +82,25 @@ def parse(String description) {
 
 def push() {
   log.debug "push()"
-  on()
-  // ['on','delay 2000','off']
+  sendEvent(name: "switch", value: "on", isStateChange: true)
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
+  
+  runIn(30, followupOff)
+}
+
+def followupStateCheck() {
+  log.info "followupStateCheck()"
+  off()
 }
 
 def on() {
   log.debug "on()"
-  sendEvent(name: "switch", value: "on", isStateChange: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
-  sendEvent(name: "switch", value: "off", isStateChange: true, display: false)
-  
-//  runIn(20, followupOff)
+  push()
 }
 
 def off() {
   log.debug "off()"
-  sendEvent(name: "switch", value: "off", isStateChange: false)
+  sendEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
 }
 
 def showVersion(){
