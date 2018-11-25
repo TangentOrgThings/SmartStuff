@@ -1,4 +1,4 @@
-// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 
 import groovy.json.JsonOutput
 /**
@@ -8,9 +8,8 @@ import groovy.json.JsonOutput
  */
 
 def getDriverVersion () {
-	return "v0.23"
+	return "v0.25"
 }
-
 
 metadata {
 	definition (name: "Logitech Harmony Hub C2C Custom", namespace: "TangentOrgThings", author: "SmartThings") {

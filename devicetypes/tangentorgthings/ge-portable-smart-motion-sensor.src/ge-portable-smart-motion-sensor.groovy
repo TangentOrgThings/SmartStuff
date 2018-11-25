@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
+
 /**
  *  GE Portable Smart Motion Sensor
  *
@@ -21,7 +22,7 @@
 import physicalgraph.*
 
 def getDriverVersion () {
-  return "v1.07"
+  return "v1.09"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -34,8 +35,6 @@ metadata {
     capability "Sensor"
     capability "Battery"
 
-    attribute "Lifeline", "string"
-
     attribute "configured", "enum", ["false", "true"]
     attribute "driverVersion", "string"
     attribute "firmwareVersion", "string"
@@ -46,17 +45,13 @@ metadata {
     attribute "ProduceTypeCode", "string"
     attribute "ProductCode", "string"
 
-    attribute "logMessage", "string"        // Important log messages.
-    attribute "lastError", "string"        // Last error message
     attribute "DeviceReset", "enum", ["false", "true"]
+
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
     attribute "parseErrorCount", "number"        // Last error message
     attribute "unknownCommandErrorCount", "number"        // Last error message
     
-
-    attribute "Power", "string"
-
     fingerprint mfr: "0063", prod: "4953", model: "3133", deviceJoinName: "GE Portable Smart Motion Sensor"
   }
 
@@ -317,7 +312,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
   logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
   def device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   logger("Powerlevel Report: Power: ${device_power_level}, Timeout: ${cmd.timeout}", "info")
-  result << createEvent(name: "Power", value: device_power_level)
+  updateDataValue("Power", "Level: ${device_power_level}, Timeout: ${cmd.timeout}")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
@@ -382,7 +377,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   logger("$device.displayName $cmd")
 
   String nodes = cmd.nodeId.join(", ")
-  updateDataValue("Group #${cmd.groupingIdentifier}", "${name}")
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${nodes}")
 
   if (cmd.groupingIdentifier != 1) {
     logger("Unknown Group Identifier", "error");

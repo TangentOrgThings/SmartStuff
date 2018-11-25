@@ -951,7 +951,7 @@ def zwaveEvent(zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, re
 }
 
 def zwaveEvent(zwave.commands.centralscenev1.CentralSceneNotification cmd, result) {
-  log.debug("$cmd")
+  logger("$cmd")
 
   if (0) {
     if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
@@ -964,47 +964,25 @@ def zwaveEvent(zwave.commands.centralscenev1.CentralSceneNotification cmd, resul
   def cmds = []
   
   switch (cmd.sceneNumber) {
-    case 1:
-    // Up
+    case 1: // On
+    case 2: // Off
     switch (cmd.keyAttributes) {
       case 2:
       case 0:
-      result << createEvent(name: "switch", value: "on", type: "physical", isStateChange: true, displayed: true)
+      result << createEvent(name: "switch", value: cmd.SceneNumber == 1 ? "on" : "off", type: "physical", isStateChange: true, displayed: true)
       buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
       break;
       case 3:
       // 2 Times
-      buttonEvent("CentralSceneNotification()", 3, false, "physical")
+      buttonEvent("CentralSceneNotification()", 2 + (cmd.sceneNumber as Integer), false, "physical")
       break;
       case 4:
       // 3 Three times
-      buttonEvent("CentralSceneNotification()", 5, false, "physical")
+      buttonEvent("CentralSceneNotification()", 4 + (cmd.sceneNumber as Integer), false, "physical")
       break;
       default:
       logger("unexpected up press keyAttribute: $cmd", "error")
-    }
-    break
-
-    case 2:
-    // Down
-    switch (cmd.keyAttributes) {
-      case 2:
-      case 0:
-      result << createEvent(name: "switch", value: "off", type: "physical", isStateChange: true, displayed: true)
-      buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
-      case 1:
-      break;
-      case 3:
-      // 2 Times
-      buttonEvent("CentralSceneNotification()", 4, false, "physical")
-      break;
-      case 4:
-      // 3 Three times
-      buttonEvent("CentralSceneNotification()", 6, false, "physical")
-      break;
-      default:
-      logger("unexpected down press keyAttribute: $cmd", "error")
     }
     break
 
