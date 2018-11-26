@@ -254,7 +254,7 @@ def sensorValueEvent(Boolean happening, result) {
     }
   }
 
-  result << createEvent(name: "motion", value: happening ? "motion" : "inactive", isStateChange: true, displayed: true)
+  result << createEvent(name: "motion", value: happening ? "active" : "inactive", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
