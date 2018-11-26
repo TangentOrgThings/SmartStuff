@@ -625,6 +625,8 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
     cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
   }
 
+  cmds << zwave.manufacturerSpecificV2.deviceSpecificGet().format()
+
   result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
   result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
   result << createEvent(name: "ProductCode", value: productCode)
@@ -817,7 +819,7 @@ def deviceNotification(String notification) {
 def on() {
   logger("on()")
 
-  if (settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
@@ -830,7 +832,7 @@ def on() {
 def off() {
   logger("off()")
 
-  if (settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
     buttonEvent("off()", 2, false, "digital")
   }
 
@@ -1044,22 +1046,17 @@ def zwaveEvent(zwave.commands.associationgrpinfov1.AssociationGroupCommandListRe
 def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$cmd")
 
-  String event_value
-
   if (cmd.groupingIdentifier > 2) {
     logger("Unknown Group Identifier", "error");
     return
   }
 
   // Lifeline
-  def string_of_assoc = ""
-  cmd.nodeId.each {
-    string_of_assoc += "${it}, "
-  }
-  def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
-  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
-
-  event_value = "${final_string}"
+  String string_of_assoc = ""
+	if (cmd.nodeId) {
+		string_of_assoc = cmd.nodeId.join(",")
+	}
+  String event_value = "${string_of_assoc}"
 
   if (cmd.groupingIdentifier == 1) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
@@ -1153,7 +1150,6 @@ private void createChildDevices() {
 def prepDevice() {
   [
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.manufacturerSpecificV2.deviceSpecificGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
     zwave.associationV2.associationGroupingsGet(),
     zwave.centralSceneV1.centralSceneSupportedGet(),
