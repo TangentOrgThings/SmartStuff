@@ -15,8 +15,12 @@
  *
  */
  
+String getDriverVersion () {
+  return "v1.01"
+}
+
 String versionNum() {
-  def txt = "1.0.10"
+  return getDriverVersion()
 }
 
 metadata {

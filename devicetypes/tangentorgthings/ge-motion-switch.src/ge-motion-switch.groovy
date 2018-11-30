@@ -227,9 +227,12 @@ metadata {
       state "default", label:'Mode toggle: ${currentValue}', unit:"", action:"toggleMode"
     }
 
-    main(["switch"])
-    details(["switch", "motion", "operatingMode", "refresh"])
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
+    }
 
+    main(["switch"])
+    details(["switch", "motion", "operatingMode", "refresh", "driverVersion"])
   }
 }
 
