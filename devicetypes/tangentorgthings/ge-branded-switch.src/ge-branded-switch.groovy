@@ -43,8 +43,6 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "NIF", "string"
 
@@ -91,6 +89,7 @@ metadata {
     input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options:["off": "When Off", "on": "When On", "never": "Never"]
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "Invert switch? ", required: false
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
+    input name: "disbableDigitalSwitchButtons", type: "bool", title: "Disable Digital Buttons", description: "Disable digital switch buttons", required: false, defaultValue: false
     input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
@@ -99,8 +98,10 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
       tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "disconnect", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', action: "connect", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+				attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
+				attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
+				attributeState "turningOn", label: '${name}', icon: "st.switches.switch.on", backgroundColor: "#00a0dc", nextState: "turningOff"
+				attributeState "turningOff", label: '${name}', icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
       }
     }
 
@@ -201,10 +202,6 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   initialize()
 
@@ -850,17 +847,8 @@ def connect() {
 
 def on() {
   logger("$device.displayName on()")
-  trueOn(false)
-}
-  
-private trueOn(Boolean physical = true) {
-  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
-    logger("$device.displayName bounce", "warn")
-    return
-  }
-  state.lastBounce = Calendar.getInstance().getTimeInMillis()
-  
-  if (physical) { // Add option to have digital commands execute buttons
+
+  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
@@ -877,28 +865,13 @@ private trueOn(Boolean physical = true) {
 def off() {
   logger("$device.displayName off()")
 
+  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+    buttonEvent("off()", 2, false, "digital")
+  }
+
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
     return zwave.switchBinaryV1.switchBinaryGet().format()
-  }
-
-  trueOff(false)
-}
-
-def disconnect() {
-  logger("$device.displayName disconnect()") 
-  trueOff(true)
-}
-
-private trueOff(Boolean physical = true) {
-  if (state.lastBounce && (Calendar.getInstance().getTimeInMillis() - state.lastBounce) < 2000 ) {
-    logger("$device.displayName bounce", "warn")
-    return
-  }
-  state.lastBounce = Calendar.getInstance().getTimeInMillis()
-  
-  if (physical) { // Add option to have digital commands execute buttons
-    buttonEvent("off()", 2, false, "digital")
   }
 
   def cmds = []
@@ -1023,50 +996,39 @@ private sendCommands(cmds, delay=1000) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute.
- *    Controlled by loggingLevelIDE and settings.debugLevel
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
     if (settings.debugLevel >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+      log.warn "$device_name ${msg}"
     }
-    return
+    sendEvent(name: "logMessage", value: " ${msg}", displayed: false, isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel >= 3) log.info msg
-      return
+    if (settings.debugLevel >= 3) {
+      log.info "$device_name ${msg}"
+    }
+    break;
 
     case "debug":
-    if (settings.debugLevel >= 4) log.debug msg
-      return
+    if (settings.debugLevel >= 4) {
+      log.debug "$device_name ${msg}"
+    }
+    break;
 
     case "trace":
-    if (settings.debugLevel >= 5) log.trace msg
-      return
+    if (settings.debugLevel >= 5) {
+      log.trace "$device_name ${msg}"
+    }
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg}"
+    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

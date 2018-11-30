@@ -66,13 +66,6 @@ metadata {
   }
 
   tiles {
-    multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4) {
-      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "on", label: '${name}', action: "off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC"
-        attributeState "off", label: '${name}', icon: "st.switches.switch.off", backgroundColor: "#ffffff"
-      }
-    }
-
     valueTile("scene", "device.Scene", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
       state "default", label: '${currentValue}'
     }
@@ -86,8 +79,8 @@ metadata {
       state "default", label: '${currentValue}'
     }
 
-    main ("switch")
-    details(["switch", "scene", "setScene", "driverVersion"])
+    main ("scene")
+    details(["scene", "setScene", "driverVersion"])
   }
 }
 
