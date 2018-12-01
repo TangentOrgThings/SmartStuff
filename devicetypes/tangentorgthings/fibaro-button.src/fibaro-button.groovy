@@ -19,8 +19,10 @@
  * https://products.z-wavealliance.org/products/2017
  */
 
+import physicalgraph.*
+
 def getDriverVersion () {
-  return "v0.41"
+  return "v0.43"
 }
 
 def maxButton () {
@@ -184,8 +186,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
+  logger("updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -583,7 +584,7 @@ private logger(msg, level = "trace") {
   String device_name = "$device.displayName"
   String msg_text = (msg != null) ? "$msg" : "<null>"
 
-  Integer log_level = state.defaultLogLevel ? = settings.debugLevel
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
 
   switch(level) {
     case "warn":
