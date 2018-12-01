@@ -109,7 +109,7 @@ def on() {
   push()
 }
 
-def off() {
+def off() { // No button event occurs
   log.debug "off()"
   sendEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
 }
