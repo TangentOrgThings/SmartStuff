@@ -16,7 +16,7 @@
  */
 
 String getDriverVersion () {
-  return "v1.03"
+  return "v1.05"
 }
 
 metadata {
@@ -31,8 +31,6 @@ metadata {
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     command "trueSetLevel", ["number"]
     command "ignoreDigital"
@@ -98,12 +96,6 @@ def setLevel(val) {
   if (! state.IgnoreDigital) {
     trueSetLevel(val)
 
-    if (val == 0) {
-      sendEvent(name: "button", value: "held", data: [buttonNumber: 1], isStateChange: true) //  type: "$buttonType"
-    } else {
-      sendEvent(name: "button", value: "held", data: [buttonNumber: 2], isStateChange: true) //  type: "$buttonType"
-    }
-
     if (parent) {
       parent.childLevel(device.deviceNetworkId)
     }
@@ -132,6 +124,7 @@ def installed() {
 
   sendEvent(name: "switch", value: "off")
   sendEvent(name: "level", value: 0)
+  sendEvent(name: "numberOfButtons", value: 2, displayed: true, isStateChange: true)
 }
 
 def updated() {
@@ -142,67 +135,50 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  sendEvent(name: "numberOfButtons", value: 2, displayed: true, isStateChange: true)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "$msg" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ? = settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_txt}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_txt}", displayed: false, isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info msg
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug msg
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace msg
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_txt}"
+    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

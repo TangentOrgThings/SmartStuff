@@ -1,4 +1,5 @@
-// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+
 /**
  *  Virtual Sleep Sensor
  *
@@ -16,7 +17,7 @@
  */
  
 String getDriverVersion () {
-  return "v1.01"
+  return "v1.03"
 }
 
 String versionNum() {
@@ -53,22 +54,18 @@ metadata {
 // parse events into attributes
 def parse(String description) {
   log.debug "Parsing '${description}'"
-  // TODO: handle 'presence' attribute
-  // TODO: handle 'switch' attribute
 }
 
 // handle commands
 def on() {
   log.debug "Executing 'on'"
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-  sendEvent(name: "switch", value: "on", isStateChange: true, type: "digital")
   sendEvent(name: "sleep", value: "sleeping", isStateChange: true, type: "digital")
 }
 
 def off() {
   log.debug "Executing 'off'"
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-  sendEvent(name: "switch", value: "off", isStateChange: true, type: "digital")
   sendEvent(name: "sleep", value: "not sleeping", isStateChange: true, type: "digital")
 }
 
@@ -93,4 +90,5 @@ def updated() {
   log.debug "updated()"
   sendEvent(name: "numberOfButtons", value: 2, displayed: false)
   showVersion() 
+  sendEvent(name: "switch", value: "", isStateChange: true, type: "digital")
 }
