@@ -1,7 +1,7 @@
 // vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 
 /**
- *  Momentary Button Tile
+ *  Virtual Momentary Switch
  *
  *  Copyright 2017-2018 Brian Aker
  *  Copyright 2017-2018 Michael Struck
@@ -27,7 +27,7 @@
  */
  
 String getDriverVersion () {
-  return "v0.03"
+  return "v0.05"
 }
 
 def versionNum(){
@@ -49,14 +49,19 @@ metadata {
   // simulator metadata
   simulator {
   }
+
+  preferences {
+    input name: "delayTime", type: "number", title: "Delay Time", description: "Time between on and off in seconds", range: "1..300", displayDuringSetup: false,  defaultValue: 30
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false,  defaultValue: 3
+  }
   
   // UI tile definitions
   tiles(scale: 2) {
     multiAttributeTile(name: "switch", type: "generic", width: 6, height: 4, canChangeIcon: false, canChangeBackground: true) {
       tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "off", label: 'push', action: "momentary.push", backgroundColor: "#ffffff", nextState: "turningOn", defaultState: true
-        attributeState "on", label: 'on', backgroundColor: "#00a0dc"
-        attributeState "turningOn", label:'PUSHED', backgroundColor:"#00A0DC", nextState:"turningOn"
+        attributeState "off", label: 'push', action: "momentary.push", backgroundColor: "#ffffff", nextState: "on", defaultState: true
+        attributeState "on", label: 'running', backgroundColor: "#00a0dc" , nextState: "pushed"
+        attributeState "pushed", label: 'PUSHED', backgroundColor: "#00A0DC" , nextState: "off"
       }
     }
 
@@ -68,10 +73,19 @@ metadata {
       state "default", label:'${currentValue}'
     }
 
+    standardTile("basicOff", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "off", label: 'not running', backgroundColor: "#ffffff", nextState: "on", defaultState: true
+      state "on", label: 'force off', backgroundColor: "#00a0dc" , action: "backoff"
+    }
+
     main(["switch"])
-    details (["switch", "version", "aboutTxt"])
+    details (["switch", "version", "aboutTxt", "basicOff"])
   }
 }
+
+def parse(String description) {
+}
+
 
 def installed() {
   log.debug "installed()"
@@ -87,21 +101,20 @@ def updated() {
   showVersion() 
 }
 
-def parse(String description) {
+def followupStateCheck() {
+  log.info "followupStateCheck()"
+  off()
 }
 
 def push() {
   log.debug "push()"
   sendEvent(name: "switch", value: "on", isStateChange: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
-  
-  runIn(30, followupOff)
-  sendEvent(name: "momentary", value: "pushed", isStateChange: true)
-}
+  if ( 0 ) {
+    sendEvent(name: "momentary", value: "pushed", isStateChange: true)
+  }
 
-def followupStateCheck() {
-  log.info "followupStateCheck()"
-  off()
+  runIn( settings.delayTime ?: 30 , followupStateCheck)
 }
 
 def on() {
@@ -109,19 +122,25 @@ def on() {
   push()
 }
 
-def off() { // No button event occurs
+def off() {
   log.debug "off()"
   sendEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
 }
 
 def showVersion() {
   def versionTxt = "${appName()}: ${versionNum()}\n"
-  try {if (parent.getSwitchAbout()){versionTxt += parent.getSwitchAbout()}}
-  catch(e){versionTxt +="Installed from the SmartThings IDE"}
-  sendEvent (name: "about", value: versionTxt) 
+  try {
+    if (parent.getSwitchAbout()) {
+      versionTxt += parent.getSwitchAbout()
+    }
+  }
+  catch(e) {
+    versionTxt += "Installed from the SmartThings IDE"
+  }
+  sendEvent (name: "about", value: "${versionTxt}") 
   sendEvent (name: "driverVersion", value: "${getDriverVersion()}") 
 }
 
-String appName(){
+String appName() {
   return "Virtual Momentary Switch"
 }

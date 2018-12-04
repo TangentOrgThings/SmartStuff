@@ -25,9 +25,13 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
+ 
+String getDriverVersion () {
+  return versionNum()
+}
 
 def versionNum(){
-  def txt = "1.1.9 (10/15/18)"
+  def txt = "1.2.9 (10/15/18)"
 }
 
 metadata {
@@ -49,7 +53,7 @@ metadata {
     multiAttributeTile(name: "switch", type: "generic", width: 6, height: 4, canChangeIcon: false, canChangeBackground: true) {
       tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
         attributeState "off", label: 'push', action: "momentary.push", backgroundColor: "#ffffff", nextState: "turningOn", defaultState: true
-        attributeState "on", label: 'on', backgroundColor: "#00a0dc"
+        attributeState "on", label: 'turningoff', backgroundColor: "#00a0dc"
         attributeState "turningOn", label:'PUSHED', backgroundColor:"#00A0DC", nextState:"turningOn"
       }
     }
@@ -57,9 +61,17 @@ metadata {
     valueTile("aboutTxt", "device.about", decoration: "flat", width: 6, height:2) {
       state "default", label:'${currentValue}'
     }
+    
+    standardTile("off", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+      state "default", label:'off', action:"switch.off", icon:"st.switches.light.off"
+    }
+
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
+    }
 
     main(["switch"])
-    details (["switch", "aboutTxt"])
+    details (["switch", "aboutTxt", "off", "driverVersion"])
   }
 }
 
@@ -80,23 +92,21 @@ def updated() {
 def parse(String description) {
 }
 
-def push() {
-  log.debug "push()"
-  sendEvent(name: "switch", value: "on", isStateChange: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
-  
-  runIn(30, followupOff)
-}
-
 def followupStateCheck() {
   log.info "followupStateCheck()"
   off()
 }
 
-def on() {
-  log.debug "on()"
-  push()
+def push() {
+  log.debug "push()"
+  sendEvent(name: "switch", value: "on", isStateChange: true)
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
+  
+  runIn(30, followupStateCheck)
+  
+  // sendEvent(name: "momentary", value: "pushed", isStateChange: true)
 }
+
 
 def off() {
   log.debug "off()"
@@ -107,7 +117,7 @@ def showVersion(){
   def versionTxt = "${appName()}: ${versionNum()}\n"
   try {if (parent.getSwitchAbout()){versionTxt += parent.getSwitchAbout()}}
   catch(e){versionTxt +="Installed from the SmartThings IDE"}
-  sendEvent (name: "about", value:versionTxt) 
+  sendEvent (name: "about", value: versionTxt) 
 }
 
 def appName(){
