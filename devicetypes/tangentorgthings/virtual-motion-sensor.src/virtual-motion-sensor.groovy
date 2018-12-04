@@ -19,7 +19,7 @@
  */
 
 String getDriverVersion () {
-  return "v0.07"
+  return "v0.09"
 }
 
 metadata {
@@ -65,35 +65,40 @@ def parse(String description) {
   log.info "parse($description)"
 }
 
-def installed() {
-  log.info "installed()"
+void initialize() {
+  log.info "initialize()"
   sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
   sendEvent(name: "numberOfButtons", value: 2, displayed: false)
+  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
+  sendEvent(name: "switch", value: "", isStateChange: true, displayed: true)
+}
+
+def installed() {
+  log.info "installed()"
+  initialize()
 }
 
 def updated() {
   log.info "updated()"
-  sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
-  sendEvent(name: "numberOfButtons", value: 2, displayed: false)
+  initialize()
 }
 
 def followupStateCheck() {
   log.info "followupStateCheck()"
-
-  sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
+  off()
 }
 
 def push() {
   log.info "push()"
 
-  sendEvent(name: "motion", value: "active", isStateChange: true, displayed: true)
-  runIn(20, followupStateCheck)
+  on()
+  runIn(60, followupStateCheck)
   sendEvent(name: "momentary", value: "pushed", isStateChange: true)
 }
 
 def on() {
   log.info "on()"
-  sendEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+  // sendEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
   sendEvent(name: "motion", value: "active", isStateChange: true, displayed: true)
   sendEvent(name: "level", value: 100, isStateChange: true, displayed: true)
@@ -110,7 +115,7 @@ def setLevel(value, duration) {
 
 def off() {
   log.info "off()"
-  sendEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+  // sendEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
   sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
   sendEvent(name: "level", value: 0, isStateChange: true, displayed: true)

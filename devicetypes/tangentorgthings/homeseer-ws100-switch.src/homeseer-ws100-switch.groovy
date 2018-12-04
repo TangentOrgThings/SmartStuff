@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v7.39"
+  return "v7.41"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -144,15 +144,15 @@ metadata {
     }
 
     standardTile("basicOn", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "on", label:'test on', action:"basicOn", icon: "st.switches.switch.on"
+      state "default", label:'test on', action:"basicOn", icon: "st.switches.switch.on"
     }
 
     standardTile("basicOff", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "off", label:'test off', action:"basicOff", icon: "st.switches.switch.off"
+      state "default", label:'test off', action:"basicOff", icon: "st.switches.switch.off"
     }
 
     standardTile("codeRed", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "default", label:'', action: "device.codeRed", icon: "st.secondary.refresh"
+      state "default", label:'red', action: "device.codeRed", icon: "st.secondary.refresh"
     }
 
     main "switch"
