@@ -152,7 +152,7 @@ metadata {
     }
 
     standardTile("codeRed", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-      state "default", label:'red', action: "device.codeRed", icon: "st.secondary.refresh"
+      state "default", label:'red', action: "codeRed", icon: "st.secondary.refresh"
     }
 
     main "switch"
