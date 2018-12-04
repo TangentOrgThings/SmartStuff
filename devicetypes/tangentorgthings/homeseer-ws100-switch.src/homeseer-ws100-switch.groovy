@@ -765,6 +765,7 @@ def childOff(String childID) {
 }
 
 def codeRed() {
+  logger("codeRed()");
   deviceNotification("red")
 }
 
