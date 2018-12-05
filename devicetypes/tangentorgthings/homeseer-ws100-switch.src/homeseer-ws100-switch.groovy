@@ -371,6 +371,13 @@ def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
   off()
 }
 
+// I can't find anything on this, but it keeps showing up in error logs
+// {
+def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeGet cmd, result) {
+  logger("$cmd")
+  result << response(zwave.securityPanelModeV1.securityPanelModeReport(mode: 0))
+}
+
 def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
   logger("$cmd")
   result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
@@ -383,6 +390,7 @@ def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeReport cmd, r
 def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedReport cmd, result) {
   logger("$cmd")
 }
+// }
 
 def buttonEvent(String exec_cmd, Integer button, Boolean held, buttonType = "physical") {
   logger("buttonEvent: $button  held: $held  type: $buttonType")
