@@ -48,6 +48,7 @@ def getConfigurationOptions(Integer model) {
 metadata {
   definition (name: "Ecolink Motion Detector", namespace: "TangentOrgThings", author: "Brian Aker", ocfDeviceType: "x.com.st.d.sensor.motion") {
     capability "Battery"
+    capability "Contact Sensor"
     capability "Motion Sensor"
     capability "Sensor"
     capability "Tamper Alert"
@@ -366,7 +367,20 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd, result) {
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (cmd.notificationType == 7) {
+  if (cmd.notificationType == 6) {
+    Boolean current_status = cmd.notificationStatus == 0xFF ? true : false
+    switch (cmd.event) {
+      case 16:
+        result << createEvent(name: "contact", value: "open", descriptionText: "$device.displayName is open")
+        break;
+      case 17:
+        result << createEvent(name: "contact", value: "closed", descriptionText: "$device.displayName is closed")
+        break;
+      default:
+        logger("$device.displayName unknown event for notification 7: $cmd", "error")
+        return
+    }
+  } else if (cmd.notificationType == 7) {
     Boolean current_status = cmd.notificationStatus == 0xFF ? true : false
 
     switch (cmd.event) {
