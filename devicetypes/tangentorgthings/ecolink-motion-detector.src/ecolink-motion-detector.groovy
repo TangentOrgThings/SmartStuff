@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
+
 /**
  *  Ecolink Motion Sensor
  *
@@ -54,11 +55,11 @@ metadata {
     capability "Tamper Alert"
     capability "Temperature Measurement"
 
+    attribute "sensor", "enum", [ "unknown", "open", "close", "active", "inactive" ]
+
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     // Device Specific
     attribute "Lifeline", "string"
@@ -112,6 +113,20 @@ metadata {
       state("active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
       state("inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
     }
+    multiAttributeTile(name:"sensor", type: "generic", width: 6, height: 4) {
+      tileAttribute("device.sensor", key: "PRIMARY_CONTROL") {
+        attributeState("unknown", label:'unknown', icon:"st.unknown.zwave.device", backgroundColor:"#FFFFFF")
+        attributeState("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#00A0DC")
+        attributeState("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#CCCCCC")
+        attributeState("open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#e86d13")
+				attributeState("closed", label: '${name}', icon: "st.contact.contact.closed", backgroundColor: "#00A0DC")
+      }
+    }
+
+    standardTile("motion", "device.motion", width: 2, height: 2) {
+      state("active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
+      state("inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
+    }
 
     valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat") {
       state("battery", label: '${currentValue}', unit: "%")
@@ -144,8 +159,8 @@ metadata {
       state "default", label: '${currentValue}'
     }
 
-    main "motion"
-    details(["motion", "battery", "tamper", "driverVersion", "temperature", "lastActive"])
+    main "sensor"
+    details(["sensor", "motion", "battery", "tamper", "driverVersion", "temperature", "lastActive"])
   }
 }
 
@@ -255,7 +270,13 @@ def sensorValueEvent(Boolean happening, result) {
     }
   }
 
-  result << createEvent(name: "motion", value: happening ? "active" : "inactive", isStateChange: true, displayed: true)
+  if (device.displayName.endsWith("TILT")) {
+    result << createEvent(name: "contact", value: happening ? "open" : "close", isStateChange: true )
+    result << createEvent(name: "sensor", value: happening ? "open" : "close" )
+  } else {
+    result << createEvent(name: "motion", value: happening ? "active" : "inactive", isStateChange: true)
+    result << createEvent(name: "sensor", value: happening ? "active" : "inactive" )
+  }
 }
 
 def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
@@ -371,10 +392,10 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     Boolean current_status = cmd.notificationStatus == 0xFF ? true : false
     switch (cmd.event) {
       case 16:
-        result << createEvent(name: "contact", value: "open", descriptionText: "$device.displayName is open")
+        sensorValueEvent(true, result)
         break;
       case 17:
-        result << createEvent(name: "contact", value: "closed", descriptionText: "$device.displayName is closed")
+        sensorValueEvent(false, result)
         break;
       default:
         logger("$device.displayName unknown event for notification 7: $cmd", "error")
@@ -941,56 +962,42 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "$msg" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_txt}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_txt}", displayed: false, isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info msg
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug msg
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace msg
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_txt}"
+    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

@@ -23,7 +23,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v0.59"
+  return "v0.61"
 }
 
 Integer maxButton () {
@@ -35,7 +35,7 @@ def getConfigurationOptions(Integer model) {
   // 2 Touch vibration
   // 3 Button slide function
   // 4 WallMote Reports
-  return [ 1, 2, 3, 4, 5, 39 ]
+  return [ 1, 2, 3, 4, 39 ]
 }
 
 metadata {
@@ -259,26 +259,11 @@ void buttonEvent(Integer buttonId, Boolean isHeld, Boolean isPhysical = false /*
 
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, result) {
   logger("$device.displayName $cmd")
-
-  def cmds = []
-
-  for (Integer x = 1; x <= cmd.supportedScenes; x++) {
-    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
-  }
-
-  sendCommands(cmds)
+  result << createEvent(name: "numberOfButtons", value: maxButton(), isStateChange: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, Short	endPoint, result) {
-  log.debug("$device.displayName $cmd")
-
-  def cmds = []
-
-  for (Integer x = 1; x <= cmd.supportedScenes; x++) {
-    cmds << zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: x)
-  }
-
-  sendCommands(cmds)
+def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, Short endPoint, result) {
+  logger("$device.displayName $cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotification cmd, result) {
@@ -289,76 +274,18 @@ def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneNotificat
 
   state.isCentralScene = true
 
-  switch (cmd.sceneNumber) {
-    case 1:
-    // Up
     switch (cmd.keyAttributes) {
       case 0:
-      case 1: // Capture 0 and 1 as same;
-      buttonEvent(1, false, true)
+      buttonEvent(cmd.sceneNumber, false, true)
       break;
-      case 2: // 2 is held
-      buttonEvent(1, true, true)
-      break;
-      default:
-      buttonEvent(cmd.keyAttributes -1, false, true)
-      break;
-    }
-    break;
-
-    case 2:
-    // Up
-    switch (cmd.keyAttributes) {
-      case 0:
-      case 1: // Capture 0 and 1 as same;
-      buttonEvent(2, false, true)
-      break;
-      case 2: // 2 is held
-      buttonEvent(2, true, true)
+      case 1: // Capture 1 and 2 as same;
+      case 2: 
+      buttonEvent(cmd.sceneNumber, true, true)
       break;
       default:
-      buttonEvent(cmd.keyAttributes -1, false, true)
+      logger("Unknown keyAttributes ${cmd.keyAttributes}")
       break;
     }
-    break;
-
-    case 3:
-    // Up
-    switch (cmd.keyAttributes) {
-      case 0:
-      case 1: // Capture 0 and 1 as same;
-      buttonEvent(3, false, true)
-      break;
-      case 2: // 2 is held
-      buttonEvent(3, true, true)
-      break;
-      default:
-      buttonEvent(cmd.keyAttributes -1, false, true)
-      break;
-    }
-    break;
-
-    case 4:
-    // Up
-    switch (cmd.keyAttributes) {
-      case 0:
-      case 1: // Capture 0 and 1 as same;
-      buttonEvent(4, false, true)
-      break;
-      case 2: // 2 is held
-      buttonEvent(4, true, true)
-      break;
-      default:
-      buttonEvent(cmd.keyAttributes -1, false, true)
-      break;
-    }
-    break;
-
-    default:
-    // unexpected case
-    logger("unexpected scene: $cmd.sceneNumber", "warn")
-    break;
-  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalCapabilitiesReport cmd, result) {
@@ -655,13 +582,12 @@ def configure() {
   logger("Resetting Sensor Parameters to SmartThings Compatible Defaults", "debug")
   def cmds = []
 
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [3], parameterNumber: 12, size: 1).format()
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 14, size: 1).format()
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 20, size: 1).format()
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [1], parameterNumber: 22, size: 1).format()
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [3], parameterNumber: 24, size: 1).format()
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 29, size: 1).format()
-  cmds << zwave.configurationV1.configurationSet(configurationValue: [8], parameterNumber: 30, size: 1).format()
+  cmds << zwave.configurationV1.configurationSet(parameterNumber: 1, configurationValue: [0], size: 1).format()
+  cmds << zwave.configurationV1.configurationSet(parameterNumber: 2, configurationValue: [1], size: 1).format()
+  cmds << zwave.configurationV1.configurationSet(parameterNumber: 3, configurationValue: [1], size: 1).format()
+  cmds << zwave.configurationV1.configurationSet(parameterNumber: 39, configurationValue: [40], size: 1).format()
+  cmds << zwave.configurationV1.configurationSet(parameterNumber: 4, configurationValue: [1], size: 1).format()
+  
   /*
   cmds << zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 1, size: 1).format()
   cmds << zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 2, size: 1).format()
@@ -754,10 +680,6 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   state.manufacturer = null
   updateDataValue("MSR", null)
@@ -820,56 +742,42 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "$msg" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_txt}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_txt}", displayed: false, isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info msg
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug msg
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace msg
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_txt}"
+    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
