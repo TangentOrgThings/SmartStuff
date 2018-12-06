@@ -70,8 +70,6 @@ metadata {
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     // zw:L type:0202 mfr:011A prod:0801 model:0B03 ver:1.05 zwv:3.42 lib:02 cc:2D,85,86,72
     // fingerprint deviceId: "0x0202", inClusters:"0x21, 0x2D, 0x85, 0x86, 0x72"
@@ -359,37 +357,30 @@ def zwaveEvent(zwave.commands.associationv1.AssociationReport cmd, result) {
   switch (cmd.groupingIdentifier) {
     case 1:
     state.Associated_01 = "${final_string}"
-    result << createEvent(name: "Group 1", value:  "${final_string}", isStateChange: true, displayed: true);
     break
 
     case 2:
     state.Associated_02 = "${final_string}"
-    result << createEvent(name: "Group 2", value:  "${final_string}", isStateChange: true, displayed: true);
     break
 
     case 3:
     state.Associated_03 = "${final_string}"
-    result << createEvent(name: "Group 3", value:  "${final_string}", isStateChange: true, displayed: true);
     break
 
     case 4:
     state.Associated_04 = "${final_string}"
-    result << createEvent(name: "Group 4", value:  "${final_string}", isStateChange: true, displayed: true);
     break
 
     case 5:
     state.Associated_05 = "${final_string}"
-    result << createEvent(name: "Group 5", value:  "${final_string}", isStateChange: true, displayed: true);
     break
 
     case 6:
     state.Associated_06 = "${final_string}"
-    result << createEvent(name: "Group 6", value:  "${final_string}", isStateChange: true, displayed: true);
     break
 
     case 7:
     state.Associated_07 = "${final_string}"
-    result << createEvent(name: "Group 7", value:  "${final_string}", isStateChange: true, displayed: true);
     break
   }
 
@@ -478,6 +469,7 @@ def poll() {
 def prepDevice() {
   [
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    /*
     zwave.sceneControllerConfV1.sceneControllerConfSet(groupId:1, sceneId:1),
     zwave.sceneControllerConfV1.sceneControllerConfSet(groupId:2, sceneId:2),
     zwave.sceneControllerConfV1.sceneControllerConfSet(groupId:3, sceneId:3),
@@ -492,8 +484,8 @@ def prepDevice() {
     zwave.associationV1.associationSet(groupingIdentifier: 5, nodeId: zwaveHubNodeId),
     zwave.associationV1.associationSet(groupingIdentifier: 6, nodeId: zwaveHubNodeId),
     zwave.associationV1.associationSet(groupingIdentifier: 7, nodeId: zwaveHubNodeId),
+    */
     zwave.associationV1.associationGroupingsGet(),
-    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
@@ -502,15 +494,9 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  state.loggingLevelIDE = debugLevel ? debugLevel : 4
-  log.info("$device.displayName updated() debug: ${state.loggingLevelIDE}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   // Check in case the device has been changed
   state.manufacturer = null
@@ -528,8 +514,6 @@ def updated() {
 
 def installed() {
   log.info("$device.displayName installed()")
-
-  state.loggingLevelIDE = 4
 
   sendEvent(name: "numberOfButtons", value: 7, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
