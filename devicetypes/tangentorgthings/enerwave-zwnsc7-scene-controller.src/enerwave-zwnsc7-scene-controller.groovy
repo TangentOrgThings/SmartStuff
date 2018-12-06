@@ -25,7 +25,7 @@
 import physicalgraph.*
 
 def getDriverVersion() {
-  return "v0.45"
+  return "v0.47"
 }
 
 metadata {
@@ -33,8 +33,8 @@ metadata {
     capability "Actuator"
     capability "Button"
     capability "Configuration"
-    capability "Indicator"
     capability "Sensor"
+    capability "Switch"
 
     attribute "currentButton", "STRING"
 
@@ -191,8 +191,63 @@ def buttonEvent(String exec_cmd, Integer button, Boolean held, Boolean buttonTyp
   }
 }
 
+def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
+  logger("$cmd")
+
+  def currentValue = device.currentState("switch").value.equals("on") ? 255 : 0
+  result << zwave.basicV1.basicReport(value: currentValue).format()
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: basic == 255 ? 100 : value, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicReport returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicReport unknown state (254)", "warn")
+  } else {
+    logger("BasicReport reported value unknown to API ($value)", "warn")
+  }
+}
+
+def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
+  logger("$cmd")
+
+  Short value = cmd.value
+
+  if (value == 0) {
+    result << createEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
+    }
+  } else if (value < 100 || value == 255) {
+    result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
+    if (device.displayName.endsWith("Dimmer")) {
+      result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
+    }
+  } else if (value < 254) {
+    logger("BasicSet returned reserved state ($value)", "warn")
+  } else if (value == 254) {
+    logger("BasicSet unknown state (254)", "warn")
+  } else {
+    logger("BasicSet reported value unknown to API ($value)", "warn")
+  }
+} 
+
 // A zwave command for a button press was received
-def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
+def zwaveEvent(zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
 
   // The controller likes to repeat the command... ignore repeats
@@ -215,7 +270,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
 }
 
 // A scene command was received -- it's probably scene 0, so treat it like a button release
-def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
+def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
   logger("$device.displayName $cmd")
 
   buttonEvent("SceneActuatorConfGet", cmd.sceneId, false, true, result)
@@ -225,14 +280,14 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 }
 
 /*
-def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
+def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
   logger("$device.displayName $cmd")
   result <<  createEvent(ndescriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 */
 
 // Update manufacturer information when it is reported
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
+def zwaveEvent(zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
   if ( cmd.manufacturerName ) {
@@ -257,7 +312,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   result << response(zwave.versionV1.versionGet())
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
+def zwaveEvent(zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName $cmd")
 
   def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
@@ -269,7 +324,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 
 // Association Groupings Reports tell us how many groupings the device supports.  This equates to the number of
 // buttons/scenes in the VRCS
-def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationGroupingsReport cmd, result) {
+def zwaveEvent(zwave.commands.associationv1.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
 
   sendEvent(name: "numberOfButtons", value: cmd.supportedGroupings, isStateChange: true, displayed: true)
@@ -287,7 +342,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationGroupingsRe
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationReport cmd, result) {
+def zwaveEvent(zwave.commands.associationv1.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
   def string_of_assoc = ""
@@ -348,7 +403,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv1.AssociationReport cmd,
   return result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
+def zwaveEvent(zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
   logger("$device.displayName $cmd")
   result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
   result << createEvent(name: "Group Scene ${cmd.groupId}", value:  "${cmd.sceneId}", isStateChange: true, displayed: true);
@@ -358,23 +413,23 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
+def zwaveEvent(zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
   logger("$device.displayName $cmd")
 
   result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
+def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
   logger("$device.displayName $cmd")
   result << createEvent(descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
+def zwaveEvent(zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
   result <<  createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
+def zwaveEvent(zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
   result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
 }
@@ -583,57 +638,42 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "$msg" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_txt}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_txt}", displayed: false, isStateChange: true)
+    break;
 
     case "info":
-    if (state.loggingLevelIDE >= 3) {
-      log.info msg
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) {
-      log.debug msg
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) {
-      log.trace msg
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_txt}"
     }
-    return
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_txt}"
+    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
-
