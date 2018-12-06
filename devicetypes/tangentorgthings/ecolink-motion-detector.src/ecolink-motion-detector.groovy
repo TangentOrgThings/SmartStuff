@@ -18,7 +18,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v4.99"
+  return "v5.01"
 }
 
 Boolean isPlus() {
@@ -173,7 +173,7 @@ def getCommandClassVersions() {
 
   return [
     0x20: 1,  // Basic
-    0x30: 2,  // Sensor Binary
+    0x30: 1,  // Sensor Binary
     0x70: 2,  // Configuration V1
     0x71: 2,  // Notification v2 ( Alarm V2 )
     0x72: 2,  // Manufacturer Specific V1
@@ -330,6 +330,11 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, 
   }
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd, result) {
+  logger("$device.displayName $cmd")
+  sensorValueEvent((Boolean)cmd.sensorValue, result)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
   logger("$device.displayName $cmd")
   sensorValueEvent((Boolean)cmd.sensorValue, result)
@@ -348,7 +353,7 @@ def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelMod
 def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  if (cmd.alarmLevel == 0x11) {
+  if (cmd.alarmLevel) { //  == 0x11
     result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName covering was removed", isStateChange: true, displayed: true)
   } else {
     result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName is clear", isStateChange: true, displayed: true)
@@ -559,6 +564,14 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
   if (cmd.parameterNumber == 0x63) {
     result << createEvent(name: "Basic Report", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
+    if (1) { // Followup off
+      if ( cmd.configurationValue == 0x00 ) {
+        result << response(delayBetween([
+        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
+        zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+        ], 800))
+      }
+    }
     _isConfigured = true
   } else if (cmd.parameterNumber == 0x01) {
   / *
@@ -566,6 +579,14 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
       0xFF Sensor sends Basic Sets of 0x00 to nodes in Association Group2 when sensor is restored.
     */
     result << createEvent(name: "Basic Set Off", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
+    if (1) { // Followup off
+      if ( cmd.configurationValue == 0x00 ) {
+        result << response(delayBetween([
+        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
+        zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+        ], 800))
+      }
+    }
     _isConfigured = true
   } else if (cmd.parameterNumber == 0x02) {
   /*
