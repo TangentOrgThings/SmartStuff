@@ -345,12 +345,10 @@ def zwaveEvent(zwave.commands.associationv1.AssociationGroupingsReport cmd, resu
 def zwaveEvent(zwave.commands.associationv1.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
-  def string_of_assoc = ""
-  cmd.nodeId.each {
-    string_of_assoc += "${it}, "
-  }
-  def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
-  def final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
+	String final_string = ""
+	if (cmd.nodeId) {
+		final_string = cmd.nodeId.join(",")
+	}
 
   Boolean isAssociated = false
   if (cmd.nodeid.any { it == zwaveHubNodeId }) {
