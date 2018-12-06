@@ -346,8 +346,8 @@ def zwaveEvent(zwave.commands.associationv1.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
 	String final_string = ""
-	if (cmd.nodeId) {
-		final_string = cmd.nodeId.join(",")
+	if (cmd.nodeid) {
+		final_string = cmd.nodeid.join(",")
 	}
 
   Boolean isAssociated = false
@@ -396,9 +396,6 @@ def zwaveEvent(zwave.commands.associationv1.AssociationReport cmd, result) {
   if (isAssociated == false) {
     result << response(zwave.associationV1.associationSet(groupingIdentifier: cmd.groupingIdentifier, nodeId: zwaveHubNodeId))
   }
-
-
-  return result
 }
 
 def zwaveEvent(zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
