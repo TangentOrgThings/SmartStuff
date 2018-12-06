@@ -469,12 +469,10 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
 
   result << createEvent(name: "isAssociated", value: "true")
 
-  def string_of_assoc = ""
-  cmd.nodeId.each {
-    string_of_assoc += "${it}, "
-  }
-  def lengthMinus2 = string_of_assoc.length() ? string_of_assoc.length() - 3 : 0
-  String final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
+	String final_string = ""
+	if (cmd.nodeId) {
+		final_string = cmd.nodeId.join(",")
+	}
 
   updateDataValue("Association Group #${cmd.groupingIdentifier}", "${final_string}")
 }
