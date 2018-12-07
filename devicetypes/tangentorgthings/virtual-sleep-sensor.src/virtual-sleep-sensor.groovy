@@ -35,9 +35,13 @@ metadata {
     attribute "about", "string"
   }
 
-
   simulator {
     // TODO: define status and reply messages here
+  }
+
+  preferences {
+    input name: "delayTime", type: "number", title: "Delay Time", description: "Delay for off in seconds", range: "60..300", displayDuringSetup: false,  defaultValue: 360
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false,  defaultValue: 3
   }
 
   tiles {
@@ -59,14 +63,23 @@ def parse(String description) {
 // handle commands
 def on() {
   log.debug "Executing 'on'"
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-  sendEvent(name: "sleep", value: "sleeping", isStateChange: true, type: "digital")
+  if ( state.sleep ) {
+    sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
+    sendEvent(name: "sleep", value: "sleeping", isStateChange: true, type: "digital")
+    state.sleep = true
+  }
+}
+
+def delayedOff () { // Play kick the can
+  log.info "delayOff()"
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
+  sendEvent(name: "sleep", value: "not sleeping", isStateChange: true, type: "digital")
+  state.sleep = false
 }
 
 def off() {
   log.debug "Executing 'off'"
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-  sendEvent(name: "sleep", value: "not sleeping", isStateChange: true, type: "digital")
+  runIn( settings.delayTime ?: 360 , delayedOff)
 }
 
 def showVersion() {

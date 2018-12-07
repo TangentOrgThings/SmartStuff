@@ -51,7 +51,7 @@ metadata {
   }
 
   preferences {
-    input name: "delayTime", type: "number", title: "Delay Time", description: "Time between on and off in seconds", range: "1..300", displayDuringSetup: false,  defaultValue: 30
+    input name: "delayTime", type: "number", title: "Delay Time", description: "Time between on and off in seconds", range: "30..300", displayDuringSetup: false,  defaultValue: 30
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false,  defaultValue: 3
   }
   
