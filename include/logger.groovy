@@ -33,7 +33,7 @@ private logger(msg, level = "trace") {
     case "error":
     default:
     log.error "$device_name ${msg_txt}"
-    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    sendEvent(name: "lastError", value: "${msg_txt}", isStateChange: true)
     break;
   }
 }
