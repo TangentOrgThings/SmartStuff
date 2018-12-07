@@ -16,6 +16,7 @@
  *
  */
 
+import physicalgraph.*
 
 def getDriverVersion() {
   return "v1.61"
