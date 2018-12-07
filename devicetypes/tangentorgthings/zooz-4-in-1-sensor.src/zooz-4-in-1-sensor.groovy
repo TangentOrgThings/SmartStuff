@@ -784,50 +784,42 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "${msg}" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (state.loggingLevelIDE >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_text}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_text}", isStateChange: true)
+    break;
 
     case "info":
-    if (state.loggingLevelIDE >= 3) log.info msg
-      return
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_text}"
+    }
+    break;
 
     case "debug":
-    if (state.loggingLevelIDE >= 4) log.debug msg
-      return
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_text}"
+    }
+    break;
 
     case "trace":
-    if (state.loggingLevelIDE >= 5) log.trace msg
-      return
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_text}"
+    }
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_text}"
+    sendEvent(name: "lastError", value: "${msg_text}", isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

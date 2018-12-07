@@ -1287,40 +1287,42 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-
 private logger(msg, level = "trace") {
   String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "${msg}" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
 
   switch(level) {
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn "$device_name ${msg}"
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_text}"
     }
-    sendEvent(name: "logMessage", value: " ${msg}", displayed: false, isStateChange: true)
+    sendEvent(name: "logMessage", value: "${msg_text}", isStateChange: true)
     break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info "$device_name ${msg}"
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_text}"
     }
     break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug "$device_name ${msg}"
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_text}"
     }
     break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace "$device_name ${msg}"
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_text}"
     }
     break;
 
     case "error":
     default:
-    log.error "$device_name ${msg}"
-    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    log.error "$device_name ${msg_text}"
+    sendEvent(name: "lastError", value: "${msg_text}", isStateChange: true)
     break;
   }
 }

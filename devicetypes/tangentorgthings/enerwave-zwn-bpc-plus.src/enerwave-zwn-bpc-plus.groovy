@@ -59,8 +59,6 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "Configured", "enum", ["false", "true"]
     attribute "supportedGroupings", "string"
@@ -204,7 +202,7 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    logger("$device.displayName parse() called with NULL description", "info")
+    logger("parse() called with NULL description", "info")
   } else if (description != "updated") {
 
     if (1) {
@@ -217,7 +215,7 @@ def parse(String description) {
 
     def cmd = zwave.parse(description, deviceCommandClasses())
     if (! cmd) {
-      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "warn" )
       cmd = zwave.parse(description)
     }
 
@@ -249,29 +247,29 @@ def sensorValueEvent(happened, result) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd, result) {
-  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  logger("$cmd -- BEING CONTROLLED")
   // The device is sending a Set message device is in Group 4 ( this logic should be checked against associations)
   sensorValueEvent(cmd.value, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   sensorValueEvent(cmd.value, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   sensorValueEvent(cmd.value, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   sensorValueEvent(cmd.sensorValue, result)
 }
 
 // NotificationReport() NotificationReport(event: 8, eventParameter: [], eventParametersLength: 0, notificationStatus: 255, notificationType: 7, reserved61: 0, sequence: false, v1AlarmLevel: 0, v1AlarmType: 0, zensorNetSourceNodeId: 0)
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   state.newerModel = true
 
   if (cmd.notificationType == 0x07) {
@@ -280,39 +278,37 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
       sensorValueEvent(true, result)
       break;
       case 0x03:
-      result << createEvent(descriptionText: "$device.displayName configure button", displayed: true, isStateChange: true)
+      logger("configure button pressed", "info")
       break;
       case 0x00:
       sensorValueEvent(false, result)
       break;
       default:
-      log.warn("$device.displayName has unknown state: $cmd")
-      result << createEvent(descriptionText: "$device.displayName unknown event state: $cmd", displayed: true)
+      logger("has unknown event state: $cmd", "warn")
       return
     }
 
     return
   }
 
-  log.error("$device.displayName notificationType not implemented: $cmd")
-  result << createEvent(descriptionText: "$device.displayName unknown notificationType: $cmd", displayed: true)
+  logger("notificationType not implemented: $cmd", "warn")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   result << createEvent(name: "WakeUpNode", value: cmd.nodeid, isStateChange: true, displayed: true)
   result << createEvent(name: "WakeUpInterval", value: cmd.seconds, isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   state.lastActive = new Date().format("MMM dd EEE HH:mm:ss", location.timeZone)
   result << createEvent(name: "LastAwake", value: state.lastActive, descriptionText: "${device.displayName} woke up", isStateChange: false)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   Boolean did_batterylevel_change = state.batteryLevel != cmd.batteryLevel
   state.batteryLevel = cmd.batteryLevel
 
@@ -341,7 +337,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   if (cmd.supportedGroupings > 1) {
     state.newerModel = true
@@ -369,22 +365,20 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
     return
   }
 
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupingsReport: $cmd", isStateChange: true, displayed: true)
+  result << createEvent(descriptionText: "AssociationGroupingsReport: $cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupCommandListReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupCommandListReport: $cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupInfoReport cmd, result) {
-  logger("$device.displayName $cmd")
-  result << createEvent(descriptionText: "$device.displayName AssociationGroupInfoReport: $cmd", isStateChange: true, displayed: true)
+  logger("$cmd")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   def name = new String(cmd.name as byte[])
   logger("Association Group #${cmd.groupingIdentifier} has name: ${name}", "info")
@@ -397,7 +391,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationgrpinfov1.AssociationGrou
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   if (cmd.groupingIdentifier == getAssociationGroup()) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
@@ -458,7 +452,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, r
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
   def zWaveProtocolVersion = "${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
@@ -468,22 +462,21 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
-  logger("$device.displayName command not implemented: $cmd", "error")
-  result << createEvent(descriptionText: "$device.displayName command not implemented: $cmd", displayed: true)
+  logger("command not implemented: $cmd", "error")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
-  logger("$device.displayName $cmd", "warn")
+  logger("$cmd", "warn")
   result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
   result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   String manufacturerCode = String.format("%04X", cmd.manufacturerId)
   String productTypeCode = String.format("%04X", cmd.productTypeId)
@@ -519,7 +512,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
   
@@ -589,12 +582,12 @@ def prepDevice() {
 }
 
 def installed() {
-  log.info("$device.displayName installed()")
+  logger("installed()")
 
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
-      log.debug("$device.displayName $zwInfo")
+      log.debug("$zwInfo")
       sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
     }
   }
@@ -614,7 +607,7 @@ def updated() {
   if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
     return
   }
-  log.info("$device.displayName updated() debug: ${settings.debugLevel}")
+  log.info("updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -626,8 +619,7 @@ def updated() {
   if (0) {
     def zwInfo = getZwaveInfo()
     if ($zwInfo) {
-      log.debug("$device.displayName $zwInfo")
-      sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
+      logger("$zwInfo")
     }
   }
 
@@ -635,7 +627,7 @@ def updated() {
   sendEvent(name: "Configured", value: "false", isStateChange: true)
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), isStateChange: true)
-  // sendEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName is being reset")
+  // sendEvent(name: "motion", value: "inactive", descriptionText: "is being reset")
   sendEvent(name: "AssociationGroup", value: getAssociationGroup(), isStateChange: true)
   state.AssociationGroup = getAssociationGroup()
 
@@ -683,56 +675,42 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "${msg}" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_text}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_text}", isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info msg
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_text}"
     }
-    return
+    break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug msg
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_text}"
     }
-    return
+    break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace msg
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_text}"
     }
-    return
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_text}"
+    sendEvent(name: "lastError", value: "${msg_text}", isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }
