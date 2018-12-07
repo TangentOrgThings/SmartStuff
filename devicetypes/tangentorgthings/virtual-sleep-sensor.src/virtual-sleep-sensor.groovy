@@ -17,7 +17,7 @@
  */
  
 String getDriverVersion () {
-  return "v1.03"
+  return "v1.05"
 }
 
 String versionNum() {
@@ -64,16 +64,16 @@ def parse(String description) {
 def on() {
   log.debug "Executing 'on'"
   if ( state.sleep ) {
-    sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-    sendEvent(name: "sleep", value: "sleeping", isStateChange: true, type: "digital")
+    sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "physical")
+    sendEvent(name: "sleep", value: "sleeping", isStateChange: true)
     state.sleep = true
   }
 }
 
 def delayedOff () { // Play kick the can
   log.info "delayOff()"
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "digital")
-  sendEvent(name: "sleep", value: "not sleeping", isStateChange: true, type: "digital")
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "physical")
+  sendEvent(name: "sleep", value: "not sleeping", isStateChange: true)
   state.sleep = false
 }
 
@@ -84,9 +84,16 @@ def off() {
 
 def showVersion() {
   def versionTxt = "${appName()}: ${versionNum()}\n"
-  try {if (parent.getSwitchAbout()){versionTxt += parent.getSwitchAbout()}}
-  catch(e){versionTxt +="Installed from the SmartThings IDE"}
-  sendEvent (name: "about", value:versionTxt) 
+  try {
+    if (parent.getSwitchAbout()) { 
+      versionTxt += parent.getSwitchAbout()
+    }
+  }
+  catch(e) {
+    versionTxt += "Installed from the SmartThings IDE"
+  }
+
+  sendEvent (name: "about", value: versionTxt) 
 }
 
 def appName() {
