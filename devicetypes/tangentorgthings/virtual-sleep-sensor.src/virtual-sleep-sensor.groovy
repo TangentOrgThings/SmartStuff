@@ -1,4 +1,4 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 
 /**
  *  Virtual Sleep Sensor
@@ -17,7 +17,7 @@
  */
  
 String getDriverVersion () {
-  return "v1.05"
+  return "v1.09"
 }
 
 String versionNum() {
@@ -33,6 +33,7 @@ metadata {
     capability "Switch"
 
     attribute "about", "string"
+    attribute "driverVersion", "string"
   }
 
   simulator {
@@ -72,7 +73,7 @@ def on() {
 }
 
 def delayedOff () { // Play kick the can
-  log.info "delayOff()"
+  log.info "delayedOff()"
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "physical")
   sendEvent(name: "sleep", value: "not sleeping", isStateChange: true)
   sendEvent(name: "switch", value: "off", isStateChange: true)
@@ -96,6 +97,7 @@ def showVersion() {
   }
 
   sendEvent (name: "about", value: versionTxt) 
+  sendEvent (name: "driverVersion", value: "${getDriverVersion()}") 
 }
 
 def appName() {
@@ -112,5 +114,5 @@ def updated() {
   log.debug "updated()"
   sendEvent(name: "numberOfButtons", value: 2, displayed: false)
   showVersion() 
-  sendEvent(name: "switch", value: "", isStateChange: true, type: "digital")
+  delayedOff()
 }
