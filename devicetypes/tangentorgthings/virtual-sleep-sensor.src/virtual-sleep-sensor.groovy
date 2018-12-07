@@ -46,7 +46,7 @@ metadata {
   }
 
   tiles {
-    standardTile("sleep", "device.motion", width: 2, height: 2, decoration: "flat") {
+    standardTile("sleep", "device.sleeping", width: 2, height: 2, decoration: "flat") {
       state("sleeping", label:'Zzzz', backgroundColor: "#53a7c0")
       state("not sleeping", label:'(^・o・^)', backgroundColor: "#ffffff")
     }
