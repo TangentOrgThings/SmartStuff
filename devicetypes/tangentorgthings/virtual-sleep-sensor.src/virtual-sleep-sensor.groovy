@@ -66,7 +66,7 @@ def on() {
   log.debug "Executing 'on'"
   if ( ! state.sleep ) {
     sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "physical")
-    sendEvent(name: "sleep", value: "sleeping", isStateChange: true)
+    sendEvent(name: "sleeping", value: "sleeping", isStateChange: true)
     sendEvent(name: "switch", value: "on", isStateChange: true)
     state.sleep = true
   }
@@ -75,7 +75,7 @@ def on() {
 def delayedOff () { // Play kick the can
   log.info "delayedOff()"
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button was pushed", isStateChange: true, type: "physical")
-  sendEvent(name: "sleep", value: "not sleeping", isStateChange: true)
+  sendEvent(name: "sleeping", value: "not sleeping", isStateChange: true)
   sendEvent(name: "switch", value: "off", isStateChange: true)
   state.sleep = false
 }
