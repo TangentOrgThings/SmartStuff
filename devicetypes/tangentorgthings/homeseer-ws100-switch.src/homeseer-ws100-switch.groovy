@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v7.41"
+  return "v7.43"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -991,7 +991,7 @@ def zwaveEvent(zwave.commands.centralscenev1.CentralSceneNotification cmd, resul
     switch (cmd.keyAttributes) {
       case 2:
       case 0:
-      result << createEvent(name: "switch", value: cmd.SceneNumber == 1 ? "on" : "off", type: "physical", isStateChange: true, displayed: true)
+      result << createEvent(name: "switch", value: cmd.sceneNumber == 1 ? "on" : "off", type: "physical", isStateChange: true, displayed: true)
       buttonEvent("CentralSceneNotification()", cmd.sceneNumber, cmd.keyAttributes == 0 ? false : true, "physical")
       case 1:
       break;
