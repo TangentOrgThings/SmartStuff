@@ -297,6 +297,16 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, r
   updateDataValue("deviceIdDataFormat", "${cmd.deviceIdDataFormat}")
   updateDataValue("deviceIdDataLengthIndicator", "${cmd.deviceIdDataLengthIndicator}")
   updateDataValue("deviceIdType", "${cmd.deviceIdType}")
+
+  if (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) {//serial number in binary format
+    String serialNumber = "h'"
+
+    cmd.deviceIdData.each{ data ->
+      serialNumber += "${String.format("%02X", data)}"
+    }
+
+    updateDataValue("serialNumber", serialNumber)
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
