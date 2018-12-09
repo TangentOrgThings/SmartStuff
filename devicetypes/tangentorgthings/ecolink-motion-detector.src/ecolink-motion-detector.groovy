@@ -19,7 +19,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.01"
+  return "v5.07"
 }
 
 Boolean isPlus() {
@@ -109,10 +109,6 @@ metadata {
   }
 
   tiles {
-    standardTile("motion", "device.motion", width: 2, height: 2) {
-      state("active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
-      state("inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
-    }
     multiAttributeTile(name:"sensor", type: "generic", width: 6, height: 4) {
       tileAttribute("device.sensor", key: "PRIMARY_CONTROL") {
         attributeState("unknown", label:'unknown', icon:"st.unknown.zwave.device", backgroundColor:"#FFFFFF")
@@ -124,12 +120,12 @@ metadata {
     }
 
     standardTile("motion", "device.motion", width: 2, height: 2) {
-      state("active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
-      state("inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
+      state "active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#53a7c0"
+      state "inactive", label:'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff"
     }
 
     valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat") {
-      state("battery", label: '${currentValue}', unit: "%")
+      state "battery", label: '${currentValue}', unit: "%"
     }
 
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
@@ -150,13 +146,13 @@ metadata {
       )
     }
 
-    valueTile("tamper", "device.tamper", inactiveLabel: false, decoration: "flat") {
-      state "clear", backgroundColor:"#00FF00"
-      state("detected", label: "detected", backgroundColor:"#e51426")
+    standardTile("tamper", "device.tamper", inactiveLabel: false, decoration: "flat") {
+      state "clear", label: '', backgroundColor: "#00FF00"
+      state "detected", label: '${name}', backgroundColor: "#e51426"
     }
 
-    valueTile("lastActive", "device.LastActive", width:2, height:2, inactiveLabel: true, decoration: "flat") {
-      state "default", label: '${currentValue}'
+    valueTile("lastActive", "device.LastActive", width: 2, height: 2, inactiveLabel: true, decoration: "flat") {
+      state "LastActive", label: '${currentValue}'
     }
 
     main "sensor"
@@ -222,6 +218,7 @@ def parse(String description) {
     logger("parse() called with NULL description", "warn")
   } else if (description != "updated") {
     // Z-wave event
+    // def timeDate = location.timeZone ? new Date().format("MMM dd EEE h:mm:ss a", location.timeZone) : new Date().format("yyyy MMM dd EEE h:mm:ss")
     def timeDate = location.timeZone ? new Date().format("MMM dd EEE h:mm:ss a", location.timeZone) : new Date().format("yyyy MMM dd EEE h:mm:ss")
     state.lastActive = "$timeDate"
   
@@ -263,7 +260,7 @@ def followupStateCheck() {
 def sensorValueEvent(Boolean happening, result) {
   logger "sensorValueEvent() $happening"
 
-  sendEvent(name: "LastActive", value: "${state.lastActive}")
+  sendEvent(name: "LastActive", value: "${state.lastActive}", isStateChange: true)
   if (happening) {
     if (settings.followupCheck) {
       runIn(360, followupStateCheck)
@@ -272,10 +269,10 @@ def sensorValueEvent(Boolean happening, result) {
 
   if (device.displayName.endsWith("TILT")) {
     result << createEvent(name: "contact", value: happening ? "open" : "close", isStateChange: true )
-    result << createEvent(name: "sensor", value: happening ? "open" : "close" )
+    result << createEvent(name: "sensor", value: happening ? "open" : "close", isStateChange: true )
   } else {
     result << createEvent(name: "motion", value: happening ? "active" : "inactive", isStateChange: true)
-    result << createEvent(name: "sensor", value: happening ? "active" : "inactive" )
+    result << createEvent(name: "sensor", value: happening ? "active" : "inactive", isStateChange: true)
   }
 }
 
@@ -334,45 +331,45 @@ def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
   }
 } 
 
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   logger("$cmd")
 
-  sensorValueEvent((Boolean)cmd.value, result)
+  sensorValueEvent((cmd.value > 0) ? true : false, result)
   if (isLifeLine()) {
     logger("duplicate SwitchBinaryReport", "warn")
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
+def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   logger("$cmd")
 
-  sensorValueEvent((Boolean)cmd.switchValue, result)
+  sensorValueEvent((Boolean)( cmd.switchValue > 0 ? true : false), result)
   if (isLifeLine()) {
     logger("duplicate SwitchBinarySet", "warn")
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd, result) {
+def zwaveEvent(zwave.commands.sensorbinaryv1.SensorBinaryReport cmd, result) {
   logger("$cmd")
-  sensorValueEvent((Boolean)cmd.sensorValue, result)
+  sensorValueEvent((Boolean)(cmd.sensorValue > 0 ? true : false), result)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
+def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
   logger("$cmd")
-  sensorValueEvent((Boolean)cmd.sensorValue, result)
+  sensorValueEvent((Boolean)(cmd.sensorValue > 0 ? true : false), result)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinarySupportedSensorReport cmd, result) {
+def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinarySupportedSensorReport cmd, result) {
   logger("$cmd")
   result << createEvent(name: "SupportedSensors", value: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
+def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
   result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
 }
 
 // Older devices
-def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd, result) {
+def zwaveEvent(zwave.commands.alarmv2.AlarmReport cmd, result) {
   logger("$cmd")
 
   if (cmd.alarmLevel) { //  == 0x11
@@ -385,7 +382,7 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd, result) {
 }
 
 // NotificationReport() NotificationReport(event: 0, eventParameter: [], eventParametersLength: 0, notificationStatus: 255, notificationType: 7, reserved61: 0, sequence: false, v1AlarmLevel: 0, v1AlarmType: 0, zensorNetSourceNodeId: 0)
-def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd, result) {
+def zwaveEvent(zwave.commands.notificationv3.NotificationReport cmd, result) {
   logger("$cmd")
 
   if (cmd.notificationType == 6) {
@@ -434,30 +431,30 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.notificationv3.EventSupportedReport cmd, result) {
+def zwaveEvent(zwave.commands.notificationv3.EventSupportedReport cmd, result) {
   logger("$cmd")
   result << createEvent(name: "Events Supported", value: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationSupportedReport cmd, result) {
+def zwaveEvent(zwave.commands.notificationv3.NotificationSupportedReport cmd, result) {
   logger("$cmd")
   result << createEvent(name: "Notifications Supported", value: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
+def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
   logger("$cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
+def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
   logger("$cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandCommandClassNotSupported cmd, result) {
+def zwaveEvent(zwave.commands.applicationcapabilityv1.CommandCommandClassNotSupported cmd, result) {
   logger("$cmd")
 }
 
 // SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 27, sensorType: 5, sensorValue: [27], size: 1)
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
+def zwaveEvent(zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, result) {
   log.debug("$cmd")
 
 	switch (cmd.sensorType) {
@@ -480,7 +477,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
 }
 
 // SensorMultilevelReport(precision: 0, scale: 0, scaledSensorValue: 28, sensorType: 5, sensorValue: [28], size: 1)
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv1.SensorMultilevelReport cmd, result) {
+def zwaveEvent(zwave.commands.sensormultilevelv1.SensorMultilevelReport cmd, result) {
   log.debug("$cmd")
 
 	switch (cmd.sensorType) {
@@ -499,7 +496,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv1.SensorMultilevelR
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
+def zwaveEvent(zwave.commands.wakeupv2.WakeUpNotification cmd, result) {
   logger("$cmd")
 
   if (state.tamper == "clear") {
@@ -507,7 +504,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd, res
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result) {
+def zwaveEvent(zwave.commands.batteryv1.BatteryReport cmd, result) {
   logger("$cmd")
 
   Boolean did_batterylevel_change = state.batteryLevel != cmd.batteryLevel
@@ -528,7 +525,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, result)
   result << createEvent(name: "battery", unit: "%", value: level, descriptionText: "Battery level", isStateChange: did_batterylevel_change)
 }
 
-def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
+def zwaveEvent(zwave.Command cmd, result) {
   logger("command not implemented: $cmd", "unknownCommand")
 }
 
@@ -551,7 +548,7 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, r
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
+def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$cmd")
 
   String manufacturerCode = String.format("%04X", cmd.manufacturerId)
@@ -601,7 +598,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
   result << response( zwave.versionV1.versionGet() )
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
+def zwaveEvent(zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$cmd")
 
   def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
@@ -611,7 +608,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
+def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
   logger("$cmd")
 
   Boolean _isConfigured = false
@@ -633,7 +630,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
       0xFF Sensor sends Basic Sets of 0x00 to nodes in Association Group2 when sensor is restored.
     */
     result << createEvent(name: "Basic Set Off", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
-    if (1) { // Followup off
+    if (0) { // Followup off
       if ( cmd.configurationValue == 0x00 ) {
         result << response(delayBetween([
         zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
@@ -679,7 +676,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result ) {
+def zwaveEvent(zwave.commands.associationv2.AssociationGroupingsReport cmd, result ) {
   logger("$cmd")
 
   if (cmd.supportedGroupings) {
@@ -699,7 +696,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
+def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$cmd")
 
   def cmds = []
@@ -774,12 +771,12 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
+def zwaveEvent(zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, result) {
   logger("$cmd")
   result << createEvent(name: "DeviceReset", value: "true", descriptionText: cmd.toString(), isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
+def zwaveEvent(zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$cmd")
   result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
@@ -844,9 +841,15 @@ def updated() {
   }
   log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
-  state.Basic = "motion"
-  state.BasicOn = "active"
-  state.BasicOff = "inactive"
+  if (device.displayName.endsWith("TILT")) {
+      state.Basic = "contact"
+      state.BasicOn = "open"
+      state.BasicOff = "close"
+  } else {
+      state.Basic = "motion"
+      state.BasicOn = "active"
+      state.BasicOff = "inactive"
+  }
 
   if (0) {
     def zwInfo = getZwaveInfo()
@@ -860,10 +863,6 @@ def updated() {
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   if (settings.resetUpdate) {
     sendEvent(name: "motion", value: "inactive", isStateChange: true, displayed: true)
@@ -880,9 +879,15 @@ def updated() {
 def installed() {
   log.debug "$device.displayName installed()"
 
-  state.Basic = "motion"
-  state.BasicOn = "active"
-  state.BasicOff = "inactive"
+  if (device.displayName.endsWith("TILT")) {
+      state.Basic = "contact"
+      state.BasicOn = "open"
+      state.BasicOff = "close"
+  } else {
+      state.Basic = "motion"
+      state.BasicOn = "active"
+      state.BasicOff = "inactive"
+  }
 
   if (0) {
     def zwInfo = getZwaveInfo()
