@@ -19,11 +19,11 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.17"
+  return "v5.19"
 }
 
 Boolean isPlus() {
-  return settings.newModel || state.discoveredNewModel
+  return (Boolean) ( settings.newModel ?: false || state.discoveredNewModel ?: false )
 }
 
 Boolean isTilt() {
@@ -191,7 +191,7 @@ def getCommandClassVersions() {
     0x30: 1,  // Sensor Binary
     0x70: 1,  // Configuration V1
     0x71: 3,  // Notification v2 ( Alarm V2 )
-    0x72: 2,  // Manufacturer Specific V1
+    0x72: 1,  // Manufacturer Specific V1
     0x80: 1,  // Battery
     0x81: 1,  // Clock
     0x84: 2,  // Wake Up
@@ -341,7 +341,7 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
   sensorValueEvent((cmd.value > 0) ? true : false, result)
   if (isLifeLine()) {
     logger("duplicate SwitchBinaryReport", "info")
-    response ( zwave.associationV1.associationRemove(groupingIdentifier: 2, zwaveHubNodeId) )
+    // response ( zwave.associationV1.associationRemove(groupingIdentifier: 2, zwaveHubNodeId) )
   }
 }
 
@@ -574,13 +574,74 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, r
   }
 }
 
+def zwaveEvent(zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
+  logger("$cmd")
+
+  state.manufacturer = "Ecolink"
+
+  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  updateDataValue("MSR", "$msr")
+  state.MSR = "$msr"
+  
+  /*
+    ManufacturerCode: 014A
+    productTypeId -> ProduceTypeCode: 0004
+    productId -> ProductCode: 0001
+  */
+
+  state.discoveredNewModel = cmd.productTypeId == 0x0004 ? true : false
+  state.isTilt = cmd.productId == 0x0003 ? true : false
+  state.isMotion = cmd.productId == 0x0001 ? true : false
+
+  String device_type = "Unknown"
+  switch (cmd.productId) { 
+    case 0x0001:
+    device_type = "Motion"
+    break;
+    case 0x0003:
+    device_type = "Tilt"
+    break;
+    default:
+    break;
+  }
+  updateDataValue("device type", "${device_type}")
+  
+  if (isPlus()) {
+    updateDataValue("isNewerModel", "true")
+    result << createEvent(name: "Lifeline Sensor Binary Report", value: "Unknown")
+    result << createEvent(name: "Basic Set Off", value: "Unknown")
+    result << response(delayBetween([
+      zwave.notificationV3.eventSupportedGet(notificationType: 7).format(),
+      zwave.notificationV3.notificationSupportedGet().format(),
+      zwave.manufacturerSpecificV2.deviceSpecificGet().format(),
+    ], 700))
+
+    if ( cmd.productId == 0x0001 ) {
+      state.isLifeLine = true
+    }
+  } else {
+    result << response( zwave.alarmV2.alarmTypeSupportedGet() )
+    updateDataValue("isNewerModel", "false")
+    result << createEvent(name: "Basic Report", value: "Unknown")
+  }
+  
+  Integer[] parameters = getConfigurationOptions(cmd.productTypeId)
+  def cmds = []
+  parameters.each {
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
+  }
+  
+  result << response( delayBetween(cmds, 1000) )
+  result << response( zwave.versionV1.versionGet() )
+}
+
 def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$cmd")
 
   state.manufacturer = "Ecolink"
 
-  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
-  updateDataValue("MSR", msr)
+  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  updateDataValue("MSR", "$msr")
   state.MSR = "$msr"
   
   /*
@@ -673,7 +734,7 @@ def zwaveEvent(zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   if (_isConfigured) {
     setConfigured()
   } else {
-    unConfigured()
+    // unConfigured()
   }
 }
 
@@ -742,7 +803,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
   if (_isConfigured) {
     setConfigured()
   } else {
-    unConfigured()
+    // unConfigured()
   }
 }
 
@@ -807,12 +868,13 @@ def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
     return
   }
 
-  if (! isAssociated ) {
+  if (! isAssociated && ! isAssociated() ) {
     if (getAssociationGroup() == cmd.groupingIdentifier ) {
-      unAssociated()
-      cmds << zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format()
-      cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format()
-      cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format()
+      if (0) {
+        cmds << zwave.associationV1.associationSet(groupingIdentifier: getAssociationGroup(), nodeId: [zwaveHubNodeId]).format();
+        cmds << zwave.associationV1.associationGet(groupingIdentifier: 1).format();
+        cmds << zwave.associationV1.associationGet(groupingIdentifier: 2).format();
+      }
     }
   } else {
     if (getAssociationGroup() == cmd.groupingIdentifier ) {
@@ -838,6 +900,8 @@ def zwaveEvent(zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
 def checkConfigure() {
   def cmds = []
 
+  return
+
   if (state.checkConfigure && ((new Date().time) - state.checkConfigure) < 120 ) {
     return
   }
@@ -845,7 +909,7 @@ def checkConfigure() {
 
   if (isConfigured()) {
   } else {
-    if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 1500) {
+    if (! state.lastConfigure || (new Date().time) - state.lastConfigure > 5500) {
       if (isPlus()) {
         cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet().format()
       } else {
@@ -864,8 +928,9 @@ def checkConfigure() {
 
   if (isAssociated()) {
   } else {
-    if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 1500) {
-      cmds << zwave.associationV2.associationGroupingsGet().format()
+    if (!state.lastAssociated || (new Date().time) - state.lastAssociated > 5000) {
+      cmds << zwave.associationV2.associationGet(groupingIdentifier: 1).format();
+      cmds << zwave.associationV2.associationGet(groupingIdentifier: 2).format();
     }
 
     state.lastAssociated = new Date().time
@@ -927,6 +992,9 @@ def updated() {
   initIsAssociated()
   initIsConfigured()
 
+  setAssociated()
+  setConfigured()
+
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
 }
@@ -956,7 +1024,6 @@ def installed() {
   initIsConfigured()
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), displayed: true, isStateChange: true)
-  sendCommands(prepDevice())
 }
 
 /*****************************************************************************************************************
@@ -964,15 +1031,15 @@ def installed() {
  *****************************************************************************************************************/
 
 private initIsConfigured() {
-  sendEvent(name: "isConfigured", value: "Unconfigured", displayed: true)
+  sendEvent(name: "isConfigured", value: "Unconfigured", isStateChange: true, displayed: true)
 }
 
 private unConfigured() {
-  sendEvent(name: "isConfigured", value: "false", displayed: true)
+  sendEvent(name: "isConfigured", value: "false", isStateChange: true, displayed: true)
 }
 
 private setConfigured() {
-  sendEvent(name: "isConfigured", value: "true", displayed: true)
+  sendEvent(name: "isConfigured", value: "true", isStateChange: true, displayed: true)
 }
 
 private isConfigured() {
@@ -980,27 +1047,27 @@ private isConfigured() {
     return true
   }
 
-  return false
+  return true
 }
 
 private initIsAssociated() {
-  sendEvent(name: "isAssociated", value: "Unconfigured", displayed: true)
+  sendEvent(name: "isAssociated", value: "Unconfigured", isStateChange: true, displayed: true)
 }
 
 private unAssociated() {
-  sendEvent(name: "isAssociated", value: "false", displayed: true)
+  sendEvent(name: "isAssociated", value: "false",isStateChange: true,  displayed: true)
 }
 
 private setAssociated() {
-  sendEvent(name: "isAssociated", value: "true", displayed: true)
+  sendEvent(name: "isAssociated", value: "true", isStateChange: true, displayed: true)
 }
 
-private isAssociated() {
+Boolean isAssociated() {
   if (device.currentValue("isAssociated") && device.currentValue("isAssociated").toBoolean() == true) {
     return true
   }
 
-  return false
+  return true
 }
 
 /**
