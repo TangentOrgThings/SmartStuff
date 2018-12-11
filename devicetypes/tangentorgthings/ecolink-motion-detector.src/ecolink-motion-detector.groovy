@@ -19,7 +19,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.13"
+  return "v5.15"
 }
 
 Boolean isPlus() {
