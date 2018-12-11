@@ -19,7 +19,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.11"
+  return "v5.13"
 }
 
 Boolean isPlus() {
@@ -176,6 +176,7 @@ def getCommandClassVersions() {
       0x72: 2,  // Manufacturer Specific
       0x73: 1,  // Powerlevel
       0x80: 1,  // Battery
+      0x81: 1,  // Clock
       0x84: 2,  // Wake Up
       0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
@@ -192,6 +193,7 @@ def getCommandClassVersions() {
     0x71: 2,  // Notification v2 ( Alarm V2 )
     0x72: 2,  // Manufacturer Specific V1
     0x80: 1,  // Battery
+    0x81: 1,  // Clock
     0x84: 2,  // Wake Up
     0x85: 2,  // Association  0x85  V1 V2
     0x86: 1,  // Version
@@ -369,6 +371,10 @@ def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinarySupportedSensorReport c
 
 def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet cmd, result) {
   result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
+}
+
+def zwaveEvent(zwave.commands.clockv1.ClockReport cmd, result) {
+  logger("$cmd")
 }
 
 def zwaveEvent(zwave.commands.alarmv2.AlarmTypeSupportedReport cmd, result) {
