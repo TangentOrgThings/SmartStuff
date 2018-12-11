@@ -78,11 +78,6 @@ metadata {
     attribute "firmwareVersion", "string"
     attribute "zWaveProtocolVersion", "string"
     attribute "driverVersion", "string"
-    attribute "MSR", "string"
-    attribute "Manufacturer", "string"
-    attribute "Manufacturer ID", "string"
-    attribute "Product Type", "string"
-    attribute "Product ID", "string"
 
     attribute "WakeUp", "string"
     attribute "LastActive", "string"
@@ -386,7 +381,8 @@ def zwaveEvent(zwave.commands.alarmv2.AlarmReport cmd, result) {
   logger("$cmd")
 
   if ( cmd.zwaveAlarmType == ZWAVE_ALARM_TYPE_BURGLAR && cmd.zwaveAlarmStatus == 0x00 ) {
-    result << response(zwave.alarmV2.alarmSet(zwaveAlarmType: cmd.zwaveAlarmType, zwaveAlarmStatus: cmd.zwaveAlarmStatus))
+    result << response( zwave.alarmV2.alarmSet(zwaveAlarmType: cmd.zwaveAlarmType, zwaveAlarmStatus: cmd.zwaveAlarmStatus) )
+    result << response( zwave.alarmV2.alarmTypeSupportedGet() )
   }
 
   if (cmd.alarmLevel) { //  == 0x11
@@ -577,10 +573,6 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, r
 def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$cmd")
 
-  String manufacturerCode = String.format("%04X", cmd.manufacturerId)
-  String productTypeCode = String.format("%04X", cmd.productTypeId)
-  String productCode = String.format("%04X", cmd.productId)
-
   state.manufacturer = "Ecolink"
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
@@ -624,6 +616,7 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
       state.isLifeLine = true
     }
   } else {
+    result << response( zwave.alarmV2.alarmTypeSupportedGet() )
     updateDataValue("isNewerModel", "false")
     result << createEvent(name: "Basic Report", value: "Unknown")
   }
@@ -634,11 +627,6 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
     cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
   }
   
-  result << createEvent(name: "Manufacturer ID", value: manufacturerCode)
-  result << createEvent(name: "Product Type", value: productTypeCode)
-  result << createEvent(name: "Product ID", value: productCode)
-  result << createEvent(name: "MSR", value: "$msr", descriptionText: "$device.displayName", isStateChange: false)
-  result << createEvent(name: "Manufacturer", value: "${state.manufacturer}", descriptionText: "$device.displayName", isStateChange: false)
   result << response( delayBetween(cmds, 1000) )
   result << response( zwave.versionV1.versionGet() )
 }
@@ -663,7 +651,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
     if (1) { // Followup off
       if ( cmd.configurationValue == 0x00 ) {
         result << response(delayBetween([
-        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
+        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [255], size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
         ], 800))
       }
@@ -678,7 +666,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
     if (0) { // Followup off
       if ( cmd.configurationValue == 0x00 ) {
         result << response(delayBetween([
-        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
+        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [255], size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
         ], 800))
       }
@@ -694,7 +682,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
     if (0) { // Disable default setting of...
       if ( cmd.configurationValue == 0x00 ) {
         result << response(delayBetween([
-        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, scaledConfigurationValue: 0xFF, size: 1).format(),
+        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [255], size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
         ], 800))
       }
@@ -827,7 +815,6 @@ def checkConfigure() {
         cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
       }
       cmds << zwave.alarmV2.alarmGet(alarmType: 0, zwaveAlarmType: 0x07).format()
-      cmds << zwave.alarmV2.alarmTypeSupportedGet().format()
 
       if (0) {
         cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
