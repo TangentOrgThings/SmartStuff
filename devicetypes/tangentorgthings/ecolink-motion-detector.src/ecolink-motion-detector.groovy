@@ -19,7 +19,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.09"
+  return "v5.11"
 }
 
 Boolean isPlus() {
@@ -376,17 +376,24 @@ def zwaveEvent(zwave.commands.securitypanelmodev1.SecurityPanelModeSupportedGet 
   result << response(zwave.securityPanelModeV1.securityPanelModeSupportedReport(supportedModeBitMask: 0))
 }
 
+def zwaveEvent(zwave.commands.alarmv2.AlarmTypeSupportedReport cmd, result) {
+  logger("$cmd")
+  updateDataValue("AlarmTypeSupportedReport", "${cmd}")
+}
+
 // Older devices
 def zwaveEvent(zwave.commands.alarmv2.AlarmReport cmd, result) {
   logger("$cmd")
+
+  if ( cmd.zwaveAlarmType == ZWAVE_ALARM_TYPE_BURGLAR && cmd.zwaveAlarmStatus == 0x00 ) {
+    result << response(zwave.alarmV2.alarmSet(zwaveAlarmType: cmd.zwaveAlarmType, zwaveAlarmStatus: cmd.zwaveAlarmStatus))
+  }
 
   if (cmd.alarmLevel) { //  == 0x11
     result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName covering was removed", isStateChange: true, displayed: true)
   } else {
     result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName is clear", isStateChange: true, displayed: true)
   }
-
-  return result
 }
 
 // NotificationReport() NotificationReport(event: 0, eventParameter: [], eventParametersLength: 0, notificationStatus: 255, notificationType: 7, reserved61: 0, sequence: false, v1AlarmLevel: 0, v1AlarmType: 0, zensorNetSourceNodeId: 0)
@@ -808,6 +815,8 @@ def checkConfigure() {
       } else {
         cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
       }
+      cmds << zwave.alarmV2.alarmGet(alarmType: 0, zwaveAlarmType: 0x07).format()
+      cmds << zwave.alarmV2.alarmTypeSupportedGet().format()
 
       if (0) {
         cmds << zwave.wakeUpV1.wakeUpIntervalGet().format()
