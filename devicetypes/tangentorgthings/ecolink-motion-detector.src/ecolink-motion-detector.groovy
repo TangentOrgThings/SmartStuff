@@ -62,9 +62,6 @@ metadata {
     attribute "lastError", "string"        // Last error message
 
     // Device Specific
-    attribute "Lifeline", "string"
-    attribute "Repeated", "string"
-
     attribute "Basic Report", "enum", ["Unconfigured", "On", "Off"]
     attribute "Lifeline Sensor Binary Report", "enum", ["Unconfigured", "On", "Off"]
     attribute "Basic Set Off", "enum", ["Unconfigured", "On", "Off"]
@@ -93,6 +90,8 @@ metadata {
     // zw:S type:2001 mfr:014A prod:0001 model:0001 ver:2.00 zwv:3.40 lib:06 cc:30,71,72,86,85,84,80,70 ccOut:20
     fingerprint type: "2001", mfr: "014A", prod: "0001", model: "0001", deviceJoinName: "Ecolink Motion Sensor PIRZWAVE1" // Ecolink motion //, cc: "30, 71, 72, 86, 85, 84, 80, 70", ccOut: "20"
     fingerprint type: "2001", mfr: "014A", prod: "0004", model: "0001", deviceJoinName: "Ecolink Motion Sensor PIRZWAVE2.5-ECO"  // Ecolink motion + // , cc: "85, 59, 80, 30, 04, 72, 71, 73, 86, 84, 5E", ccOut: "20"
+    fingerprint type: "2001", mfr: "014A", prod: "0001", model: "0003", deviceJoinName: "Ecolink Tilt Sensor TILT-ZWAVE2.0-ECO"  // Ecolink TILT 
+    fingerprint type: "2001", mfr: "014A", prod: "0004", model: "0003", deviceJoinName: "Ecolink Tilt Sensor TILT-ZWAVE2.5-ECO"  // Ecolink TILT cc:5E,86,72,73,80,71,85,59,84,30,70 ccOut:20
   }
 
   simulator {
@@ -336,7 +335,8 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
 
   sensorValueEvent((cmd.value > 0) ? true : false, result)
   if (isLifeLine()) {
-    logger("duplicate SwitchBinaryReport", "warn")
+    logger("duplicate SwitchBinaryReport", "info")
+    response ( zwave.associationV1.associationRemove(groupingIdentifier: 2, zwaveHubNodeId) )
   }
 }
 
@@ -548,6 +548,25 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, r
   }
 }
 
+def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, result) {
+  logger("$cmd")
+
+  updateDataValue("deviceIdData", "${cmd.deviceIdData}")
+  updateDataValue("deviceIdDataFormat", "${cmd.deviceIdDataFormat}")
+  updateDataValue("deviceIdDataLengthIndicator", "${cmd.deviceIdDataLengthIndicator}")
+  updateDataValue("deviceIdType", "${cmd.deviceIdType}")
+
+  if (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) {//serial number in binary format
+    String serialNumber = "h'"
+
+    cmd.deviceIdData.each{ data ->
+      serialNumber += "${String.format("%02X", data)}"
+    }
+
+    updateDataValue("serialNumber", serialNumber)
+  }
+}
+
 def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$cmd")
 
@@ -576,6 +595,7 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
     result << response(delayBetween([
       zwave.notificationV3.eventSupportedGet(notificationType: 7).format(),
       zwave.notificationV3.notificationSupportedGet().format(),
+      zwave.manufacturerSpecificV2.deviceSpecificGet().format(),
     ], 700))
     state.isLifeLine = true
   } else {
@@ -701,19 +721,12 @@ def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
 
   def cmds = []
 
-  String final_string = ""
-  
-  // Association
-  if (cmd.nodeId) {
-    def string_of_assoc = ""
-    cmd.nodeId.each {
-      string_of_assoc += "${it}, "
-    }
-    def lengthMinus2 = ( string_of_assoc.length() > 3 ) ? string_of_assoc.length() - 3 : 0
-    final_string = lengthMinus2 ? string_of_assoc.getAt(0..lengthMinus2) : string_of_assoc
-  }
+  String string_of_assoc = ""
+	if (cmd.nodeId) {
+		string_of_assoc = cmd.nodeId.join(",")
+	}
 
-  updateDataValue("Group #${cmd.groupingIdentifier}", "${final_string}")
+  updateDataValue("Group #${cmd.groupingIdentifier}", "${string_of_assoc}")
 
   Boolean isAssociated = false
 
@@ -721,10 +734,6 @@ def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       isAssociated = true
     }
-    result << createEvent(name: "Lifeline",
-          value: "${final_string}",
-          displayed: true,
-          isStateChange: true)
   } else if (cmd.groupingIdentifier == 0x02) { // Repeated
     if (cmd.nodeId.any { it == zwaveHubNodeId }) {
       if (getAssociationGroup() == 1) {
@@ -743,11 +752,6 @@ def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
         cmds << zwave.associationV1.associationGet(groupingIdentifier: cmd.groupingIdentifier).format();
       }
     }
-
-    result << createEvent(name: "Repeated",
-      value: "${final_string}",
-      displayed: true,
-      isStateChange: true)
   } else {
     logger("unknown association: $cmd", "error")
     return
