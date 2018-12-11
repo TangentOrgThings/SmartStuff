@@ -190,7 +190,7 @@ def getCommandClassVersions() {
     0x20: 1,  // Basic
     0x30: 1,  // Sensor Binary
     0x70: 2,  // Configuration V1
-    0x71: 2,  // Notification v2 ( Alarm V2 )
+    0x71: 3,  // Notification v2 ( Alarm V2 )
     0x72: 2,  // Manufacturer Specific V1
     0x80: 1,  // Battery
     0x81: 1,  // Clock
