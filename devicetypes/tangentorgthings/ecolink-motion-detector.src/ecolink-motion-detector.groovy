@@ -19,19 +19,27 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.07"
+  return "v5.09"
 }
 
 Boolean isPlus() {
   return settings.newModel || state.discoveredNewModel
 }
 
+Boolean isTilt() {
+  return state.isTilt ?: false
+}
+
+Boolean isMotion() {
+  return state.isMotion ?: false
+}
+
 Boolean isLifeLine() {
-  return state.isLifeLine ? state.isLifeLine : false
+  return state.isLifeLine ?: false
 }
 
 def getAssociationGroup () {
-  if ( zwaveHubNodeId == 1 || isPlus() ) {
+  if ( zwaveHubNodeId == 1 || isLifeLine() ) {
     return 1
   }
 
@@ -114,7 +122,7 @@ metadata {
         attributeState("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#00A0DC")
         attributeState("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#CCCCCC")
         attributeState("open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#e86d13")
-				attributeState("closed", label: '${name}', icon: "st.contact.contact.closed", backgroundColor: "#00A0DC")
+        attributeState("closed", label: '${name}', icon: "st.contact.contact.closed", backgroundColor: "#00A0DC")
       }
     }
 
@@ -587,6 +595,21 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
   */
 
   state.discoveredNewModel = cmd.productTypeId == 0x0004 ? true : false
+  state.isTilt = cmd.productId == 0x0003 ? true : false
+  state.isMotion = cmd.productId == 0x0001 ? true : false
+
+  String device_type = "Unknown"
+  switch (cmd.productId) { 
+    case 0x0001:
+    device_type = "Motion"
+    break;
+    case 0x0003:
+    device_type = "Tilt"
+    break;
+    default:
+    break;
+  }
+  updateDataValue("device type", "${device_type}")
   
   if (isPlus()) {
     updateDataValue("isNewerModel", "true")
@@ -597,7 +620,10 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
       zwave.notificationV3.notificationSupportedGet().format(),
       zwave.manufacturerSpecificV2.deviceSpecificGet().format(),
     ], 700))
-    state.isLifeLine = true
+
+    if ( cmd.productId == 0x0001 ) {
+      state.isLifeLine = true
+    }
   } else {
     updateDataValue("isNewerModel", "false")
     result << createEvent(name: "Basic Report", value: "Unknown")
