@@ -19,7 +19,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v5.15"
+  return "v5.17"
 }
 
 Boolean isPlus() {
@@ -189,7 +189,7 @@ def getCommandClassVersions() {
   return [
     0x20: 1,  // Basic
     0x30: 1,  // Sensor Binary
-    0x70: 2,  // Configuration V1
+    0x70: 1,  // Configuration V1
     0x71: 3,  // Notification v2 ( Alarm V2 )
     0x72: 2,  // Manufacturer Specific V1
     0x80: 1,  // Battery
@@ -647,30 +647,59 @@ def zwaveEvent(zwave.commands.versionv1.VersionReport cmd, result) {
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
+def zwaveEvent(zwave.commands.configurationv1.ConfigurationReport cmd, result) {
+  logger("$cmd")
+
+  Boolean _isConfigured = false
+
+  if (cmd.parameterNumber == 0x63) {
+    if ( cmd.configurationValue.length && cmd.configurationValue[0] == 0x00 ) {
+      result << createEvent(name: "Basic Report", value: "Off", displayed: true)
+    } else if ( cmd.configurationValue.length && cmd.configurationValue[0] == 0xFF ) {
+      result << createEvent(name: "Basic Report", value: "On", displayed: true)
+      _isConfigured = true
+    } else { // Unknown state
+    }
+  } else {
+    logger("Unknown parameterNumber number ${cmd.parameterNumber}", "error")
+    return
+  }
+
+  if (! _isConfigured) {
+    result << response(delayBetween([
+    zwave.configurationV1.configurationSet(parameterNumber: 0x63, scaledConfigurationValue: 0xFF, size: 1).format(),
+    zwave.configurationV1.configurationGet(parameterNumber: 0x63).format(),
+    ], 1000))
+  }
+
+  if (_isConfigured) {
+    setConfigured()
+  } else {
+    unConfigured()
+  }
+}
+
 def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
   logger("$cmd")
 
   Boolean _isConfigured = false
 
   if (cmd.parameterNumber == 0x63) {
-    result << createEvent(name: "Basic Report", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
-    if (1) { // Followup off
-      if ( cmd.configurationValue == 0x00 ) {
-        result << response(delayBetween([
-        zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [255], size: 1).format(),
-        zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
-        ], 800))
-      }
+    if ( cmd.configurationValue.length && cmd.configurationValue[0] == 0x00 ) {
+      result << createEvent(name: "Basic Report", value: "Off", displayed: true)
+    } else if ( cmd.configurationValue.length && cmd.configurationValue[0] == 0xFF ) {
+      result << createEvent(name: "Basic Report", value: "On", displayed: true)
+      _isConfigured = true
+    } else { // Unknown state
     }
-    _isConfigured = true
   } else if (cmd.parameterNumber == 0x01) {
   / *
       0x00 (Default) Sensor does NOT send Basic Sets to Node IDs in Association Group 2 when the sensor is restored (i.e. Motion Not Detected ).
       0xFF Sensor sends Basic Sets of 0x00 to nodes in Association Group2 when sensor is restored.
     */
-    result << createEvent(name: "Basic Set Off", value: cmd.configurationValue == 0xFF ? "On" : "Off", displayed: true)
+    result << createEvent(name: "Basic Set Off", value: cmd.configurationValue[0] == 0xFF ? "On" : "Off", displayed: true)
     if (0) { // Followup off
-      if ( cmd.configurationValue == 0x00 ) {
+      if ( cmd.configurationValue[0] == 0x00 ) {
         result << response(delayBetween([
         zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [255], size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
@@ -683,10 +712,10 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
       0x00 (Default) Sensor sends Sensor Binary Reports when sensor is faulted and restored for backwards compatibility in addition to Notification Reports.
       0xFF Sensor will send only Notification Reports and NOT Sensor Binary Reports when the sensor is faulted and restored.
    */
-    result << createEvent(name: "Lifeline Sensor Binary Report", value: cmd.configurationValue == 0xFF ? "Off" : "On", displayed: true);
+    result << createEvent(name: "Lifeline Sensor Binary Report", value: cmd.configurationValue[0] == 0xFF ? "Off" : "On", displayed: true);
 
     if (0) { // Disable default setting of...
-      if ( cmd.configurationValue == 0x00 ) {
+      if ( cmd.configurationValue[0] == 0x00 ) {
         result << response(delayBetween([
         zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [255], size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
@@ -699,12 +728,26 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
     return
   }
 
-  if ( zwaveHubNodeId != 1 && ! isPlus() && device.currentValue("MSR")) {
-    if (! _isConfigured) {
+  if (! _isConfigured) {
+    switch ( cmd.parameterNumber ) {
+      case 0x01:
       result << response(delayBetween([
-        zwave.configurationV1.configurationSet(parameterNumber: 0x63, scaledConfigurationValue: 0xFF, size: 1).format(),
-        zwave.configurationV1.configurationGet(parameterNumber: 0x63).format(),
+      zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [0xFF], size: 1).format(),
+      zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
       ], 1000))
+      case 0x02:
+      result << response(delayBetween([
+      zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [0xFF], size: 1).format(),
+      zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 1000))
+      case 0x63:
+      result << response(delayBetween([
+      zwave.configurationV1.configurationSet(parameterNumber: cmd.parameterNumber, configurationValue: [0xFF], size: 1).format(),
+      zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+      ], 1000))
+      break;
+      default:
+      break;
     }
   }
 
