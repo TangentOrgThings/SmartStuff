@@ -414,21 +414,32 @@ def zwaveEvent(zwave.commands.notificationv3.NotificationReport cmd, result) {
         return
     }
   } else if (cmd.notificationType == 7) {
-    Boolean current_status = cmd.notificationStatus == 0xFF ? true : false
+    Boolean current_status = cmd.notificationStatus == 0xFF ? true : false;
+
+    if ( cmd.eventParametersLength && cmd.eventParameter.size() && cmd.eventParameter[0] ) {
+      switch ( cmd.eventParameter[0]) {
+        case 3:
+        result << createEvent(name: "tamper", value: "clear", descriptionText: "$device.displayName has been activated by the switch.", isStateChange: true)
+        break
+        default:
+        logger("Unknown event parameter", "error")
+        break
+      }
+    }
 
     switch (cmd.event) {
-      case 3:
+      case 3: // Tamper
         // sendEvent(name: "tamper", value: current_status ? "detected" : "clear", descriptionText: "$device.displayName covering was removed", isStateChange: true, displayed: true)
         result << createEvent(name: "tamper", value: current_status ? "detected" : "clear", descriptionText: "$device.displayName covering was removed", isStateChange: true, displayed: true)
         break;
-      case 8:
+      case 1: // Node Location Report
+      case 2: // Intrusion, Unknown Location
+      case 7: // ?
+      case 8: // ?
         sensorValueEvent(true, result)
         break;
       case 0:
         sensorValueEvent(false, result)
-        break;
-      case 2:
-        sensorValueEvent(current_status, result)
         break;
       default:
         logger("unknown event for notification 7: ${cmd}", "error")
