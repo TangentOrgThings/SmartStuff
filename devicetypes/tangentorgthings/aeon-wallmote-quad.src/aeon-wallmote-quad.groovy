@@ -96,7 +96,8 @@ metadata {
   }
 
   preferences {
-    input "debugLevel", "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "createChildren", type: "bool", title: "Create Children", description: "Create children devices for buttons.", required: true,  defaultValue: false
   }
 
   tiles {
@@ -653,21 +654,23 @@ def checkConfigure() {
 }
 
 private void createChildDevices() {
-  // Save the device label for updates by updated()
-  state.oldLabel = device.label
+  if ( settings.createChildren ) {
+    // Save the device label for updates by updated()
+    state.oldLabel = device.label
 
-  // Add child devices for four button presses
-  for ( Integer x in 1..4 ) {
-    addChildDevice(
-      "smartthings",
-      "Child Switch",
-      "${device.deviceNetworkId}/$x",
-      "",
-      [
-      label         : "$device.displayName Switch $x",
-      completedSetup: true,
-      isComponent: true,
-      ])
+    // Add child devices for four button presses
+    for ( Integer x in 1..4 ) {
+      addChildDevice(
+        "smartthings",
+        "Child Switch",
+        "${device.deviceNetworkId}/$x",
+        "",
+        [
+        label         : "$device.displayName Switch $x",
+        completedSetup: true,
+        isComponent: true,
+        ])
+    }
   }
 }
 
@@ -716,7 +719,9 @@ def updated() {
     createChildDevices()
   }
 
-  childDevices.each { logger("${it.deviceNetworkId}") }
+  if ( childDevices ) {
+    childDevices.each { logger("${it.deviceNetworkId}") }
+  }
 
   sendCommands( prepDevice(), 5000 )
 
