@@ -49,9 +49,17 @@ metadata {
   }
 
   tiles {
-    standardTile("switch", "device.switch", width: 2, height: 2, decoration: "flat") {
-      state "on", label: "", backgroundColor: "#D3D3D3"
-      state "off", label: "${currentValue}", backgroundColor: "#79b821"
+    multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
+      tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+        attributeState "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+        attributeState "turningOn", label:'${name}', icon:"st.switches.switch.on", backgroundColor:"#00a0dc", nextState:"turningOff"
+        attributeState "turningOff", label:'${name}', icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+      }
+
+      tileAttribute ("device.level", key: "SLIDER_CONTROL") {
+        attributeState "level", action: "switch level.setLevel", defaultState: true
+      }
     }
 
     valueTile("level", "device.level", width: 2, height: 2, decoration: "flat", inactiveLabel: false) {
