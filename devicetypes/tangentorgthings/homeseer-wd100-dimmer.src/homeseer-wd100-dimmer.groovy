@@ -117,6 +117,7 @@ metadata {
   }
 
   preferences {
+    input name: "disableSafetyLevel", type: "bool", title: "Disable Safety Level", description: "Disable Safety Level", required: false,  defaultValue: false
     input name: "startMax", type: "bool", title: "Start at Max", description: "Always Start at Max Power", required: false,  defaultValue: true
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
     input name: "localStepDuration", type: "number", title: "Local Ramp Rate: Duration of each level (1-255)(1=10ms) [default: 3]", range: "1..255", required: false
@@ -469,7 +470,7 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
 
   def cmds = []
 
-  if (level >= 1 && level <= 32) {  // Make sure we don't burn anything out
+  if (( ! settings.disableSafetyLevel ) && level >= 1 && level <= 32) {  // Make sure we don't burn anything out
     cmds << zwave.switchMultilevelV1.switchMultilevelSet(value: 33).format()
     cmds << zwave.switchMultilevelV1.switchMultilevelGet().format()
   }
@@ -865,7 +866,7 @@ def setLevel (provided_value) {
   def valueaux = provided_value as Integer
   logger("setLevel() value: $value")
 
-  def level = (valueaux != 255) ? Math.max(Math.min(valueaux, 99), 33) : 99
+  def level = (valueaux != 255) ? Math.max(Math.min(valueaux, 99), 0) : 99
 
   if (valueaux <= 1) { // Check for 1 because of bad device on setting non-existant indicator
     level = 0

@@ -1,4 +1,5 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+
 /**
  *  Virtual Dimmer
  *
@@ -16,7 +17,11 @@
  */
 
 String getDriverVersion () {
-  return "v1.05"
+  return "v1.09"
+}
+
+def versionNum(){
+  return getDriverVersion()
 }
 
 metadata {
@@ -102,29 +107,31 @@ def setLevel(val) {
   }
 }
 
-def trueSetLevel(Integer val) {
+def trueSetLevel(Integer cmd_value) {
+
+  Integer val = Math.max(Math.min(cmd_value, 99), 0)
+
   if (val == 0) {
     sendEvent(name: "switch", value: "off")
     sendEvent(name: "level", value: val)
   } else {
     sendEvent(name: "switch", value: "on")
-    sendEvent(name: "level", value: val == 255 ? 99 : val)
+    sendEvent(name: "level", value: val)
   }
 }
 
 def ignoreDigital() {
-  state.IgnoreDigital = true
+  state.IgnoreDigital = state.IgnoreDigital ? false : true
   return
 }
 
 def installed() {
   log.info("$device.displayName installed()")
 
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
-
   sendEvent(name: "switch", value: "off")
   sendEvent(name: "level", value: 0)
   sendEvent(name: "numberOfButtons", value: 2, displayed: true, isStateChange: true)
+  showVersion() 
 }
 
 def updated() {
@@ -136,11 +143,29 @@ def updated() {
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
 
-  sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   sendEvent(name: "numberOfButtons", value: 2, displayed: true, isStateChange: true)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
+  showVersion() 
+}
+
+def showVersion() {
+  def versionTxt = "${appName()}: ${versionNum()}\n"
+  try {
+    if (parent.getSwitchAbout()) {
+      versionTxt += parent.getSwitchAbout()
+    }
+  }
+  catch(e) {
+    versionTxt += "Installed from the SmartThings IDE"
+  }
+  sendEvent (name: "about", value: "${versionTxt}") 
+  sendEvent (name: "driverVersion", value: "${getDriverVersion()}") 
+}
+
+String appName() {
+  return "Virtual Dimmer"
 }
 
 private logger(msg, level = "trace") {
