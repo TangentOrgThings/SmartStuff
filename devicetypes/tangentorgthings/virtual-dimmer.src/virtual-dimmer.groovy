@@ -82,8 +82,10 @@ def on() {
     trueSetLevel(99)
     sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true) //  type: "$buttonType"
 
-    if (parent) {
-      parent.childOn(device.deviceNetworkId)
+    if (0) {
+      if (parent) {
+        parent.childOn(device.deviceNetworkId)
+      }
     }
   }
 }
@@ -95,8 +97,10 @@ def off() {
     trueSetLevel(0)
     sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], isStateChange: true) //  type: "$buttonType"
 
-    if (parent) {
-      parent.childOff(device.deviceNetworkId)
+    if (0) {
+      if (parent) {
+        parent.childOff(device.deviceNetworkId)
+      }
     }
   }
 }
