@@ -22,7 +22,7 @@
 import physicalgraph.*
 
 def getDriverVersion () {
-  return "v1.09"
+  return "v1.11"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -147,9 +147,9 @@ def parse(String description) {
 
 def sensorValueEvent(value, result) {
   if (value) {
-    result << createEvent(name: "motion", value: "active", descriptionText: "$device.displayName detected motion")
+    result << createEvent(name: "motion", value: "active")
   } else {
-    result << createEvent(name: "motion", value: "inactive", descriptionText: "$device.displayName motion has stopped")
+    result << createEvent(name: "motion", value: "inactive")
   }
 }
 
@@ -183,11 +183,11 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
   if (cmd.notificationType == 0x07) {
     if (cmd.v1AlarmType == 0x07) {  // special case for nonstandard messages from Monoprice ensors
-      result << sensorValueEvent(cmd.v1AlarmLevel)
+      sensorValueEvent(cmd.v1AlarmLevel, result)
     } else if (cmd.event == 0x01 || cmd.event == 0x02 || cmd.event == 0x07 || cmd.event == 0x08) {
-      result << sensorValueEvent(1)
+      sensorValueEvent(1, result)
     } else if (cmd.event == 0x00) {
-      result << sensorValueEvent(0)
+      sensorValueEvent(0, result)
     } else if (cmd.event == 0x03) {
       result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName covering was removed", isStateChange: true)
       result << response(zwave.batteryV1.batteryGet())
