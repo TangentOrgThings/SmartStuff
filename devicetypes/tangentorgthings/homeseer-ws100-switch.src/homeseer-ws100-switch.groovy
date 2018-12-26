@@ -235,7 +235,7 @@ def parse(String description) {
       zwaveEvent(cmd, result)
 
     } else {
-      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
+      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "warn" )
       // Try it without check for classes
       cmd = zwave.parse(description)
 
