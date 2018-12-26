@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v7.43"
+  return "v7.47"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -362,7 +362,7 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
 
 // These will show up from time to time, handle them as control
 def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
-  logger("$$cmd -- BEING CONTROLLED")
+  logger("$cmd -- BEING CONTROLLED")
   if (cmd.sensorValue) {
     on()
     return
