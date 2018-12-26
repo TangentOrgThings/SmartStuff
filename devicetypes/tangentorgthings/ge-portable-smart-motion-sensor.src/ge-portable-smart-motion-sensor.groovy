@@ -122,7 +122,7 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    logger("$device.displayName parse() called with NULL description", "info")
+    logger("parse() called with NULL description", "info")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -435,6 +435,8 @@ def prepDevice() {
 def installed() {
   logger("installed()", "info")
 
+  setTrace(true)
+
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   sendCommands(prepDevice())
@@ -442,6 +444,8 @@ def installed() {
 
 def updated() {
   logger("$device.displayName updated() debug: ${settings.debugLevel}", "info")
+
+  setTrace(true)
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -507,56 +511,58 @@ private prepCommands(cmds, delay) {
 private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
+
+def setTrace(Boolean enable) {
+  state.isTrace = enable
+}
+
+Boolean isTraceEnabled() {
+  Boolean is_trace = state.isTrace ?: false
+  return is_trace
+}
+
+def followupTraceDisable() {
+  logger("followupTraceDisable()")
+  
+  setTrace(false)
+}
+
 private logger(msg, level = "trace") {
+  String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "${msg}" : "<null>"
+
+  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+
   switch(level) {
-    case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
-    case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn msg
-      sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_text}"
     }
-    return
+    sendEvent(name: "logMessage", value: "${msg_text}", isStateChange: true)
+    break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info msg
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_text}"
     }
-    return
+    break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug msg
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_text}"
     }
-    return
+    break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace msg
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_text}"
     }
-    return
+    break;
 
     case "error":
     default:
-    break
+    log.error "$device_name ${msg_text}"
+    sendEvent(name: "lastError", value: "${msg_text}", isStateChange: true)
+    break;
   }
-
-  log.error msg
-  sendEvent(name: "lastError", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
 }

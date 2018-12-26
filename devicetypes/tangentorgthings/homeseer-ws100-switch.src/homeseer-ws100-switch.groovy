@@ -227,7 +227,7 @@ def parse(String description) {
         )
     }
   } else if (! description) {
-    logger("$device.displayName parse() called with NULL description", "info")
+    logger("parse() called with NULL description", "info")
   } else if (description != "updated") {
     def cmd = zwave.parse(description, getCommandClassVersions())
 
@@ -362,7 +362,7 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
 
 // These will show up from time to time, handle them as control
 def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
-  logger("$device.displayName $cmd -- BEING CONTROLLED")
+  logger("$$cmd -- BEING CONTROLLED")
   if (cmd.sensorValue) {
     on()
     return
@@ -568,7 +568,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
     result << createEvent(name: "blinkFrequency", value: cmd.configurationValue[0])
     break;
     default:
-    logger("$device.displayName has unknown configuration parameter $cmd.parameterNumber", "warn")
+    logger("has unknown configuration parameter $cmd.parameterNumber", "warn")
     break;
   }
 }
@@ -712,7 +712,7 @@ def zwaveEvent(zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd, result) {
 }
 
 def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
-  logger("$device.displayName $cmd")
+  logger("$cmd")
 
   switch (cmd.status) {
     case 0:
@@ -977,7 +977,7 @@ def zwaveEvent(zwave.commands.centralscenev1.CentralSceneNotification cmd, resul
 
   if (0) {
     if ( cmd.sequenceNumber > 1 && cmd.sequenceNumber < state.sequenceNumber ) {
-      logger(descriptionText: "Late sequenceNumber  ${state.sequenceNumber} < $cmd", "info")
+      logger("Late sequenceNumber ${state.sequenceNumber} < $cmd", "info")
       return
     }
     state.sequenceNumber= cmd.sequenceNumber
@@ -1189,6 +1189,9 @@ def installed() {
   sendEvent(name: "Scene", value: 0, isStateChange: true)
   indicatorWhenOff()
 
+  // Set timer turning off trace output
+  runIn(60*5, followupTraceDisable)
+
   sendCommands( [
     zwave.configurationV1.configurationSet(scaledConfigurationValue: 0, parameterNumber: 3, size: 1),
     ] + prepDevice(), 2000 )
@@ -1200,6 +1203,7 @@ def updated() {
     return
   }
   logger("updated() debug: ${settings.debugLevel}")
+  setTrace(true)
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
@@ -1231,6 +1235,9 @@ def updated() {
 
   sendCommands( prepDevice(), 2000 )
   response(refresh())
+
+  // Set timer turning off trace output
+  runIn(60*5, followupTraceDisable)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -1287,11 +1294,26 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
+def setTrace(Boolean enable) {
+  state.isTrace = enable
+}
+
+Boolean isTraceEnabled() {
+  Boolean is_trace = state.isTrace ?: false
+  return is_trace
+}
+
+def followupTraceDisable() {
+  logger("followupTraceDisable()")
+  
+  setTrace(false)
+}
+
 private logger(msg, level = "trace") {
   String device_name = "$device.displayName"
   String msg_text = (msg != null) ? "${msg}" : "<null>"
 
-  Integer log_level = state.defaultLogLevel ?: settings.debugLevel
+  Integer log_level =  isTraceEnabled() ? 5 : 2
 
   switch(level) {
     case "warn":
