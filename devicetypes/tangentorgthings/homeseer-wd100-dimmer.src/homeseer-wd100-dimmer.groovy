@@ -43,9 +43,7 @@ String getDriverVersion() {
 }
 
 def getConfigurationOptions(Integer model) {
-}
-def getConfigurationOptions(Integer model) {
-  if ( model == 12341 ) {
+  if ( model == 0x3036 ) {
     return [ 13, 14, 21, 31, 4, 7, 8, 9, 10 ] // Removed 6, support of this has not arrived
   }
 
