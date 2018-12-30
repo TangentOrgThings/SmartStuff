@@ -1281,7 +1281,7 @@ def installed() {
   indicatorWhenOff()
 
   // Set timer turning off trace output
-  runIn(60*5, followupTraceDisable)
+  setTrace(true)
 
   sendCommands( [
     zwave.configurationV1.configurationSet(scaledConfigurationValue: 0, parameterNumber: 3, size: 1),
@@ -1326,9 +1326,6 @@ def updated() {
 
   sendCommands( prepDevice(), 2000 )
   response(refresh())
-
-  // Set timer turning off trace output
-  runIn(60*5, followupTraceDisable)
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
@@ -1387,6 +1384,10 @@ private sendCommands(cmds, delay=200) {
 
 def setTrace(Boolean enable) {
   state.isTrace = enable
+
+  if ( enable ) {
+    runIn(60*5, followupTraceDisable)
+  }
 }
 
 Boolean isTraceEnabled() {
