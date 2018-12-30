@@ -39,10 +39,16 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v7.35"
+  return "v7.39"
 }
 
 def getConfigurationOptions(Integer model) {
+}
+def getConfigurationOptions(Integer model) {
+  if ( model == 12341 ) {
+    return [ 13, 14, 21, 31, 4, 7, 8, 9, 10 ] // Removed 6, support of this has not arrived
+  }
+
   return [ 4, 7, 8, 9, 10 ]
 }
 
@@ -59,8 +65,6 @@ metadata {
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     attribute "driverVersion", "string"
 
@@ -92,10 +96,17 @@ metadata {
     command "basicOn"
     command "basicOff"
 
+    command "setStatusLed"
+    command "setSwitchModeNormal"
+    command "setSwitchModeStatus"
+    command "setDefaultColor"
+    command "setBlinkDurationMilliseconds"
+
     // 0 0 0x2001 0 0 0 a 0x30 0x71 0x72 0x86 0x85 0x84 0x80 0x70 0xEF 0x20
     // zw:L type:1101 mfr:0184 prod:4447 model:3034 ver:5.14 zwv:4.24 lib:03 cc:5E,86,72,5A,85,59,73,26,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8600 ui:8600
     fingerprint mfr: "000C", prod: "4447", model: "3034", deviceJoinName: "HS-WD100+ In-Wall Dimmer" //, cc: "5E, 86, 72, 5A, 85, 59, 73, 26, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B", deviceJoinName: "HS-WD100+ In-Wall Dimmer"
     fingerprint mfr: "0184", prod: "4447", model: "3034", deviceJoinName: "WD100+ In-Wall Dimmer" // , cc: "5E, 86, 72, 5A, 85, 59, 73, 26, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B", deviceJoinName: "WD100+ In-Wall Dimmer"
+    fingerprint mfr: "000C", prod: "4447", model: "3036", deviceJoinName: "WD200+ In-Wall Dimmer" //
   }
 
   simulator {
@@ -127,6 +138,7 @@ metadata {
     input name: "fastDuration", type: "bool", title: "Fast Duration", description: "Where to quickly change light state", required: false, defaultValue: true
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "color", type: "enum", title: "Default LED Color", options: ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"], description: "Select Color", required: false
   }
 
   tiles(scale: 2) {
@@ -900,6 +912,210 @@ def setLevel(value, duration) {
   return setLevel(value);
 }
 
+/*
+ *  Set dimmer to status mode, then set the color of the individual LED
+ *
+ *  led = 1-7
+ *  color = 0=0ff
+ *          1=red
+ *          2=green
+ *          3=blue
+ *          4=magenta
+ *          5=yellow
+ *          6=cyan
+ *          7=white
+ */
+
+def setBlinkDurationMilliseconds (newBlinkDuration) { 
+  def cmds= []
+  if ( 0 < newBlinkDuration && newBlinkDuration < 25500){
+    log.debug "setting blink duration to: ${newBlinkDuration} ms"
+    state.blinkDuration = newBlinkDuration.toInteger()/100
+    log.debug "blink duration config parameter 30 is: ${state.blinkDuration}"
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [state.blinkDuration.toInteger()], parameterNumber: 30, size: 1).format()
+  } else {
+    log.debug "commanded blink duration ${newBlinkDuration} is outside range 0 .. 25500 ms"
+  }
+  return cmds
+}
+
+def setStatusLed (led,color,blink) {    
+  def cmds= []
+
+  if(state.statusled1==null) {      
+    state.statusled1=0
+    state.statusled2=0
+    state.statusled3=0
+    state.statusled4=0
+    state.statusled5=0
+    state.statusled6=0
+    state.statusled7=0
+    state.blinkval=0
+  }
+
+  /* set led # and color */
+  switch(led) {
+    case 1:
+    state.statusled1=color
+    break
+    case 2:
+    state.statusled2=color
+    break
+    case 3:
+    state.statusled3=color
+    break
+    case 4:
+    state.statusled4=color
+    break
+    case 5:
+    state.statusled5=color
+    break
+    case 6:
+    state.statusled6=color
+    break
+    case 7:
+    state.statusled7=color
+    break
+    case 0:
+    case 8:
+    // Special case - all LED's
+    state.statusled1=color
+    state.statusled2=color
+    state.statusled3=color
+    state.statusled4=color
+    state.statusled5=color
+    state.statusled6=color
+    state.statusled7=color
+    break
+
+  }
+
+  if(state.statusled1==0 && state.statusled2==0 && state.statusled3==0 && state.statusled4==0 && state.statusled5==0 && state.statusled6==0 && state.statusled7==0)
+  {
+    // no LEDS are set, put back to NORMAL mode
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [0], parameterNumber: 13, size: 1).format()         
+  }
+  else
+  {
+    // at least one LED is set, put to status mode
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [1], parameterNumber: 13, size: 1).format()
+  }
+
+  if (led==8 | led==0) 
+  {
+    for (def ledToChange = 1; ledToChange <= 7; ledToChange++)
+    {
+      // set color for all LEDs
+      cmds << zwave.configurationV2.configurationSet(configurationValue: [color], parameterNumber: ledToChange+20, size: 1).format()
+    }
+  }
+  else
+  {
+    // set color for specified LED
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [color], parameterNumber: led+20, size: 1).format()
+  }   
+
+  // check if LED should be blinking
+  def blinkval = state.blinkval
+
+  if(blink) {
+    switch(led) {
+      case 1:
+      blinkval = blinkval | 0x1
+      break
+      case 2:
+      blinkval = blinkval | 0x2
+      break
+      case 3:
+      blinkval = blinkval | 0x4
+      break
+      case 4:
+      blinkval = blinkval | 0x8
+      break
+      case 5:
+      blinkval = blinkval | 0x10
+      break
+      case 6:
+      blinkval = blinkval | 0x20
+      break
+      case 7:
+      blinkval = blinkval | 0x40
+      break
+      case 0:
+      case 8:
+      blinkval = 0x7F
+      break
+    }
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [blinkval], parameterNumber: 31, size: 1).format()
+    state.blinkval = blinkval
+    // set blink frequency if not already set, 5=500ms
+    if(state.blinkDuration == null | state.blinkDuration < 0 | state.blinkDuration > 255) {
+      cmds << zwave.configurationV2.configurationSet(configurationValue: [5], parameterNumber: 30, size: 1).format()
+    }
+  } else {
+
+    switch(led) {
+      case 1:
+      blinkval = blinkval & 0xFE
+      break
+      case 2:
+      blinkval = blinkval & 0xFD
+      break
+      case 3:
+      blinkval = blinkval & 0xFB
+      break
+      case 4:
+      blinkval = blinkval & 0xF7
+      break
+      case 5:
+      blinkval = blinkval & 0xEF
+      break
+      case 6:
+      blinkval = blinkval & 0xDF
+      break
+      case 7:
+      blinkval = blinkval & 0xBF
+      break
+      case 0:  
+      case 8:
+      blinkval = 0
+      break         
+    }
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [blinkval], parameterNumber: 31, size: 1).format()
+    state.blinkval = blinkval
+  }     
+  delayBetween(cmds, 150)
+}
+
+/*
+ * Set Dimmer to Normal dimming mode (exit status mode)
+ *
+ */
+def setSwitchModeNormal() {
+  def cmds= []
+  cmds << zwave.configurationV2.configurationSet(configurationValue: [0], parameterNumber: 13, size: 1).format()
+  delayBetween(cmds, 500)
+}
+
+/*
+ * Set Dimmer to Status mode (exit normal mode)
+ *
+ */
+def setSwitchModeStatus() {
+  def cmds= []
+  cmds << zwave.configurationV2.configurationSet(configurationValue: [1], parameterNumber: 13, size: 1).format()
+  delayBetween(cmds, 500)
+}
+
+/*
+ * Set the color of the LEDS for normal dimming mode, shows the current dim level
+ */
+def setDefaultColor(color) {
+  def cmds= []
+  cmds << zwave.configurationV2.configurationSet(configurationValue: [color], parameterNumber: 14, size: 1).format()
+  delayBetween(cmds, 500)
+}
+
 /**
  * PING is used by Device-Watch in attempt to reach the Device
  **/
@@ -1133,6 +1349,7 @@ def prepDevice() {
 
 def installed() {
   log.debug "installed()"
+  setTrace(true)
   /*
 
   def zwInfo = getZwaveInfo()
@@ -1185,12 +1402,10 @@ def updated() {
   }
   logger("updated() debug: ${settings.debugLevel}")
 
+  setTrace(true)
+
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   // Set Button Number and driver version
   sendEvent(name: "numberOfButtons", value: 6, displayed: false)
@@ -1267,47 +1482,57 @@ private sendCommands(cmds, delay=200) {
   sendHubCommand( cmds.collect{ (it instanceof physicalgraph.zwave.Command ) ? response(encapCommand(it)) : response(it) }, delay)
 }
 
-/**
- *  logger()
- *
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute and lastError attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
+def setTrace(Boolean enable) {
+  state.isTrace = enable
+}
+
+Boolean isTraceEnabled() {
+  Boolean is_trace = state.isTrace ?: false
+  return is_trace
+}
+
+def followupTraceDisable() {
+  logger("followupTraceDisable()")
+
+  setTrace(false)
+}
+
 private logger(msg, level = "trace") {
   String device_name = "$device.displayName"
+  String msg_text = (msg != null) ? "${msg}" : "<null>"
+
+  Integer log_level =  isTraceEnabled() ? 5 : 2
 
   switch(level) {
     case "warn":
-    if (settings.debugLevel >= 2) {
-      log.warn "$device_name ${msg}"
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_text}"
     }
-    sendEvent(name: "logMessage", value: "${msg}", displayed: false, isStateChange: true)
+    sendEvent(name: "logMessage", value: "${msg_text}", isStateChange: true)
     break;
 
     case "info":
-    if (settings.debugLevel >= 3) {
-      log.info "$device_name ${msg}"
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_text}"
     }
     break;
 
     case "debug":
-    if (settings.debugLevel >= 4) {
-      log.debug "$device_name ${msg}"
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_text}"
     }
     break;
 
     case "trace":
-    if (settings.debugLevel >= 5) {
-      log.trace "$device_name ${msg}"
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_text}"
     }
     break;
 
     case "error":
     default:
-    log.error "$device_name ${msg}"
-    sendEvent(name: "lastError", value: "${msg}", displayed: false, isStateChange: true)
+    log.error "$device_name ${msg_text}"
+    sendEvent(name: "lastError", value: "${msg_text}", isStateChange: true)
     break;
   }
 }

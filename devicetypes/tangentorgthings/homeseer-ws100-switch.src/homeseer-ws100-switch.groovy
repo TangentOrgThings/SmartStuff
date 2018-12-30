@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v7.47"
+  return "v7.49"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -47,8 +47,8 @@ metadata {
     capability "Actuator"
     capability "Button"
     capability "Indicator"
-    capability "Light"    
-    capability "Notification"    
+    capability "Light"
+    capability "Notification"
     capability "Refresh"
     capability "Polling"
     capability "Sensor"
@@ -76,15 +76,20 @@ metadata {
 
     attribute "SwitchAll", "string"
     attribute "Power", "string"
-    
+
     attribute "statusMode", "enum", ["default", "status"]
-    attribute "defaultLEDColor", "enum", ["white", "red", "green", "blue", "magenta", "yellow", "cyan"]    
+    attribute "defaultLEDColor", "enum", ["white", "red", "green", "blue", "magenta", "yellow", "cyan"]
     attribute "statusLEDColor", "enum", ["off", "red", "green", "blue", "magenta", "yellow", "cyan", "white"]
-    attribute "blinkFrequency", "number" 
-    
+    attribute "blinkFrequency", "number"
+
     command "basicOn"
     command "basicOff"
     command "codeRed"
+
+    command "setStatusLed"
+    command "setSwitchModeNormal"
+    command "setSwitchModeStatus"
+    command "setDefaultColor"
 
     // zw:L type:1001 mfr:000C prod:4447 model:3033 ver:5.14 zwv:4.05 lib:03 cc:5E,86,72,5A,85,59,73,25,27,70,2C,2B,5B,7A ccOut:5B role:05 ff:8700 ui:8700
     fingerprint mfr: "0184", prod: "4447", model: "3033", deviceJoinName: "WS-100" // cc: "5E, 86, 72, 5A, 85, 59, 73, 25, 27, 70, 2C, 2B, 5B, 7A", ccOut: "5B",
@@ -108,6 +113,7 @@ metadata {
     input name: "disbableDigitalSwitchButtons", type: "bool", title: "Disable Digital Buttons", description: "Disable digital switch buttons", required: false, defaultValue: false
     input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false,  defaultValue: 3
+    input name: "color", type: "enum", title: "Default LED Color", options: ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"], description: "Select Color", required: false
   }
 
   tiles(scale: 2) {
@@ -177,10 +183,10 @@ def getCommandClassVersions() {
       0x72: 2,  // Manufacturer Specific
       0x73: 1,  // Powerlevel
       0x7A: 2,  // Firmware Update Md HS-200 V4
-      0x85: 2,  // Association  0x85  V1 V2    
+      0x85: 2,  // Association  0x85  V1 V2
       0x86: 1,  // Version
       // 0x55: 1,  // Transport Service Command Class
-      // 0x9F: 1,  // Security 2 Command Class  
+      // 0x9F: 1,  // Security 2 Command Class
       // Controlled
       0x22: 1,  // Application Status
     ]
@@ -202,10 +208,10 @@ def getCommandClassVersions() {
     0x72: 2,  // Manufacturer Specific
     0x73: 1,  // Powerlevel
     0x7A: 2,  // Firmware Update Md HS-200 V4
-    0x85: 2,  // Association  0x85  V1 V2    
+    0x85: 2,  // Association  0x85  V1 V2
     0x86: 1,  // Version
     // 0x55: 1,  // Transport Service Command Class
-    // 0x9F: 1,  // Security 2 Command Class  
+    // 0x9F: 1,  // Security 2 Command Class
     // Controlled
     0x22: 1,  // Application Status
   ]
@@ -303,7 +309,7 @@ def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
   } else {
     logger("BasicSet reported value unknown to API ($value)", "warn")
   }
-} 
+}
 
 def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryGet cmd, result) {
   logger("$cmd")
@@ -358,7 +364,7 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   } else {
     logger("SwitchBinarySet reported value unknown to API ($value)", "warn")
   }
-} 
+}
 
 // These will show up from time to time, handle them as control
 def zwaveEvent(zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, result) {
@@ -489,7 +495,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
 
       result << createEvent(name: "invertedState", value: invertedStatus, display: true)
       return
-    } 
+    }
     break;
     case 13: // Display mode
     result << createEvent(name: "statusMode", value: cmd.configurationValue[0] ? "status" : "default")
@@ -510,7 +516,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
         break;
         case 3:
         color = "blue"
-        break; 
+        break;
         case 4:
         color = "magenta"
         break;
@@ -519,7 +525,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
         break;
         case 6:
         color = "cyan"
-        break;    
+        break;
         default:
         logger("Unknown default color ${cmd.configurationValue[0]}", "error")
         return;
@@ -543,7 +549,7 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
         break;
         case 3:
         color = "blue"
-        break; 
+        break;
         case 4:
         color = "magenta"
         break;
@@ -552,10 +558,10 @@ def zwaveEvent(zwave.commands.configurationv2.ConfigurationReport cmd, result) {
         break;
         case 6:
         color = "cyan"
-        break; 
+        break;
         case 7:
         color = "white"
-        break;    
+        break;
         default:
         logger("Unknown status color ${cmd.configurationValue[0]}", "error")
         return
@@ -591,7 +597,7 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd, r
     updateDataValue("serialNumber", serialNumber)
   }
 }
-  
+
 def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd, result) {
   logger("$cmd")
 
@@ -743,7 +749,7 @@ def zwaveEvent(zwave.Command cmd, result) {
 }
 
 def childOn(String childID) {
-  logger("childOn($childID)") 
+  logger("childOn($childID)")
 
   return response( delayBetween(
     [
@@ -762,7 +768,7 @@ def basicOff() {
 }
 
 def childOff(String childID) {
-  logger("childOff($childID)") 
+  logger("childOff($childID)")
 
   return response( delayBetween(
     [
@@ -799,7 +805,7 @@ def deviceNotification(String notification) {
 
     case "blue":
     colorNum = 3
-    break; 
+    break;
 
     case "magenta":
     colorNum = 4
@@ -811,11 +817,11 @@ def deviceNotification(String notification) {
 
     case "cyan":
     colorNum = 6
-    break; 
+    break;
 
     case "white":
     colorNum = 7
-    break;    
+    break;
 
     default:
     logger("Unknown notification ${notification}", "error")
@@ -833,6 +839,91 @@ def deviceNotification(String notification) {
     zwave.configurationV1.configurationGet(parameterNumber: 21).format(),
     ]
   ))
+}
+
+/*
+ *  Set dimmer to status mode, then set the color of the individual LED
+ *
+ *  led = 1-7
+ *  color = 0=0ff
+ *          1=red
+ *          2=green
+ *          3=blue
+ *          4=magenta
+ *          5=yellow
+ *          6=cyan
+ *          7=white
+ */
+def setStatusLed (led,color,blink) {
+  def cmds= []
+
+  if (state.statusled1==null) {
+    state.statusled1=0
+    state.blinkval=0
+  }
+
+  /* set led # and color */
+  switch(led) {
+    case 1:
+    state.statusled1=color
+    break
+
+  }
+
+
+  if (state.statusled1==0) {
+    // no LEDS are set, put back to NORMAL mode
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [0], parameterNumber: 13, size: 1).format()
+  } else {
+    // at least one LED is set, put to status mode
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [1], parameterNumber: 13, size: 1).format()
+    // set the LED to color
+    cmds << zwave.configurationV2.configurationSet(configurationValue: [color], parameterNumber: 21, size: 1).format()
+    // check if LED should be blinking
+    def blinkval = state.blinkval
+    if(blink) {
+      // set blink speed, also enables blink, 1=100ms blink frequency
+      cmds << zwave.configurationV2.configurationSet(configurationValue: [5], parameterNumber: 31, size: 1).format()
+      state.blinkval = blinkval
+    } else {
+      cmds << zwave.configurationV2.configurationSet(configurationValue: [0], parameterNumber: 31, size: 1).format()
+      state.blinkval = blinkval
+    }
+  }
+
+  delayBetween(cmds, 500)
+}
+
+
+/*
+ * Set switch to Normal mode (exit status mode)
+ *
+ */
+def setSwitchModeNormal() {
+  def cmds= []
+  cmds << zwave.configurationV2.configurationSet(configurationValue: [0], parameterNumber: 13, size: 1).format()
+  delayBetween(cmds, 500)
+}
+
+
+/*
+ * Set switch to Status mode (exit normal mode)
+ *
+ */
+def setSwitchModeStatus() {
+  def cmds= []
+  cmds << zwave.configurationV2.configurationSet(configurationValue: [1], parameterNumber: 13, size: 1).format()
+  delayBetween(cmds, 500)
+}
+
+
+/*
+ * Set the color of the LEDS for normal dimming mode, shows the current dim level
+ */
+def setDefaultColor(color) {
+  def cmds= []
+  cmds << zwave.configurationV2.configurationSet(configurationValue: [color], parameterNumber: 14, size: 1).format()
+  delayBetween(cmds, 500)
 }
 
 def on() {
@@ -886,7 +977,7 @@ def ping() {
 
 def refresh() {
   logger("refresh()")
-  
+
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
@@ -984,7 +1075,7 @@ def zwaveEvent(zwave.commands.centralscenev1.CentralSceneNotification cmd, resul
   }
 
   def cmds = []
-  
+
   switch (cmd.sceneNumber) {
     case 1: // On
     case 2: // Off
@@ -1227,7 +1318,7 @@ def updated() {
       break
     }
   }
-  
+
   // Device-Watch simply pings if no device events received for 32min(checkInterval)
   // sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) //, offlinePingable: "1"])
 
@@ -1247,14 +1338,14 @@ def updated() {
  *  Private Helper Functions:
  *****************************************************************************************************************/
 
-// convert a hex string to integer 
-def integerHex(String v) { 
-  if (v == null) { 
-    return 0 
-  } 
+// convert a hex string to integer
+def integerHex(String v) {
+  if (v == null) {
+    return 0
+  }
 
-  return Integer.parseInt(v, 16) 
-} 
+  return Integer.parseInt(v, 16)
+}
 
 /**
  *  encapCommand(cmd)
@@ -1305,7 +1396,7 @@ Boolean isTraceEnabled() {
 
 def followupTraceDisable() {
   logger("followupTraceDisable()")
-  
+
   setTrace(false)
 }
 
