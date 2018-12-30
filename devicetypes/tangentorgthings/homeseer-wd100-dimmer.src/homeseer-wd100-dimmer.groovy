@@ -39,7 +39,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v7.39"
+  return "v7.41"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -176,25 +176,51 @@ metadata {
 }
 
 def getCommandClassVersions() { // 26, 27, 2B, 2C, 59, 5A, 5B, 5E, 70, 72, 73, 7A, 85, 86
-[
-  0x20: 1,  // Basic
-  0x26: 1,  // SwitchMultilevel
-  0x27: 1,  // Switch All
-  0x2B: 1,  // SceneActivation
-  0x2C: 1,  // Scene Actuator Conf
-  0x59: 1,  // Association Grp Info
-  0x5A: 1,  // Device Reset Locally
-  0x5B: 1,  // Central Scene
-  0x70: 1,  // Configuration
-  0x72: 2,  // Manufacturer Specific
-  0x73: 1, // Powerlevel
-  0x7A: 2,  // Firmware Update Md
-  0x86: 1,  // Version
-  0x85: 2,  // Association  0x85  V1 V2
-  0x01: 1,  // Z-wave command class
-  0x25: 1,  // Switch Binary <-- This does seem to happen
-  0x56: 1,  // Crc16 Encap	0x56	V1
-]
+  if (state.MSR && state.MSR == "000C-4447-3036") {
+    return [
+      0x20: 1,  // Basic
+      0x26: 1,  // SwitchMultilevel
+      0x27: 1,  // Switch All
+      0x2B: 1,  // SceneActivation
+      0x2C: 1,  // Scene Actuator Conf
+      0x59: 1,  // Association Grp Info
+      0x5A: 1,  // Device Reset Locally
+      0x5B: 1,  // Central Scene
+      0x70: 2,  // Configuration
+      0x72: 2,  // Manufacturer Specific
+      0x73: 1,  // Powerlevel
+      0x7A: 2,  // Firmware Update Md
+      0x86: 1,  // Version
+      0x85: 2,  // Association  0x85  V1 V2
+      0x01: 1,  // Z-wave command class
+      0x25: 1,  // Switch Binary <-- This does seem to happen
+      0x56: 1,  // Crc16 Encap	0x56	V1
+      // Controlled
+      0x22: 1,  // Application Status
+    ]
+  }
+
+  return [
+    0x20: 1,  // Basic
+    0x26: 1,  // SwitchMultilevel
+    0x27: 1,  // Switch All
+    0x2B: 1,  // SceneActivation
+    0x2C: 1,  // Scene Actuator Conf
+    0x59: 1,  // Association Grp Info
+    0x5A: 1,  // Device Reset Locally
+    0x5B: 1,  // Central Scene
+    0x70: 1,  // Configuration
+    0x72: 2,  // Manufacturer Specific
+    0x73: 1,  // Powerlevel
+    0x7A: 2,  // Firmware Update Md
+    0x86: 1,  // Version
+    0x85: 2,  // Association  0x85  V1 V2
+    0x01: 1,  // Z-wave command class
+    0x25: 1,  // Switch Binary <-- This does seem to happen
+    0x56: 1,  // Crc16 Encap	0x56	V1
+    // Controlled
+    0x22: 1,  // Application Status
+  ]
 }
 
 def parse(String description) {
@@ -501,6 +527,167 @@ private dimmerEvents(Integer cmd_value, boolean isPhysical, result) {
 def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$cmd")
   result << createEvent(name: "Scene", value: "${cmd.sceneId}", isStateChange: true)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd, result) {
+  logger("$cmd")
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
+
+  def cmds = []
+
+  if (1) {
+    switch (cmd.parameterNumber) {
+      case 4:
+      logger("orientation ${cmd.scaledConfigurationValue}", "info")
+      if (1) {
+        if ( cmd.configurationValue[0] != invertSwitch) {
+          return response( delayBetween(
+            [
+            zwave.configurationV1.configurationSet(scaledConfigurationValue: invertSwitch ? 1 : 0, parameterNumber: cmd.parameterNumber, size: 1).format(),
+            zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format(),
+            ]
+          ))
+        }
+
+        result << createEvent(name: "invertedState", value: invertedStatus, display: true)
+        return
+      } 
+
+      break;
+      case 7:
+      logger("remote number of levels ${cmd.scaledConfigurationValue}", "info")
+      break;
+      case 8:
+      logger("remote duration of each level ${cmd.scaledConfigurationValue}", "info")
+      break;
+      case 9:
+      logger("number of levels ${cmd.scaledConfigurationValue}", "info")
+      break;
+      case 10:
+      logger("duration of each level ${cmd.scaledConfigurationValue}", "info")
+      break;
+
+      case 13: // Display mode
+      result << createEvent(name: "statusMode", value: cmd.configurationValue[0] ? "status" : "default")
+      return
+      break;
+
+      case 14: // Sets the default LED color
+      if (1) {
+        String color
+        switch (cmd.configurationValue[0]) {
+          case 0: // White
+          color = "White";
+          break;
+          case 1:
+          color = "Red";
+          break;
+          case 2:
+          color = "Green"
+          break;
+          case 3:
+          color = "Blue"
+          break; 
+          case 4:
+          color = "Magenta"
+          break;
+          case 5:
+          color = "Yellow"
+          break;
+          case 6:
+          color = "Cyan"
+          break;    
+          default:
+          logger("Unknown default color ${cmd.configurationValue[0]}", "error")
+          return;
+          break;
+        }
+        result << createEvent(name: "defaultLEDColor", value: color);
+      }
+      break;
+
+      case 21: // Sets the Color of the LED indicator in Status mode
+      if (1) {
+        String color
+        switch (cmd.configurationValue[0]) {
+          case 0: // Off
+          color = "Off";
+          break;
+          case 1:
+          color = "Red";
+          break;
+          case 2:
+          color = "Green"
+          break;
+          case 3:
+          color = "Blue"
+          break; 
+          case 4:
+          color = "Magenta"
+          break;
+          case 5:
+          color = "Yellow"
+          break;
+          case 6:
+          color = "Cyan"
+          break; 
+          case 7:
+          color = "White"
+          break;    
+          default:
+          logger("Unknown status color ${cmd.configurationValue[0]}", "error")
+          return
+          break;
+        }
+        result << createEvent(name: "statusLEDColor", value: color);
+      }
+      break;
+
+      case 31: // Sets Blink Frequency of LED in Status mode
+      result << createEvent(name: "blinkFrequency", value: cmd.configurationValue[0])
+      break;
+
+      default:
+      break
+    }
+  }
+
+  updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
+
+  if (cmd.parameterNumber == 4) {
+    if ( cmd.scaledConfigurationValue != invertSwitch) {
+      Integer switch_value = invertSwitch ? 1 : 0
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [switch_value], parameterNumber: cmd.parameterNumber, size: 1).format()
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
+    }
+
+    result << createEvent(name: "invertedStatus", value: invertedStatus, display: true)
+  } else if (cmd.parameterNumber == 7) {
+    if ( cmd.scaledConfigurationValue != 1) {
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [1], parameterNumber: cmd.parameterNumber, size: 1).format()
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
+    }
+  } else if (cmd.parameterNumber == 9) {
+    if ( cmd.scaledConfigurationValue != 1) {
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [1], parameterNumber: cmd.parameterNumber, size: 1).format()
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
+    }
+  } else if (cmd.parameterNumber == 8) {
+    if ( cmd.scaledConfigurationValue != 3) {
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [0, 3], parameterNumber: cmd.parameterNumber, size: 2).format()
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
+    }
+  } else if (cmd.parameterNumber == 10) {
+    if ( cmd.scaledConfigurationValue != 3) {
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [0, 3], parameterNumber: cmd.parameterNumber, size: 2).format()
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
+    }
+  }
+  
+  if (cmds) {
+    result << response(delayBetween(cmds))
+  }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
