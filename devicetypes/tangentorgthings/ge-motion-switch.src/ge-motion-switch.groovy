@@ -21,7 +21,7 @@
 import physicalgraph.*
 
 def getDriverVersion () {
-  return "v2.07"
+  return "v2.09"
 }
 
 def getConfigurationOptions(String model) {
@@ -327,9 +327,11 @@ def zwaveEvent(zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd, r
 
 	def endP = cmd.endPoint
 	
-	if (!childDevices.find{ it.deviceNetworkId.endsWith("-ep${endP}") || !childDevices}) {
-		createChildDevices( cmd.commandClass, endP )
-	}
+  if (childDevices) {
+    if (!childDevices.find{ it.deviceNetworkId.endsWith("-ep${endP}") || !childDevices}) {
+      createChildDevices( cmd.commandClass, endP )
+    }
+  }
 }
 
 def zwaveEvent(zwave.commands.multichannelv3.MultiChannelCmdEncap cmd, result) {
@@ -338,9 +340,11 @@ def zwaveEvent(zwave.commands.multichannelv3.MultiChannelCmdEncap cmd, result) {
   def ep = cmd.sourceEndPoint
   def childDevice = null
 
-  childDevices.each {
-    if (it.deviceNetworkId =="${device.deviceNetworkId}-ep${ep}") {
-      childDevice = it
+  if (childDevices) {
+    childDevices.each {
+      if (it.deviceNetworkId =="${device.deviceNetworkId}-ep${ep}") {
+        childDevice = it
+      }
     }
   }
 
@@ -825,7 +829,6 @@ def off() {
 def poll() {
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
-    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
   ])
 }
 
@@ -931,7 +934,7 @@ def setTrace(Boolean enable) {
 }
 
 Boolean isTraceEnabled() {
-  Boolean is_trace = state.isTrace ?: false
+  Boolean is_trace = ( state.isTrace == null || !( state.isTrace instanceof Boolean )) ? false : state.isTrace
   return is_trace
 }
 
@@ -963,61 +966,64 @@ def updated() {
   }
   state.lastUpdated = now()
 
+  if ( 0 ) {
     def cmds = []
+
     //switch and dimmer settings
     if (0) {
-    if (settings.timeoutduration) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.timeoutduration.toInteger()], parameterNumber: 1, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 1)
-  }
-  if (settings.motionsensitivity) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.motionsensitivity.toInteger()], parameterNumber: 13, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 13)
-  if (settings.lightsense) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.lightsense.toInteger()], parameterNumber: 14, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 14)
-  if (settings.resetcycle) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.resetcycle.toInteger()], parameterNumber: 15, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 15)
-  if (settings.operationmode) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.operationmode.toInteger()], parameterNumber: 3, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 3)
-  if (settings.motion) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.motion.toInteger()], parameterNumber: 6, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 6)
-  if (settings.invertSwitch) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.invertSwitch.toInteger()], parameterNumber: 5, size: 1)}
-  cmds << zwave.configurationV1.configurationGet(parameterNumber: 5)
+      if (settings.timeoutduration) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.timeoutduration.toInteger()], parameterNumber: 1, size: 1)}
+      cmds << zwave.configurationV1.configurationGet(parameterNumber: 1)
+    }
+    if (settings.motionsensitivity) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.motionsensitivity.toInteger()], parameterNumber: 13, size: 1)}
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: 13)
+    if (settings.lightsense) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.lightsense.toInteger()], parameterNumber: 14, size: 1)}
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: 14)
+    if (settings.resetcycle) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.resetcycle.toInteger()], parameterNumber: 15, size: 1)}
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: 15)
+    if (settings.operationmode) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.operationmode.toInteger()], parameterNumber: 3, size: 1)}
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: 3)
+    if (settings.motion) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.motion.toInteger()], parameterNumber: 6, size: 1)}
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: 6)
+    if (settings.invertSwitch) {cmds << zwave.configurationV1.configurationSet(configurationValue: [settings.invertSwitch.toInteger()], parameterNumber: 5, size: 1)}
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: 5)
 
-  // Make sure lifeline is associated - was missing on a dimmer:
-  /*
-  cmds << zwave.associationV1.associationSet(groupingIdentifier:0, nodeId:zwaveHubNodeId)
-  cmds << zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId)
-  cmds << zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId)
-  cmds << zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:zwaveHubNodeId)
-   */
+    // Make sure lifeline is associated - was missing on a dimmer:
+    /*
+    cmds << zwave.associationV1.associationSet(groupingIdentifier:0, nodeId:zwaveHubNodeId)
+    cmds << zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId)
+    cmds << zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId)
+    cmds << zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:zwaveHubNodeId)
+     */
 
-  //association groups
-  /*
-  def nodes = []
-  if (settings.requestedGroup2 != state.currentGroup2) {
-  nodes = parseAssocGroupList(settings.requestedGroup2, 2)
-  cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: [])
-  cmds << zwave.associationV2.associationSet(groupingIdentifier: 2, nodeId: nodes)
-  cmds << zwave.associationV2.associationGet(groupingIdentifier: 2)
-  state.currentGroup2 = settings.requestedGroup2
-  }
+    //association groups
+    /*
+    def nodes = []
+    if (settings.requestedGroup2 != state.currentGroup2) {
+    nodes = parseAssocGroupList(settings.requestedGroup2, 2)
+    cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: [])
+    cmds << zwave.associationV2.associationSet(groupingIdentifier: 2, nodeId: nodes)
+    cmds << zwave.associationV2.associationGet(groupingIdentifier: 2)
+    state.currentGroup2 = settings.requestedGroup2
+    }
 
-  if (settings.requestedGroup3 != state.currentGroup3) {
-  nodes = parseAssocGroupList(settings.requestedGroup3, 3)
-  cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: [])
-  cmds << zwave.associationV2.associationSet(groupingIdentifier: 3, nodeId: nodes)
-  cmds << zwave.associationV2.associationGet(groupingIdentifier: 3)
-  state.currentGroup3 = settings.requestedGroup3
-  }
-   */
+    if (settings.requestedGroup3 != state.currentGroup3) {
+    nodes = parseAssocGroupList(settings.requestedGroup3, 3)
+    cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: [])
+    cmds << zwave.associationV2.associationSet(groupingIdentifier: 3, nodeId: nodes)
+    cmds << zwave.associationV2.associationGet(groupingIdentifier: 3)
+    state.currentGroup3 = settings.requestedGroup3
+    }
+     */
 
-  cmds += prepDevice()
-  
-  // Set timer turning off trace output
-  if (0) {
-    runIn(60*5, followupTraceDisable)
+    cmds += prepDevice()
+
+    // Set timer turning off trace output
+    if (0) {
+      runIn(60*5, followupTraceDisable)
+    }
+
+    sendHubCommand(cmds.collect{ new physicalgraph.device.HubAction(it.format()) }, 5000)
   }
-  
-  sendHubCommand(cmds.collect{ new physicalgraph.device.HubAction(it.format()) }, 5000)
 }
 
 def Up() {

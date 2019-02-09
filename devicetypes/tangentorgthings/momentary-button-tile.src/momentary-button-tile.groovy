@@ -3,7 +3,7 @@
 /**
  *  Momentary Button Tile
  *
- *  Copyright 2017-2018 Brian Aker
+ *  Copyright 2017-2019 Brian Aker
  *  Copyright 2017-2018 Michael Struck
  *  Copyright 2016 Michael Struck
  *  Version 1.0.3 3/18/16
@@ -31,7 +31,7 @@ String getDriverVersion () {
 }
 
 def versionNum(){
-  def txt = "1.2.9 (10/15/18)"
+  def txt = "1.3.1 (02/08/19)"
 }
 
 metadata {
@@ -107,6 +107,10 @@ def push() {
   // sendEvent(name: "momentary", value: "pushed", isStateChange: true)
 }
 
+def on() {
+  log.debug "on()"
+  push()
+}
 
 def off() {
   log.debug "off()"
