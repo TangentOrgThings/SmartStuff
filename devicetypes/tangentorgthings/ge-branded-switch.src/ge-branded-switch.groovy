@@ -1,7 +1,7 @@
 // vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 
 /**
- *  Copyright 2017-2018 SmartThings
+ *  Copyright 2017-2019 SmartThings
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -17,7 +17,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v4.39"
+  return "v4.41"
 }
 
 def getConfigurationOptions(String msr) {
@@ -568,7 +568,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   updateDataValue("Scene #${cmd.sceneId}", "Level: ${cmd.level} Dimming Duration: ${cmd.dimmingDuration}")
 
   if (cmds.size()) {
-    result << response(delayBetween(cmds, 1000))
+    result << delayBetween(cmds, 1000)
   }
 }
 
