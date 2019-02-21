@@ -2,7 +2,7 @@
 /**
  *  Child Universal
  *
- *  Copyright 2018 Brian Aker <brian@tangent.org>
+ *  Copyright 2018-2019 Brian Aker <brian@tangent.org>
  *
  *  For device parameter information and images, questions or to provide feedback on this device handler,
  *  please visit:
@@ -29,7 +29,7 @@
  */
 
 String getDriverVersion () {
-  return "v1.01"
+  return "v1.03"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -226,8 +226,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
 
 def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
   logger("$device.displayName $cmd")
-
-
   updateDataValue("Scene #${cmd.sceneId}", "Level: ${cmd.level} Dimming Duration: ${cmd.dimmingDuration}")
 }
 
@@ -238,7 +236,6 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd, result) {
   logger("$device.displayName $cmd")
-
   updateDataValue("Configuration #${cmd.parameterNumber}", "${cmd.scaledConfigurationValue}")
 }
 
@@ -588,11 +585,9 @@ def integerHex(String v) {
 private encapCommand(physicalgraph.zwave.Command cmd) {
   if (state.sec) {
     return zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd)
-  }
-  else if (state.useCrc16) {
+  } else if (state.useCrc16) {
     return zwave.crc16EncapV1.crc16Encap().encapsulate(cmd)
-  }
-  else {
+  } else {
     return cmd
   }
 }
@@ -628,15 +623,7 @@ private sendCommands(cmds, delay=200) {
 private logger(msg, level = "trace") {
   switch(level) {
     case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "warn":
     if (settings.debugLevel >= 2) {
       log.warn msg
