@@ -8,7 +8,7 @@
  *  Leviton VRCS4-M0Z Vizia RF + 4-Button Remote Scene Controller
  *  https://products.z-wavealliance.org/products/318
  *
- *  Copyright 2017-2018 Brian Aker
+ *  Copyright 2017-2019 Brian Aker
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -24,7 +24,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v1.73"
+  return "v1.75"
 }
 
 metadata {
@@ -449,6 +449,10 @@ def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorCon
   ])
 }
 
+def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, result) {
+  logger("$cmd")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
   result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
@@ -632,6 +636,7 @@ def prepDevice() {
     // zwave.associationV1.associationGet(groupingIdentifier: 0x01),
     // zwave.basicV1.basicGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
+    zwave.sceneActuatorConfV1.sceneActuatorConfGet(sceneId: 0),
   ]
 }
 
