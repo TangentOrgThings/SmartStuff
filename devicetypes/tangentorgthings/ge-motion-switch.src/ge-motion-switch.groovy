@@ -21,7 +21,7 @@
 import physicalgraph.*
 
 def getDriverVersion () {
-  return "v2.09"
+  return "v2.11"
 }
 
 def getConfigurationOptions(String model) {
@@ -672,9 +672,8 @@ def zwaveEvent(zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport 
     cmds << zwave.configurationV1.configurationGet(parameterNumber: it).format()
   }
 
-  result << createEvent(name: "ManufacturerCode", value: manufacturerCode)
-  result << createEvent(name: "ProduceTypeCode", value: productTypeCode)
-  result << createEvent(name: "ProductCode", value: productCode)
+  cmds << zwave.versionV1.versionGet().format()
+
   result << response(delayBetween(cmds, 1000))
   result << response( zwave.versionV1.versionGet() )
 }
