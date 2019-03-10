@@ -17,7 +17,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v4.41"
+  return "v4.43"
 }
 
 def getConfigurationOptions(String msr) {
@@ -183,7 +183,7 @@ def prepDevice() {
     // zwave.configurationV1.configurationSet(configurationValue: [invertSwitch == true ? 1 : 0], parameterNumber: 4, size: 1),
     // zwave.configurationV1.configurationGet(parameterNumber: 3),
     // zwave.configurationV1.configurationGet(parameterNumber: 4),
-    zwave.switchBinaryV1.switchBinaryGet(),
+    // zwave.switchBinaryV1.switchBinaryGet(),
     zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
@@ -321,11 +321,13 @@ def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
     }
+    buttonEvent("BasicSet.off()", 2, false, "physical")
   } else if (value < 100 || value == 255) {
     result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
     }
+    buttonEvent("BasicSet.on()", 1, false, "physical")
   } else if (value < 254) {
     logger("BasicSet returned reserved state ($value)", "warn")
   } else if (value == 254) {
@@ -352,11 +354,13 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, result) {
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
     }
+    buttonEvent("SwitchBinaryReport.off()", 2, false, "physical")
   } else if (value == 255) {
     result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
     }
+    buttonEvent("SwitchBinaryReport.on()", 1, false, "physical")
   } else if (value < 254) {
     logger("SwitchBinaryReport returned reserved state ($value)", "warn")
   } else if (value == 254) {
@@ -376,11 +380,13 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
     }
+    buttonEvent("SwitchBinarySet.off()", 2, false, "physical")
   } else if (value < 100 || value == 255) {
     result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
     }
+    buttonEvent("SwitchBinarySet.on()", 1, false, "physical")
   } else if (value < 254) {
     logger("SwitchBinarySet returned reserved state ($value)", "warn")
   } else if (value == 254) {
@@ -524,9 +530,9 @@ def buttonEvent(String exec_caller, Integer button, Boolean held, String buttonT
 
   button = button as Integer
   if (held) {
-    sendEvent(name: "button", value: "held", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+    sendEvent(name: "button", value: "held", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed ($exec_caller)", isStateChange: true, type: "$buttonType")
   } else {
-    sendEvent(name: "button", value: "pushed", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+    sendEvent(name: "button", value: "pushed", data: [buttonNumber: button], descriptionText: "$device.displayName button $button was pushed ($exec_caller)", isStateChange: true, type: "$buttonType")
   }
 }
 
@@ -857,7 +863,8 @@ def on() {
   cmds << "delay 500"
   cmds << zwave.sceneActivationV1.sceneActivationSet(dimmingDuration: 0xff, sceneId: zwaveHubNodeId).format();
   cmds << "delay 5000"
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  if (0) cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  cmds << zwave.basicV1.basicGet().format()
   
   delayBetween(cmds, 5000)
 }
@@ -871,7 +878,8 @@ def off() {
 
   if (settings.disbableDigitalOff) {
     logger("..off() disabled")
-    return zwave.switchBinaryV1.switchBinaryGet().format()
+    if (0) return zwave.switchBinaryV1.switchBinaryGet().format()
+    return zwave.basicV1.basicGet().format()
   }
 
   def cmds = []
@@ -883,7 +891,8 @@ def off() {
 
   cmds << zwave.basicV1.basicSet(value: 0x00).format()
   cmds << "delay 5000"
-  cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  if (0) cmds << zwave.switchBinaryV1.switchBinaryGet().format()
+  cmds << zwave.basicV1.basicGet().format()
 
   delayBetween( cmds ) //, settings.delayOff ? 3000 : 600 )
 }
@@ -892,18 +901,19 @@ def off() {
  * PING is used by Device-Watch in attempt to reach the Device
  * */
 def ping() {
-  zwave.switchBinaryV1.switchBinaryGet().format()
+  zwave.basicV1.basicGet().format()
 }
 
 def poll() {
-  response(zwave.switchBinaryV1.switchBinaryGet())
+  response(zwave.basicV1.basicGet())
 }
 
 def refresh() {
   logger("refresh()")
   
   def cmds = [
-    zwave.switchBinaryV1.switchBinaryGet()
+    // zwave.switchBinaryV1.switchBinaryGet()
+    zwave.basicV1.basicGet()
   ]
 
   cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet()

@@ -25,7 +25,7 @@ def versionNum(){
 }
 
 metadata {
-  definition (name: "Virtual Dimmer", namespace: "TangentOrgThings", author: "Brian Aker") {
+  definition (name: "Virtual Dimmer", namespace: "TangentOrgThings", author: "Brian Aker", vid: "generic-dimmer") {
     capability "Actuator"
     capability "Button"
     capability "Sensor"

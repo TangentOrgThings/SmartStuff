@@ -21,7 +21,7 @@ def getDriverVersion () {
 }
 
 metadata {
-  definition (name: "Virtual Switch", namespace: "TangentOrgThings", author: "SmartThings") {
+  definition (name: "Virtual Switch", namespace: "TangentOrgThings", author: "SmartThings", vid: "generic-switch") {
     capability "Actuator"
     capability "Button"
     capability "Sensor"
