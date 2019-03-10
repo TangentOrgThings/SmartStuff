@@ -66,9 +66,6 @@ metadata {
     attribute "Power", "string"
     attribute "Protection", "string"
 
-    command "connect"
-    command "disconnect"
-
     fingerprint mfr:"0063", prod: "4952", model:"3032", deviceJoinName: "Jasco/GE 12722 In-Wall On/Off Switch" //, cc: "0x20, 0x25, 0x27, 0x70, 0x72, 0x73, 0x77, 0x86"
     fingerprint mfr:"0063", prod: "4952", model:"3036", deviceJoinName: "Jasco/GE 14291 In-Wall On/Off Switch"
     fingerprint mfr:"0063", prod: "4F50", model:"3032", deviceJoinName: "Jasco/GE Plug-in Outdoor Smart Switch"
@@ -189,8 +186,10 @@ def prepDevice() {
 }
 
 def initialize() {
-  if (1) {
+  if (0) {
     sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+  } else {
+    sendEvent(name: "checkInterval", value: 0, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
   }
 }
 
@@ -321,13 +320,13 @@ def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 0, isStateChange: true, displayed: true)
     }
-    buttonEvent("BasicSet.off()", 2, false, "physical")
+    buttonEvent("BasicSet.offDouble()", 4, false, "physical")
   } else if (value < 100 || value == 255) {
     result << createEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
     if (device.displayName.endsWith("Dimmer")) {
       result << createEvent(name: "level", value: 100, isStateChange: true, displayed: true)
     }
-    buttonEvent("BasicSet.on()", 1, false, "physical")
+    buttonEvent("BasicSet.onDouble()", 3, false, "physical")
   } else if (value < 254) {
     logger("BasicSet returned reserved state ($value)", "warn")
   } else if (value == 254) {
@@ -844,11 +843,6 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationcapabilityv1.CommandComma
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "unknownCommand")
-}
-
-def connect() {
-  logger("$device.displayName connect()")  
-  trueOn(true)
 }
 
 def on() {
