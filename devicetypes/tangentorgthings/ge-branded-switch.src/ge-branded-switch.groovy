@@ -906,11 +906,10 @@ def refresh() {
   logger("refresh()")
   
   def cmds = [
-    // zwave.switchBinaryV1.switchBinaryGet()
     zwave.basicV1.basicGet()
   ]
 
-  cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet()
+  if (0) cmds << zwave.manufacturerSpecificV1.manufacturerSpecificGet()
 
   if (device.currentState('firmwareVersion') == null) {
     cmds << zwave.versionV1.versionGet()
