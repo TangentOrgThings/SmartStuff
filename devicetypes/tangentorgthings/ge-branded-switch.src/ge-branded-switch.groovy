@@ -17,7 +17,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v4.43"
+  return "v4.45"
 }
 
 def getConfigurationOptions(String msr) {

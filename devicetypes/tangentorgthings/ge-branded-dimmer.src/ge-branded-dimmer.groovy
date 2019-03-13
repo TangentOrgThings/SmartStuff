@@ -18,7 +18,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v3.03"
+  return "v3.05"
 }
 
 metadata {
