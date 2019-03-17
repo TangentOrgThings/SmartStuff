@@ -19,7 +19,7 @@
  */
 
 String getDriverVersion () {
-  return "v0.09"
+  return "v0.11"
 }
 
 metadata {
@@ -28,6 +28,7 @@ metadata {
     capability "Button"
     capability "Color Mode"
     capability "Contact Sensor"
+    capability "Light"
     capability "Sensor"
     capability "Switch Level"
     capability "Switch"
