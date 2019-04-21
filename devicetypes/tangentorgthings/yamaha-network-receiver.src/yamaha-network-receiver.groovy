@@ -58,7 +58,7 @@ metadata {
   }
 
   tiles(scale: 2) {
-    multiAttributeTile(name: "mediaMulti", type:"mediaPlayer", width:6, height:4) {
+    multiAttributeTile(name: "mediaMulti", type: "mediaPlayer", width: 6, height: 4) {
         tileAttribute("device.playbackStatus", key: "PRIMARY_CONTROL") {
             attributeState("pause", label:"Paused",)
             attributeState("play", label:"Playing")
