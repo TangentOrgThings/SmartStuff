@@ -136,34 +136,29 @@ def parse(String description) {
 def updateZone(zone_info) {
   logger("updateZone()")
   
+  if (evt == null) {
+    logger("updateZone() passed NULL")
+  }
+  
   if (zone_info.Basic_Status.Power_Control.Power.text()) {
     def power = zone_info.Basic_Status.Power_Control.Power.text()
     log.debug ("$Zone Power - ${power}")
-    if(power == "On") {
-      sendEvent(name: "switch", value: 'on')
-    }
 
-    if(power != "" && power != "On") {
-      sendEvent(name: "switch", value: 'off')
+    if (power != "") {
+      sendEvent(name: "switch", value: (power == "On") ? "on" : "off")
     }
   }
 
   if (zone_info.Basic_Status.Input.Input_Sel.text()) {
     def inputChan = zone_info.Basic_Status.Input.Input_Sel.text()
     log.debug ("$Zone Input - ${inputChan}")
-    if(inputChan != "") {
+    if (inputChan != "") {
       sendEvent(name: "input", value: inputChan)
     }
   }
 
   if (zone_info.Basic_Status.Volume.Mute.text()) {
-    def muteLevel = zone_info.Basic_Status.Volume.Mute.text()
-    log.debug ("$Zone Mute - ${muteLevel}")
-    if (muteLevel == "On") {
-      sendEvent(name: "mute", value: 'muted')
-    } else {
-      sendEvent(name: "mute", value: 'unmuted')
-    }
+    sendEvent(name: "mute", value: (zone_info.Basic_Status.Volume.Mute.text() == "On") ? "muted" : "unmuted")
   }
   
   if (zone_info.Basic_Status.Volume.Lvl.Val.text()) { 
