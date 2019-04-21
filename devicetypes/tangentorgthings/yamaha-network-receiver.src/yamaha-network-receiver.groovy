@@ -328,10 +328,10 @@ def poll() {
 
 def refresh() {
   logger ("Refresh")
-  request("<YAMAHA_AV cmd=\"GET\"><${getZone()}><Basic_Status>GetParam</Basic_Status></${getZone()}></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"GET\"><${getZone()}><Basic_Status>GetParam</Basic_Status></${getZone()}></YAMAHA_AV>", true)
 }
 
-def request(body) {
+def request(body, isRefresh = false) {
   def hosthex = convertIPtoHex(destIp)
   def porthex = convertPortToHex(destPort)
   device.deviceNetworkId = "$hosthex:$porthex"
@@ -344,8 +344,10 @@ def request(body) {
   )
 
   sendHubCommand(hubAction)
-
-  // refresh()
+  
+  if (isRefresh == false) {
+    refresh()
+  }
 }
 
 private getHttpBody(body) {
