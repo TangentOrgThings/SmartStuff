@@ -11,7 +11,7 @@
 import groovy.util.XmlSlurper
 
 String getDriverVersion () {
-  return "v1.09"
+  return "v1.11"
 }
 
 metadata {
