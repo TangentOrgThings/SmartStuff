@@ -134,7 +134,7 @@ def parse(String description) {
 def updateZone(zone_info) {
   logger("updateZone()")
   
-  if (evt == null) {
+  if (zone_info == null) {
     logger("updateZone() passed NULL")
   }
   
