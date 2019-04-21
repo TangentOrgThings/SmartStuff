@@ -8,8 +8,10 @@
  *   and: http://openremote.org/display/forums/Controlling++RX+2065+Yamaha+Amp
  */
 
+import groovy.util.XmlSlurper
+
 String getDriverVersion () {
-  return "v1.05"
+  return "v1.07"
 }
 
 metadata {
@@ -37,6 +39,8 @@ metadata {
 
     command "inputSelect", ["string"]
     command "inputNext"
+    
+    attribute "dB", "number"
   }
 
   simulator {
@@ -109,16 +113,18 @@ metadata {
 
 
 def parse(String description) {
-  def map = stringToMap(description)
+  def map = parseLanMessage(description)
+  
   log.debug ("Parse started")
   if (! map.body) { 
     log.info ("No body parsed")
     return 
   }
-  def body = new String(map.body.decodeBase64())
+  
+  //def body = new String(map.body.decodeBase64())
+  def body = getHttpBody(map.body);
 
   def statusrsp = new XmlSlurper().parseText(body)
-  log.debug ("Parse got body ${body}...")
 
   if (statusrsp.Main_Zone.Basic_Status.Power_Control.Power.text()) {
     def power = statusrsp.Main_Zone.Basic_Status.Power_Control.Power.text()
@@ -149,19 +155,17 @@ def parse(String description) {
       sendEvent(name: "mute", value: 'unmuted')
     }
   }
-
-  if (0) {
-    if (statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) {
-      def volLevel = statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()
-      log.debug ("$Zone VolumeOrig - $volLevel") 
-      def Integer volLevelAdj = ((1000 + volLevel.toInteger()) / 10)
-      log.debug ("$Zone Volume - $volLevelAdj")
-      sendEvent(name: "volume", value: volLevelAdj)
-      sendEvent(name: "level", value: volLevelAdj)
-    }
+  
+  if (statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) { 
+    def int volLevel = statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250
+    def double dB = volLevel / 10.0
+    sendEvent(name: "volume", value: calcRelativePercent(dB).intValue())
+    sendEvent(name: "level", value: calcRelativePercent(dB).intValue())
+    sendEvent(name: "dB", value: dB)
   }
 
-  if(statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) { 
+  if (0) {
+  if (statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) { 
     def int volLevel = statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250        
     volLevel = ((((volLevel + 800) / 9)/5)*5).intValue()
     def int curLevel = 65
@@ -175,6 +179,7 @@ def parse(String description) {
       sendEvent(name: "level", value: volLevel)
       sendEvent(name: "volume", value: volLevel)
     }
+  }
   }
   /*
   if(statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) {
@@ -196,33 +201,49 @@ def parse(String description) {
 }
 
 def setVolume(value) {
-  if (0) {
-    sendEvent(name: "mute", value: "unmuted")
-    def Integer result =  ( val * 10 ) - 1000
-    //sendCommand("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Volume><Lvl><Val>${result}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></${getZone()}></YAMAHA_AV>")
-    // sendCommand("<YAMAHA_AV cmd=\"PUT\"><${Zone}><Volume><Lvl><Val>${(value * 10).intValue()}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></${Zone}></YAMAHA_AV>")
-    sendCommand("<YAMAHA_AV cmd=\"PUT\"><${Zone}><Volume><Lvl><Val>${result.intValue()}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></${Zone}></YAMAHA_AV>")
-    sendEvent(name: "volume", value: value)
-  }
-
   setLevel(value)
 }
 
 def setLevel(value) {
+  logger("setLevel(${value})")
+  
+  if (value > 100) value = 100
+  if (value < 0) value = 0
+  
+  def db = calcRelativeValue(value)
+  sendVolume(db)
+
   sendEvent(name: "mute", value: "unmuted")     
   sendEvent(name: "level", value: value)
   sendEvent(name: "volume", value: value)
+}
 
-  def scaledVal = (value * 9 - 800).toInteger()//sprintf("%d",val * 9 - 800)
-  scaledVal = (((scaledVal as Integer)/5) as Integer) * 5
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Lvl><Val>$scaledVal</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></$Zone></YAMAHA_AV>")
-  // sendEvent(name: "volume", value: scaledVal)
+def sendVolume(double db) {
+  logger "sendVolume(${db})"
+  db = roundNearestHalf(db)
+  def strCmd = "<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Lvl><Val>${(db * 10).intValue()}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></$Zone></YAMAHA_AV>"
+  logger groovy.xml.XmlUtil.escapeXml("strCmd ${strCmd}")
+  request(strCmd)
+  sendEvent(name: "dB", value: db)
+}
+
+def setDb(value) {
+  logger("setDb(${value})")
+  def double dB = value
+  if (dB > maxVolume) dB = maxVolume
+  if (dB < minVolume) dB = minVolume
+  logger("Zone ${getZone()} volume set to ${value}")
+  sendVolume(value)
+  sendEvent(name: "volume", value: calcRelativePercent(value).intValue())
+  sendEvent(name: "level", value: calcRelativePercent(value).intValue())
 }
 
 def volumeUp() {
+  setDb(device.currentValue("dB") + volumeStep)
 }
 
 def volumeDown() {
+  setDb(device.currentValue("dB") - volumeStep)
 }
 
 def childOn() {
@@ -345,6 +366,13 @@ def request(body) {
   hubAction
 }
 
+private getHttpBody(body) {
+  def obj = null;
+  if (body) {
+    obj = new XmlSlurper().parseText(new String(body))
+  }
+  return obj
+}
 
 private String convertIPtoHex(ipAddress) {
   String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02X', it.toInteger() ) }.join()
@@ -382,17 +410,10 @@ def installed() {
 }
 
 def updated() {
-  if (state.updatedDate && (Calendar.getInstance().getTimeInMillis() - state.updatedDate) < 5000 ) {
-    return
-  }
   log.info("$device.displayName updated() debug: ${settings.debugLevel}")
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
-  sendEvent(name: "parseErrorCount", value: 0, displayed: false)
-  sendEvent(name: "unknownCommandErrorCount", value: 0, displayed: false)
-  state.parseErrorCount = 0
-  state.unknownCommandErrorCount = 0
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
@@ -401,9 +422,28 @@ def updated() {
   }
 
   childDevices.each { logger("${it.deviceNetworkId}") }
+}
 
-  // Avoid calling updated() twice
-  state.updatedDate = Calendar.getInstance().getTimeInMillis()
+private calcRelativePercent(db) {
+  logger "calcRelativePercent(${db})"
+  def range = maxVolume - minVolume
+  def correctedStartValue = db - minVolume
+  def percentage = (correctedStartValue * 100) / range
+  logger "percentage: ${percentage}"
+  return percentage
+}
+
+private calcRelativeValue(perc) {
+  logger "calcRelativeValue(${perc})"
+  def value = (perc * (maxVolume - minVolume) / 100) + minVolume
+  logger "value: ${value}"
+  return value
+}
+
+private roundNearestHalf(value) {
+  logger "roundNearestHalf(${value})"
+  logger "result: ${Math.round(value * 2) / 2.0}"
+  return Math.round(value * 2) / 2.0
 }
 
 /**
@@ -417,13 +457,7 @@ def updated() {
 void logger(msg, level = "trace") {
   switch(level) {
     case "unknownCommand":
-    state.unknownCommandErrorCount += 1
-    sendEvent(name: "unknownCommandErrorCount", value: unknownCommandErrorCount, displayed: false, isStateChange: true)
-    break
-
     case "parse":
-    state.parseErrorCount += 1
-    sendEvent(name: "parseErrorCount", value: parseErrorCount, displayed: false, isStateChange: true)
     break
 
     case "warn":
