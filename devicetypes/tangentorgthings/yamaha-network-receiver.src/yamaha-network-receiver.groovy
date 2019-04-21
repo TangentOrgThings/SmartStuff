@@ -238,21 +238,21 @@ def volumeDown() {
 }
 
 def childOn() {
-  log.debug "childOn"
+  logger "childOn"
 }
 
 def childOff() {
-  log.debug "childOff"
+  logger "childOff"
 }
 
 def on() {
-  log.debug "on"
+  logger "on"
   sendEvent(name: "switch", value: 'on')
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Power_Control><Power>On</Power></Power_Control></$Zone></YAMAHA_AV>")
 }
 
 def off() {
-  log.debug "off"
+  logger "off"
   sendEvent(name: "switch", value: 'off')
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Power_Control><Power>Standby</Power></Power_Control></$Zone></YAMAHA_AV>")
 }
@@ -267,22 +267,24 @@ def setMute(state) {
 
 def mute() {
   logger("mute()")
+  
   sendEvent(name: "mute", value: "muted")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Mute>On</Mute></Volume></$Zone></YAMAHA_AV>")
 }
 
 def unmute() {
-  logger("unmute()")
+  logger("unmute")
+  
   sendEvent(name: "mute", value: "unmuted")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Mute>Off</Mute></Volume></$Zone></YAMAHA_AV>")
 }
 
 def inputNext() {
-
+  logger("inputNext")
+  
   def cur = device.currentValue("input")
   // modify your inputs right here!
   def selectedInputs = ["HDMI1","HDMI2","Pandora","HDMI1"]
-
 
   def semaphore = 0
   for(selectedInput in selectedInputs) {
@@ -297,7 +299,7 @@ def inputNext() {
 
 def inputSelect(channel) {
   sendEvent(name: "input", value: channel )
-  log.debug "Input $channel"
+  logger "Input $channel"
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Input><Input_Sel>$channel</Input_Sel></Input></$Zone></YAMAHA_AV>")
 }
 
@@ -339,7 +341,6 @@ def refresh() {
 }
 
 def request(body) {
-
   def hosthex = convertIPtoHex(destIp)
   def porthex = convertPortToHex(destPort)
   device.deviceNetworkId = "$hosthex:$porthex"
@@ -351,9 +352,9 @@ def request(body) {
     'headers': [ HOST: "$destIp:$destPort" ]
   )
 
-  // sendHubCommand(hubAction)
-
-  hubAction
+  sendHubCommand(hubAction)
+  
+  refresh()
 }
 
 private getHttpBody(body) {
