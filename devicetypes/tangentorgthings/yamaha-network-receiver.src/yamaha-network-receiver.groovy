@@ -11,7 +11,7 @@
 import groovy.util.XmlSlurper
 
 String getDriverVersion () {
-  return "v1.07"
+  return "v1.09"
 }
 
 metadata {
@@ -117,17 +117,24 @@ def parse(String description) {
   
   log.debug ("Parse started")
   if (! map.body) { 
-    log.info ("No body parsed")
+    logger ("No body parsed")
     return 
   }
   
-  //def body = new String(map.body.decodeBase64())
+  //
   def body = getHttpBody(map.body);
+  
+  logger "Headers: ${map.headers}"
+  logger "Body: ${body}"
 
-  def statusrsp = new XmlSlurper().parseText(body)
+  updateZone(body.children()[0])
+}
 
-  if (statusrsp.Main_Zone.Basic_Status.Power_Control.Power.text()) {
-    def power = statusrsp.Main_Zone.Basic_Status.Power_Control.Power.text()
+def updateZone(zone_info) {
+  logger("updateZone()")
+  
+  if (zone_info.Basic_Status.Power_Control.Power.text()) {
+    def power = zone_info.Basic_Status.Power_Control.Power.text()
     log.debug ("$Zone Power - ${power}")
     if(power == "On") {
       sendEvent(name: "switch", value: 'on')
@@ -138,16 +145,16 @@ def parse(String description) {
     }
   }
 
-  if (statusrsp.Main_Zone.Basic_Status.Input.Input_Sel.text()) {
-    def inputChan = statusrsp.Main_Zone.Basic_Status.Input.Input_Sel.text()
+  if (zone_info.Basic_Status.Input.Input_Sel.text()) {
+    def inputChan = zone_info.Basic_Status.Input.Input_Sel.text()
     log.debug ("$Zone Input - ${inputChan}")
     if(inputChan != "") {
       sendEvent(name: "input", value: inputChan)
     }
   }
 
-  if (statusrsp.Main_Zone.Basic_Status.Volume.Mute.text()) {
-    def muteLevel = statusrsp.Main_Zone.Basic_Status.Volume.Mute.text()
+  if (zone_info.Basic_Status.Volume.Mute.text()) {
+    def muteLevel = zone_info.Basic_Status.Volume.Mute.text()
     log.debug ("$Zone Mute - ${muteLevel}")
     if (muteLevel == "On") {
       sendEvent(name: "mute", value: 'muted')
@@ -156,17 +163,18 @@ def parse(String description) {
     }
   }
   
-  if (statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) { 
-    def int volLevel = statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250
+  if (zone_info.Basic_Status.Volume.Lvl.Val.text()) { 
+    def int volLevel = zone_info.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250
     def double dB = volLevel / 10.0
+    
     sendEvent(name: "volume", value: calcRelativePercent(dB).intValue())
     sendEvent(name: "level", value: calcRelativePercent(dB).intValue())
     sendEvent(name: "dB", value: dB)
   }
 
   if (0) {
-  if (statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) { 
-    def int volLevel = statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250        
+  if (zone_info.Basic_Status.Volume.Lvl.Val.text()) { 
+    def int volLevel = zone_info.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250        
     volLevel = ((((volLevel + 800) / 9)/5)*5).intValue()
     def int curLevel = 65
     try {
@@ -181,23 +189,6 @@ def parse(String description) {
     }
   }
   }
-  /*
-  if(statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.text()) {
-  def int volLevel = statusrsp.Main_Zone.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250
-  volLevel = ((((volLevel + 800) / 9)/5)*5).intValue()
-  def int curLevel = 65
-  try {
-  curLevel = device.currentValue("level")
-  } catch(NumberFormatException nfe) {
-  curLevel = 65
-  }
-  if(curLevel != volLevel) {
-  log.debug ("$Zone level - ${volLevel}")
-  sendEvent(name: "level", value: volLevel)
-  }
-  }
-   */
-
 }
 
 def setVolume(value) {
@@ -304,7 +295,6 @@ def inputNext() {
   }
 }
 
-
 def inputSelect(channel) {
   sendEvent(name: "input", value: channel )
   log.debug "Input $channel"
@@ -344,8 +334,8 @@ def poll() {
 }
 
 def refresh() {
-  log.debug ("Refresh")
-  request("<YAMAHA_AV cmd=\"GET\"><$Zone><Basic_Status>GetParam</Basic_Status></$Zone></YAMAHA_AV>")
+  logger ("Refresh")
+  request("<YAMAHA_AV cmd=\"GET\"><${getZone()}><Basic_Status>GetParam</Basic_Status></${getZone()}></YAMAHA_AV>")
 }
 
 def request(body) {
@@ -422,6 +412,10 @@ def updated() {
   }
 
   childDevices.each { logger("${it.deviceNetworkId}") }
+}
+
+private getZone() {
+  return new String("Main_Zone")
 }
 
 private calcRelativePercent(db) {
