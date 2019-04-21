@@ -122,12 +122,7 @@ def parse(String description) {
   
   //
   def body = getHttpBody(map.body);
-  
-  logger "Headers: ${map.headers}"
-  logger "Body: ${body}"
-  
-  logger body.children().toString()
-
+   
   updateZone(body.children()[0])
 }
 
