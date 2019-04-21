@@ -165,7 +165,7 @@ def updateZone(zone_info) {
         sendEvent(name: "switch", value: "play")
       } else if (play_status == "Pause") {
         sendEvent(name: "switch", value: "pause")
-      } else if (play_status = "Stop") {
+      } else if (play_status == "Stop") {
         sendEvent(name: "switch", value: "stop")
       }
     }
