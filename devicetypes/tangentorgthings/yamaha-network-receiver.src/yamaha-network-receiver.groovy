@@ -58,18 +58,26 @@ metadata {
   }
 
   tiles(scale: 2) {
-    multiAttributeTile(name: "state", type:"generic", width:6, height:4) {
-      tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState("on", label:'${name}', action:"switch.off", backgroundColor: "#79b821", icon:"st.Electronics.electronics16")
-        attributeState("off", label: '${name}', action:"switch.on", backgroundColor: "#ffffff", icon:"st.Electronics.electronics16")
-      }
-      tileAttribute ("device.volume", key: "SLIDER_CONTROL") {
-        attributeState("volume", action:"Audio Volume.setVolume")
-      }
-      tileAttribute ("device.mute", key: "SECONDARY_CONTROL") {
-        attributeState("unmuted", action:"Audio Mute.muted", nextState: "muted")
-        attributeState("muted", action:"Audio Mute.unmuted", nextState: "unmuted")
-      }
+    multiAttributeTile(name: "mediaMulti", type:"mediaPlayer", width:6, height:4) {
+        tileAttribute("device.status", key: "PRIMARY_CONTROL") {
+          attributeState("on", label:'${name}', action:"switch.off", backgroundColor: "#79b821", icon:"st.Electronics.electronics16")
+          attributeState("off", label: '${name}', action:"switch.on", backgroundColor: "#ffffff", icon:"st.Electronics.electronics16")
+        }
+        tileAttribute("device.playbackStatus", key: "MEDIA_STATUS") {
+            attributeState("pause", label: "Paused", action: "Media Playback.play", nextState: "play", backgroundColor: "#79b821")
+            attributeState("play", label: "Playing", action: "Media Playback.pause", nextState: "pause", backgroundColor: "#FFFFFF", defaultState: true)
+            attributeState("stop", label: "Stopped", action: "Media Playback.play", nextState: "play", backgroundColor: "#79b821")
+        }
+        tileAttribute ("device.level", key: "SLIDER_CONTROL") {
+          attributeState("volume", action:"Audio Volume.setVolume")
+        }
+        tileAttribute ("device.mute", key: "MEDIA_MUTED") {
+          attributeState("unmuted", action:"Audio Mute.muted", nextState: "muted")
+          attributeState("muted", action:"Audio Mute.unmuted", nextState: "unmuted")
+        }
+        tileAttribute("device.input", key: "MARQUEE") {
+          attributeState("input", label:"${currentValue}", defaultState: true)
+        }
     }
 
     standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false, canChangeBackground: true) {
@@ -106,8 +114,8 @@ metadata {
       state "stop", label: "play", action: "Media Playback.play", backgroundColor: "#79b821"
     }
 
-    main "state"
-    details(["switch", "levelSliderControl", "volume", "volumeChild", "input", "mute", "refresh", "playback"])
+    main "mediaMulti"
+    details(["mediaMulti", "switch", "levelSliderControl", "volume", "volumeChild", "input", "mute", "refresh", "playback"])
   }
 }
 
