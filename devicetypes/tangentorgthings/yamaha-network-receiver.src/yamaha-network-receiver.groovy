@@ -49,11 +49,14 @@ metadata {
 
 
   preferences {
-    input("destIp", "text", title: "IP", description: "The device IP")
-    input("destPort", "number", title: "Port", description: "The port you wish to connect")
-    input("inputChan","enum", title: "Input Control", description: "Select the inputs you want to use", options: ["TUNER","MULTI CH","PHONO","HDMI1","HDMI2","HDMI3","HDMI4","HDMI5","HDMI6","AV1","AV2","AV3","AV4","V-AUX","AUDIO1","AUDIO2","NET","Rhapsody","SIRIUS IR","Pandora","SERVER","NET RADIO","USB","iPod (USB)","AirPlay"],multiple: true,required: true)
-    input("Zone","enum", title: "Zone", description: "Select the Zone you want to use", options: ["Main_Zone","Zone_2"],multiple: false,required: true)
-    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input(name: "destIp", type: "text", title: "IP", description: "The device IP")
+    input(name: "destPort", type: "number", title: "Port", description: "The port you wish to connect")
+    input(name: "inputChan", type: "enum", title: "Input Control", description: "Select the inputs you want to use", options: ["TUNER","MULTI CH","PHONO","HDMI1","HDMI2","HDMI3","HDMI4","HDMI5","HDMI6","AV1","AV2","AV3","AV4","V-AUX","AUDIO1","AUDIO2","NET","Rhapsody","SIRIUS IR","Pandora","SERVER","NET RADIO","USB","iPod (USB)","AirPlay"],multiple: true,required: true)
+    input(name: "Zone", type: "enum", title: "Zone", description: "Select the Zone you want to use", options: ["Main_Zone","Zone_2"],multiple: false,required: true)
+    input(name: "volumeStep", type: "decimal", range: 0.5..10, title: "Volume Step", description: "Enter the amount the volume up and down commands should adjust the volume", defaultValue: 2.5)
+    input(name: "maxVolume", type: "number", range: -80..15, title: "Max Volume", description: "Enter the maximum volume in reference decibals that the receiver is allowed", defaultValue: 28)
+    input(name: "minVolume", type: "number", range: -80..15, title: "Min Volume", description: "Enter the minimum volume in reference decibals that the receiver is allowed", defaultValue: -50)
+    input(name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false)
   }
 
   tiles(scale: 2) {
