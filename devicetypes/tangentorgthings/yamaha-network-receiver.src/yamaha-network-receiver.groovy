@@ -34,8 +34,6 @@ metadata {
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
-    attribute "parseErrorCount", "number"        // Last error message
-    attribute "unknownCommandErrorCount", "number"        // Last error message
 
     command "inputSelect", ["string"]
     command "inputNext"
@@ -113,8 +111,6 @@ metadata {
   }
 }
 
-
-
 def parse(String description) {
   def map = parseLanMessage(description)
   
@@ -129,6 +125,8 @@ def parse(String description) {
   
   logger "Headers: ${map.headers}"
   logger "Body: ${body}"
+  
+  logger body.children().toString()
 
   updateZone(body.children()[0])
 }
@@ -282,14 +280,14 @@ def inputNext() {
   
   def cur = device.currentValue("input")
   // modify your inputs right here!
-  def selectedInputs = ["HDMI1","HDMI2","Pandora","HDMI1"]
+  def selectedInputs = ["HDMI1", "HDMI2", "Pandora", "HDMI1"]
 
   def semaphore = 0
-  for(selectedInput in selectedInputs) {
-    if(semaphore == 1) {
+  for (selectedInput in selectedInputs) {
+    if (semaphore == 1) {
       return inputSelect(selectedInput)
     }
-    if(cur == selectedInput) {
+    if (cur == selectedInput) {
       semaphore = 1
     }
   }
@@ -351,8 +349,8 @@ def request(body) {
   )
 
   sendHubCommand(hubAction)
-  
-  refresh()
+
+  // refresh()
 }
 
 private getHttpBody(body) {
@@ -423,6 +421,7 @@ private calcRelativePercent(db) {
   def correctedStartValue = db - minVolume
   def percentage = (correctedStartValue * 100) / range
   logger "percentage: ${percentage}"
+  
   return percentage
 }
 
@@ -430,6 +429,7 @@ private calcRelativeValue(perc) {
   logger "calcRelativeValue(${perc})"
   def value = (perc * (maxVolume - minVolume) / 100) + minVolume
   logger "value: ${value}"
+  
   return value
 }
 
