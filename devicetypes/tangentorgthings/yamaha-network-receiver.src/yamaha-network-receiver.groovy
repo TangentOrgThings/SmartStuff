@@ -23,7 +23,6 @@ metadata {
     capability "Polling"
     capability "Refresh"
     capability "Media Playback"
-    capability "Music Player" // Added in order to enable ABC
     capability "Audio Mute"
     capability "Audio Volume"
 
@@ -60,16 +59,22 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name: "mediaMulti", type: "mediaPlayer", width: 6, height: 4) {
         tileAttribute("device.playbackStatus", key: "PRIMARY_CONTROL") {
-            attributeState("pause", label:"Paused",)
-            attributeState("play", label:"Playing")
-            attributeState("stop", label:"Stopped")
+            attributeState("pause", label: "Paused",)
+            attributeState("play", label: "Playing")
+            attributeState("stop", label: "Stopped")
         }
         tileAttribute("device.playbackStatus", key: "MEDIA_STATUS") {
             attributeState("pause", label: "Paused", action: "Media Playback.play", nextState: "play", backgroundColor: "#79b821")
             attributeState("play", label: "Playing", action: "Media Playback.pause", nextState: "pause", backgroundColor: "#FFFFFF", defaultState: true)
             attributeState("stop", label: "Stopped", action: "Media Playback.play", nextState: "play", backgroundColor: "#79b821")
         }
-        tileAttribute ("device.level", key: "SLIDER_CONTROL") {
+        tileAttribute("device.status", key: "PREVIOUS_TRACK") {
+          attributeState("status", action:"music Player.previousTrack", defaultState: true)
+        }
+        tileAttribute("device.status", key: "NEXT_TRACK") {
+          attributeState("status", action:"music Player.nextTrack", defaultState: true)
+        }
+        tileAttribute ("device.volume", key: "SLIDER_CONTROL") {
           attributeState("volume", action:"Audio Volume.setVolume")
         }
         tileAttribute ("device.mute", key: "MEDIA_MUTED") {
@@ -150,6 +155,21 @@ def updateZone(zone_info) {
       sendEvent(name: "switch", value: (power == "On") ? "on" : "off")
     }
   }
+  
+  if (zone_info.Basic_Status.Play_Control.Playback.text()) {
+    def play_status = zone_info.Basic_Status.Play_Control.Playback.text()
+    log.debug ("$Zone Play Status - ${play_status}")
+
+    if (play_status != "") {
+      if (play_status == "Play") {
+        sendEvent(name: "switch", value: "play")
+      } else if (play_status == "Pause") {
+        sendEvent(name: "switch", value: "pause")
+      } else if (play_status = "Stop") {
+        sendEvent(name: "switch", value: "stop")
+      }
+    }
+  }
 
   if (zone_info.Basic_Status.Input.Input_Sel.text()) {
     def inputChan = zone_info.Basic_Status.Input.Input_Sel.text()
@@ -190,7 +210,7 @@ def updateZone(zone_info) {
     } catch(NumberFormatException nfe) { 
       curLevel = 65
     }
-    if(curLevel != volLevel) {
+    if (curLevel != volLevel) {
       log.debug ("$Zone level - ${volLevel}")
       sendEvent(name: "level", value: volLevel)
       sendEvent(name: "volume", value: volLevel)
@@ -336,7 +356,7 @@ def stop() {
 def pause() {
   logger("pause()")
   sendEvent(name: "playbackStatus", value: "pause")
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Pause</Playback></Play_Control></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Pause</Playback></></$Zone></YAMAHA_AV>")
 }
 
 def poll() {
