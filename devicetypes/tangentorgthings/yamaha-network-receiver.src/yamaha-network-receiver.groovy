@@ -149,6 +149,14 @@ def updateZone(zone_info) {
       sendEvent(name: "input", value: inputChan)
     }
   }
+  
+  if (zone_info.Config.Name.Input.text()) {
+    def supportedSources = zone_info.Config.Name.Input.children().findAll {
+      node ->
+        node.text() ?.trim()
+    }
+    state.supportedSources = supportedSources.join(", ")
+  }
 
   if (zone_info.Basic_Status.Volume.Mute.text()) {
     sendEvent(name: "mute", value: (zone_info.Basic_Status.Volume.Mute.text() == "On") ? "muted" : "unmuted")
