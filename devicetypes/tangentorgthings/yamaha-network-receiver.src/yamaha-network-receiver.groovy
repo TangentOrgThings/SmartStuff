@@ -8,6 +8,7 @@
  *   and: http://openremote.org/display/forums/Controlling++RX+2065+Yamaha+Amp
  */
 
+import groovy.json.JsonSlurper
 import groovy.util.XmlSlurper
 import physicalgraph.*
 
@@ -362,6 +363,18 @@ def poll() {
 def refresh() {
   logger ("refresh()")
   request("<YAMAHA_AV cmd=\"GET\"><${getZone()}><Basic_Status>GetParam</Basic_Status></${getZone()}></YAMAHA_AV>", true)
+}
+
+def startActivity(activityId) {
+  logger("startActivity($activityId)")
+}
+
+def handleGetAllActivitiesResponse(response) {
+  def emptyList = []
+	def json = new groovy.json.JsonBuilder(emptyList)
+  def data = json.toString()
+    	
+	sendEvent(name: "activities", value: data)
 }
 
 def request(body, isRefresh = false) {
