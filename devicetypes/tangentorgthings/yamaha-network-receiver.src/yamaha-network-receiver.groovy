@@ -9,7 +9,7 @@
  */
 
 import groovy.util.XmlSlurper
-import physicalgraph
+import physicalgraph.*
 
 String getDriverVersion () {
   return "v1.13"
