@@ -23,6 +23,7 @@ metadata {
     capability "Polling"
     capability "Refresh"
     capability "Media Playback"
+    capability "Media Track Control"
     capability "Audio Mute"
     capability "Audio Volume"
 
@@ -69,10 +70,10 @@ metadata {
             attributeState("stop", label: "Stopped", action: "Media Playback.play", nextState: "play", backgroundColor: "#79b821")
         }
         tileAttribute("device.status", key: "PREVIOUS_TRACK") {
-          attributeState("status", action:"music Player.previousTrack", defaultState: true)
+          attributeState("status", action:"Media Track Control.previousTrack", defaultState: true)
         }
         tileAttribute("device.status", key: "NEXT_TRACK") {
-          attributeState("status", action:"music Player.nextTrack", defaultState: true)
+          attributeState("status", action:"Media Track Control.nextTrack", defaultState: true)
         }
         tileAttribute ("device.volume", key: "SLIDER_CONTROL") {
           attributeState("volume", action:"Audio Volume.setVolume")
@@ -357,6 +358,16 @@ def pause() {
   logger("pause()")
   sendEvent(name: "playbackStatus", value: "pause")
   request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Pause</Playback></></$Zone></YAMAHA_AV>")
+}
+
+def nextTrack() {
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><Main_Zone><Play_Control><Playback>Skip Fwd</Playback></Play_Control></Main_Zone></YAMAHA_AV>
+")
+}
+
+def previousTrack() {
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><Main_Zone><Play_Control><Playback>Skip Rev</Playback></Play_Control></Main_Zone></YAMAHA_AV>
+")
 }
 
 def poll() {
