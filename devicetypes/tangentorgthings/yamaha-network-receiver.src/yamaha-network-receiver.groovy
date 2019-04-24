@@ -347,13 +347,11 @@ def pause() {
 }
 
 def nextTrack() {
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Skip Fwd</Playback></Play_Control></${getZone()}></YAMAHA_AV>
-")
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Skip Fwd</Playback></Play_Control></${getZone()}></YAMAHA_AV>")
 }
 
 def previousTrack() {
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Skip Rev</Playback></Play_Control></${getZone()}></YAMAHA_AV>
-")
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Skip Rev</Playback></Play_Control></${getZone()}></YAMAHA_AV>")
 }
 
 def poll() {
