@@ -369,12 +369,17 @@ def startActivity(activityId) {
   logger("startActivity($activityId)")
 }
 
-def handleGetAllActivitiesResponse(response) {
-  def emptyList = []
-	def json = new groovy.json.JsonBuilder(emptyList)
+def setCurrentActivity(activity) {
+  logger("setCurrentActivity($activity)")
+  sendEvent(name: "currentActivity", value: "$activity")
+}
+
+def buildScenes() {
+  def sceneList = ["Scene_1", "Scene_2", "Scene_3", "Scene_4"]
+  def json = new groovy.json.JsonBuilder(sceneList)
   def data = json.toString()
     	
-	sendEvent(name: "activities", value: data)
+  sendEvent(name: "activities", value: data)
 }
 
 def request(body, isRefresh = false) {
@@ -437,6 +442,7 @@ def installed() {
   logger("$device.displayName installed()")
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   createChildDevices()
+  buildScenes()
   refresh()
 }
 
@@ -453,7 +459,8 @@ def updated() {
   }
 
   childDevices.each { logger("${it.deviceNetworkId}") }
-  
+  buildScenes()
+
   refresh()
 }
 
