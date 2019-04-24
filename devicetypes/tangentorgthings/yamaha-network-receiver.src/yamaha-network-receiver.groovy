@@ -11,7 +11,7 @@
 import groovy.util.XmlSlurper
 
 String getDriverVersion () {
-  return "v1.11"
+  return "v1.13"
 }
 
 metadata {
@@ -87,12 +87,12 @@ metadata {
         }
     }
 
-    standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false, canChangeBackground: true) {
+    standardTile("switch", "device.playbackStatus", width: 2, height: 2, canChangeIcon: false, canChangeBackground: true) {
       state "on", label: '${name}', action:"switch.off", backgroundColor: "#79b821", icon:"st.Electronics.electronics16"
       state "off", label: '${name}', action:"switch.on", backgroundColor: "#ffffff", icon:"st.Electronics.electronics16"
     }
 
-    controlTile("levelSliderControl", "device.volume", "slider", inactiveLabel: false, width: 1, height: 1, range: "(0..100)") {
+    controlTile("levelSliderControl", "device.volume", "slider", inactiveLabel: false, width: 2, height: 1, range: "(0..100)") {
       state "volume", action:"Audio Volume.setVolume"
     }
 
@@ -100,6 +100,10 @@ metadata {
 
     valueTile("volume", "device.volume", width: 1, height: 1) {
       state "volume", label: '${currentValue}'
+    }
+    
+    valueTile("dB", "device.dB", width: 1, height: 1) {
+      state "", label: '${currentValue}'
     }
 
     standardTile("refresh", "device.refresh", width: 2, height: 2, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false) {
@@ -122,7 +126,7 @@ metadata {
     }
 
     main "mediaMulti"
-    details(["mediaMulti", "switch", "levelSliderControl", "volume", "volumeChild", "input", "mute", "refresh", "playback"])
+    details(["mediaMulti", "switch", "levelSliderControl", "volume", "dB", "volumeChild", "input", "mute", "refresh", "playback"])
   }
 }
 
@@ -200,24 +204,6 @@ def updateZone(zone_info) {
     sendEvent(name: "level", value: calcRelativePercent(dB).intValue())
     sendEvent(name: "dB", value: dB)
   }
-
-  if (0) {
-  if (zone_info.Basic_Status.Volume.Lvl.Val.text()) { 
-    def int volLevel = zone_info.Basic_Status.Volume.Lvl.Val.toInteger() ?: -250        
-    volLevel = ((((volLevel + 800) / 9)/5)*5).intValue()
-    def int curLevel = 65
-    try {
-      curLevel = device.currentValue("level")
-    } catch(NumberFormatException nfe) { 
-      curLevel = 65
-    }
-    if (curLevel != volLevel) {
-      log.debug ("$Zone level - ${volLevel}")
-      sendEvent(name: "level", value: volLevel)
-      sendEvent(name: "volume", value: volLevel)
-    }
-  }
-  }
 }
 
 def setVolume(value) {
@@ -241,7 +227,7 @@ def setLevel(value) {
 def sendVolume(double db) {
   logger "sendVolume(${db})"
   db = roundNearestHalf(db)
-  def strCmd = "<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Lvl><Val>${(db * 10).intValue()}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></$Zone></YAMAHA_AV>"
+  def strCmd = "<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Volume><Lvl><Val>${(db * 10).intValue()}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></${getZone()}></YAMAHA_AV>"
   logger groovy.xml.XmlUtil.escapeXml("strCmd ${strCmd}")
   request(strCmd)
   sendEvent(name: "dB", value: db)
@@ -277,13 +263,13 @@ def childOff() {
 def on() {
   logger "on"
   sendEvent(name: "switch", value: 'on')
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Power_Control><Power>On</Power></Power_Control></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Power_Control><Power>On</Power></Power_Control></${getZone()}></YAMAHA_AV>")
 }
 
 def off() {
   logger "off"
   sendEvent(name: "switch", value: 'off')
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Power_Control><Power>Standby</Power></Power_Control></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Power_Control><Power>Standby</Power></Power_Control></${getZone()}></YAMAHA_AV>")
 }
 
 def setMute(state) {
@@ -298,14 +284,14 @@ def mute() {
   logger("mute()")
   
   sendEvent(name: "mute", value: "muted")
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Mute>On</Mute></Volume></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Volume><Mute>On</Mute></Volume></${getZone()}></YAMAHA_AV>")
 }
 
 def unmute() {
   logger("unmute")
   
   sendEvent(name: "mute", value: "unmuted")
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Volume><Mute>Off</Mute></Volume></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Volume><Mute>Off</Mute></Volume></${getZone()}></YAMAHA_AV>")
 }
 
 def inputNext() {
@@ -329,7 +315,7 @@ def inputNext() {
 def inputSelect(channel) {
   sendEvent(name: "input", value: channel )
   logger "Input $channel"
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Input><Input_Sel>$channel</Input_Sel></Input></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Input><Input_Sel>$channel</Input_Sel></Input></${getZone()}></YAMAHA_AV>")
 }
 
 def setPlaybackStatus(status) {
@@ -345,28 +331,28 @@ def setPlaybackStatus(status) {
 def play() {
   logger("play()")
   sendEvent(name: "playbackStatus", value: "play")
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Play</Playback></Play_Control></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Play</Playback></Play_Control></${getZone()}></YAMAHA_AV>")
 }
 
 def stop() {
   logger("stop()")
   sendEvent(name: "playbackStatus", value: "stop")
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Stop</Playback></Play_Control></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Stop</Playback></Play_Control></${getZone()}></YAMAHA_AV>")
 }
 
 def pause() {
   logger("pause()")
   sendEvent(name: "playbackStatus", value: "pause")
-  request("<YAMAHA_AV cmd=\"PUT\"><$Zone><Play_Control><Playback>Pause</Playback></></$Zone></YAMAHA_AV>")
+  request("<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Pause</Playback></></${getZone()}></YAMAHA_AV>")
 }
 
 def nextTrack() {
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><Main_Zone><Play_Control><Playback>Skip Fwd</Playback></Play_Control></Main_Zone></YAMAHA_AV>
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Skip Fwd</Playback></Play_Control></${getZone()}></YAMAHA_AV>
 ")
 }
 
 def previousTrack() {
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><Main_Zone><Play_Control><Playback>Skip Rev</Playback></Play_Control></Main_Zone></YAMAHA_AV>
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Play_Control><Playback>Skip Rev</Playback></Play_Control></${getZone()}></YAMAHA_AV>
 ")
 }
 
@@ -439,6 +425,7 @@ def installed() {
   log.info("$device.displayName installed()")
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   createChildDevices()
+  refresh()
 }
 
 def updated() {
@@ -454,6 +441,8 @@ def updated() {
   }
 
   childDevices.each { logger("${it.deviceNetworkId}") }
+  
+  refresh()
 }
 
 private getZone() {
