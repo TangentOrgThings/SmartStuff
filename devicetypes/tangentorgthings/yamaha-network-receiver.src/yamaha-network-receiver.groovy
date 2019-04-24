@@ -70,30 +70,30 @@ metadata {
             attributeState("stop", label: "Stopped", action: "Media Playback.play", nextState: "play", backgroundColor: "#79b821")
         }
         tileAttribute("device.status", key: "PREVIOUS_TRACK") {
-          attributeState("status", action:"Media Track Control.previousTrack", defaultState: true)
+          attributeState("status", action: "Media Track Control.previousTrack", defaultState: true)
         }
         tileAttribute("device.status", key: "NEXT_TRACK") {
-          attributeState("status", action:"Media Track Control.nextTrack", defaultState: true)
+          attributeState("status", action: "Media Track Control.nextTrack", defaultState: true)
         }
         tileAttribute ("device.volume", key: "SLIDER_CONTROL") {
-          attributeState("volume", action:"Audio Volume.setVolume")
+          attributeState("volume", action: "Audio Volume.setVolume")
         }
         tileAttribute ("device.mute", key: "MEDIA_MUTED") {
-          attributeState("unmuted", action:"Audio Mute.muted", nextState: "muted")
-          attributeState("muted", action:"Audio Mute.unmuted", nextState: "unmuted")
+          attributeState("unmuted", action: "Audio Mute.muted", nextState: "muted")
+          attributeState("muted", action: "Audio Mute.unmuted", nextState: "unmuted")
         }
         tileAttribute("device.input", key: "MARQUEE") {
-          attributeState("input", label:"${currentValue}", defaultState: true)
+          attributeState("input", label: "${currentValue}", defaultState: true)
         }
     }
 
-    standardTile("switch", "device.playbackStatus", width: 2, height: 2, canChangeIcon: false, canChangeBackground: true) {
-      state "on", label: '${name}', action:"switch.off", backgroundColor: "#79b821", icon:"st.Electronics.electronics16"
-      state "off", label: '${name}', action:"switch.on", backgroundColor: "#ffffff", icon:"st.Electronics.electronics16"
+    standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false, canChangeBackground: true) {
+      state "on", label: '${name}', action: "switch.off", backgroundColor: "#79b821", icon:"st.Electronics.electronics16"
+      state "off", label: '${name}', action: "switch.on", backgroundColor: "#ffffff", icon:"st.Electronics.electronics16"
     }
 
     controlTile("levelSliderControl", "device.volume", "slider", inactiveLabel: false, width: 2, height: 1, range: "(0..100)") {
-      state "volume", action:"Audio Volume.setVolume"
+      state "volume", action: "Audio Volume.setVolume"
     }
 
     childDeviceTile("volumeChild", "yamahaVolume", height: 2, width: 2, childTileName: "Volume")
