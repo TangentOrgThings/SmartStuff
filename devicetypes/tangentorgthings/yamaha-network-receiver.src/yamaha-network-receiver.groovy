@@ -37,9 +37,11 @@ metadata {
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
 
-    command "inputSelect", ["string"]
-    command "inputNext"
-    
+    command "setInputSource", ["string"]
+
+    attribute "inputSource", "string"
+    attribute "supportedInputSources", "string"
+
     attribute "dB", "number"
   }
 
@@ -144,7 +146,34 @@ def parse(String description) {
   //
   def body = getHttpBody(map.body);
    
-  updateZone(body.children()[0])
+  def event = body.children()[0]
+
+  if (event == null) {
+    logger("No data found in event")
+    return
+  }
+
+  if (event.name() == "System") {
+    def system_leaf = event.children()[0]
+
+    if (system_leaf.name() == "Misc") {
+      updateMisc(event)
+      return
+    }
+
+    updateZone(event)
+    return
+  }
+
+  updateZone(event)
+}
+
+def updateMisc(system_event) {
+  logger("updateMisc()")
+
+  if (system_event.Misc.Network.Info.MAC_ADDRESS.text()) {
+    state.MAC_Address= system_event.Misc.Network.Info.MAC_ADDRESS.text()
+  }
 }
 
 def updateZone(zone_info) {
@@ -205,6 +234,15 @@ def updateZone(zone_info) {
     sendEvent(name: "volume", value: calcRelativePercent(dB).intValue())
     sendEvent(name: "level", value: calcRelativePercent(dB).intValue())
     sendEvent(name: "dB", value: dB)
+  }
+
+  if (zone_info.Input.Input_Sel_Item_Info.Param.text()) {
+    def inputInterface = Input.Input_Sel_Item_Info.Param.text() 
+    def inputTitle = ""
+
+    if (zone_info.Input.Input_Sel_Item_Info.Title.text()) {
+      inputTitle = Input.Input_Sel_Item_Info.Title.text() 
+    }
   }
 }
 
@@ -307,7 +345,7 @@ def inputNext() {
   def semaphore = 0
   for (selectedInput in selectedInputs) {
     if (semaphore == 1) {
-      return inputSelect(selectedInput)
+      return setInputSelect(selectedInput)
     }
     if (cur == selectedInput) {
       semaphore = 1
@@ -315,10 +353,14 @@ def inputNext() {
   }
 }
 
-def inputSelect(channel) {
-  logger("inputSelect($channel)")
-  sendEvent(name: "input", value: "$channel")
+def setInputSource(mode) {
+  logger("setInputSource($mode)")
   request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"PUT\"><${getZone()}><Input><Input_Sel>$channel</Input_Sel></Input></${getZone()}></YAMAHA_AV>")
+}
+
+def getInputSource() {
+  logger("getInputSource($mode)")
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><Main_Zone><Input><Input_Sel_Item_Info>GetParam</Input_Sel_Item_Info></Input></Main_Zone></YAMAHA_AV>", true)
 }
 
 def setPlaybackStatus(status) {
@@ -385,7 +427,11 @@ def buildScenes() {
   sendEvent(name: "activities", value: data)
 }
 
-def request(body, isRefresh = false) {
+def getNetworkMisc() {
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><System><Misc><Network><Info>GetParam</Info></Network></Misc></System></YAMAHA_AV>")
+}
+
+def request(body, noRefresh = false) {
   def hosthex = convertIPtoHex(destIp)
   def porthex = convertPortToHex(destPort)
   device.deviceNetworkId = "$hosthex:$porthex"
@@ -399,7 +445,7 @@ def request(body, isRefresh = false) {
 
   sendHubCommand(hubAction)
   
-  if (isRefresh == false) {
+  if (noRefresh == false) {
     refresh()
   }
 }
@@ -446,6 +492,9 @@ def installed() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   createChildDevices()
   buildScenes()
+
+  getNetworkMisc() // get Mac ADDR
+
   refresh()
 }
 
@@ -463,6 +512,8 @@ def updated() {
 
   childDevices.each { logger("${it.deviceNetworkId}") }
   buildScenes()
+
+  getNetworkMisc() // get Mac ADDR
 
   refresh()
 }
