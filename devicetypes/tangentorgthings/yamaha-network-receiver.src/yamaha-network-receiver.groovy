@@ -13,7 +13,7 @@ import groovy.util.XmlSlurper
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v1.13"
+  return "v1.15"
 }
 
 metadata {
@@ -270,10 +270,10 @@ def sendVolume(double db) {
   db = roundNearestHalf(db)
   def strCmd = "<YAMAHA_AV cmd=\"PUT\"><${getZone()}><Volume><Lvl><Val>${(db * 10).intValue()}</Val><Exp>1</Exp><Unit>dB</Unit></Lvl></Volume></${getZone()}></YAMAHA_AV>"
   logger groovy.xml.XmlUtil.escapeXml("strCmd ${strCmd}")
-  request(strCmd)
+  request(strCmd, true)
   sendEvent(name: "dB", value: db)
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><${getZone()}><Volume><Lvl>GetParam</Lvl></Volume></${getZone()}></YAMAHA_AV>")
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><${getZone()}><Volume><Mute>GetParam</Mute></Volume></${getZone()}></YAMAHA_AV>")
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><${getZone()}><Volume><Lvl>GetParam</Lvl></Volume></${getZone()}></YAMAHA_AV>", true)
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><${getZone()}><Volume><Mute>GetParam</Mute></Volume></${getZone()}></YAMAHA_AV>", true)
 }
 
 def setDb(value) {
@@ -407,7 +407,7 @@ def poll() {
 def refresh() {
   logger ("refresh()")
   request("<YAMAHA_AV cmd=\"GET\"><${getZone()}><Basic_Status>GetParam</Basic_Status></${getZone()}></YAMAHA_AV>", true)
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><System><Power_Control><Power>GetParam</Power></Power_Control></System></YAMAHA_AV>")
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><System><Power_Control><Power>GetParam</Power></Power_Control></System></YAMAHA_AV>", true)
 }
 
 def startActivity(activityId) {
@@ -428,7 +428,7 @@ def buildScenes() {
 }
 
 def getNetworkMisc() {
-  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><System><Misc><Network><Info>GetParam</Info></Network></Misc></System></YAMAHA_AV>")
+  request("<?xml version=\"1.0\" encoding=\"utf-8\"?><YAMAHA_AV cmd=\"GET\"><System><Misc><Network><Info>GetParam</Info></Network></Misc></System></YAMAHA_AV>", true)
 }
 
 def request(body, noRefresh = false) {
