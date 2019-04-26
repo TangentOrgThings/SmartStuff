@@ -1,8 +1,8 @@
-// vim :set ts=2 sw=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 /*
 The MIT License (MIT)
 
-Copyright (c) 2018 Brian Aker <brian@tangent.org>
+Copyright (c) 2018-2019 Brian Aker <brian@tangent.org>
 Copyright (c) 2015 Jesse Newland
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -120,7 +120,7 @@ def addSpeakers() {
 
       def d = getChildDevice(dni)
       if(!d) {
-        d = addChildDevice("TangentOrgThings", "Airfoil Speaker", dni, null, ["label": "${s.name}@${name}"])
+        d = addChildDevice("tangentorgthings", "Airfoil Speaker", dni, null, ["label": "${s.name}@${name}"])
         log.debug "created ${d.displayName} with id $dni"
         d.refresh()
       } else {
@@ -308,33 +308,104 @@ private poll() {
   sendHubCommand (
     new physicalgraph.device.HubAction(
       method: "GET",
-      path: "/speakers",
-      headers: [
-      HOST: "${ip}:${port}"
+      path: "$uri",
+      headers: [ Host: "${ip}:${port}", Accept: "application/json"
       ]
     )
   )
 
   if (0) {
-  sendHubCommand( new physicalgraph.device.HubAction (
-    """GET ${uri} HTTP/1.1\r\nHOST: $ip\r\nAccept: application/json\r\n\r\n""",
-    physicalgraph.device.Protocol.LAN,
-    "${ip}:${port}"
-  ))
+    sendHubCommand( new physicalgraph.device.HubAction (
+      """GET ${uri} HTTP/1.1\r\nHOST: $ip\r\nAccept: application/json\r\n\r\n""",
+      physicalgraph.device.Protocol.LAN,
+      "${ip}:${port}"
+    ))
   }
 }
 
 private post(path, text, dni) {
   def uri = "$path"
-  def length = text.getBytes().size().toString()
 
   log.debug "POST:  $uri"
 
-  sendHubCommand(
-    new physicalgraph.device.HubAction(
-      """POST ${uri} HTTP/1.1\r\nHOST: $ip:$port\r\nContent-length: ${length}\r\nContent-type: text/plain\r\n\r\n${text}\r\n""",
-      physicalgraph.device.Protocol.LAN,
-      dni
+  if (0) {
+    sendHubCommand(
+      new physicalgraph.device.HubAction(
+        """POST ${uri} HTTP/1.1\r\nHOST: $ip:$port\r\nContent-length: ${length}\r\nContent-type: text/plain\r\n\r\n${text}\r\n""",
+        physicalgraph.device.Protocol.LAN,
+        dni
+      )
+    )
+  }
+
+  sendHubCommand (
+    new physicalgraph.device.HubAction([
+      method: "POST",
+      path: "${uri}",
+      headers: [ Host: "${ip}:${port}", "Content-Type": "text/plain" ],
+      body: "${text}"
+    ],
+    dni
+    // physicalgraph.device.Protocol.LAN,
     )
   )
+}
+
+def setTrace(Boolean enable) {
+  state.isTrace = enable
+
+  if ( enable ) {
+    runIn(60*5, followupTraceDisable)
+  }
+}
+
+Boolean isTraceEnabled() {
+  Boolean is_trace = state.isTrace ?: false
+  return is_trace
+}
+
+def followupTraceDisable() {
+  logger("followupTraceDisable()")
+
+  setTrace(false)
+}
+
+private logger(msg, level = "trace") {
+  String device_name = " : "
+  String msg_text = (msg != null) ? "${msg}" : "<null>"
+
+  Integer log_level =  isTraceEnabled() ? 5 : 2
+
+  switch(level) {
+    case "warn":
+    if (log_level >= 2) {
+      log.warn "$device_name ${msg_text}"
+    }
+    sendEvent(name: "logMessage", value: "${msg_text}", isStateChange: true)
+    break;
+
+    case "info":
+    if (log_level >= 3) {
+      log.info "$device_name ${msg_text}"
+    }
+    break;
+
+    case "debug":
+    if (log_level >= 4) {
+      log.debug "$device_name ${msg_text}"
+    }
+    break;
+
+    case "trace":
+    if (log_level >= 5) {
+      log.trace "$device_name ${msg_text}"
+    }
+    break;
+
+    case "error":
+    default:
+    log.error "$device_name ${msg_text}"
+    sendEvent(name: "lastError", value: "${msg_text}", isStateChange: true)
+    break;
+  }
 }
