@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v8.01"
+  return "v8.03"
 }
 
 metadata {
@@ -87,12 +87,10 @@ def parse(description) {
 // handle commands
 def on() {
   parent.on(this)
-  sendEvent(name: "switch", value: "on")
 }
 
 def off() {
   parent.off(this)
-  sendEvent(name: "switch", value: "off")
 }
 
 def setLevel(level) {
@@ -101,7 +99,6 @@ def setLevel(level) {
   def percent = level / 100.00
   log.debug "percent=${percent}"
   parent.setLevel(this, percent)
-  sendEvent(name: "level", value: level)
 }
 
 def refresh() {

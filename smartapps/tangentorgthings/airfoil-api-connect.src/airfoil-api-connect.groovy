@@ -54,19 +54,19 @@ def config() {
       input(name: "name", type: "text", title: "Name", description: "Computer Name", required: true, submitOnChange: true)
     }
 
-    if (ip && port) {
+    if (ip && port && 0) {
       int speakerRefreshCount = !state.speakerRefreshCount ? 0 : state.speakerRefreshCount as int
       state.speakerRefreshCount = speakerRefreshCount + 1
       doDeviceSync()
 
       def options = getSpeakers().collect { s ->
-        if (s.name == name) {
-          null
-        } else if (s.name == "Computer") {
-          null
-        } else {
-          s.name
-        }
+          if (s.id ==~ /com.rogueamoeba.airfoil.LocalSpeaker/) {
+            next
+          } else  if (s.id ==~ /com.rogueamoeba.group.*/) {
+            next
+          } else {
+              s.name
+          }
       }
 
       options.removeAll([null])
@@ -105,29 +105,51 @@ def initialize() {
 def addSpeakers() {
   def speakers = getSpeakers()
 
-  log.debug("getSpeakers() ${speakers}")
+  log.debug("addSpeakers() ${speakers}")
 
-  speakers.collect { s ->
-    selectedSpeakers.findAll { selected ->
-      selected == s.name
-    }.first {
+  speakers.each { s ->
+      if (s.id ==~ /com.rogueamoeba.airfoil.LocalSpeaker/) {
+        next
+      }
+      
+      if (s.id ==~ /com.rogueamoeba.group.*/) {
+        next
+      }
+      
       def dni = app.id + "/" + s.id
-      log.debug("DNI: ${dni}")
+      logger("DNI: ${dni}")
 
       def d = getChildDevice(dni)
-      if(!d) {
+      if (! d) {
         d = addChildDevice("tangentorgthings", "Airfoil Speaker", dni, null, ["label": "${s.name}@${name}"])
-        log.debug "created ${d.displayName} with id $dni"
+        logger "created ${d.displayName} with id $dni"
         d.refresh()
       } else {
-        log.debug "found ${d.displayName} with id $dni already exists, type: '$d.typeName'"
+        logger "found ${d.displayName} with id $dni already exists, type: '$d.typeName'"
       }
       s.dni = dni
       return s
     }
-  }
+
   atomicState.speakers = speakers
-  log.trace "Set atomicState.speakers to ${speakers}"
+  logger "Set atomicState.speakers to ${speakers}"
+}
+
+def setSpeaker( speaker ) {
+  def dni = app.id + "/" + speaker.id
+  def dev = getChildDevice(dni)
+  if (dev) {
+    if (speaker.connected == "true") {
+      sendEvent(dev.deviceNetworkId, [name: "switch", value: "on"])
+    } else {
+      sendEvent(dev.deviceNetworkId, [name: "switch", value: "off"])
+    }
+
+    if (speaker.volume) {
+      def level = Math.round(speaker.volume * 100.00)
+      sendEvent(dni, [name: "level", value: level])
+    }
+  }
 }
 
 def locationHandler(evt) {
@@ -138,10 +160,62 @@ def locationHandler(evt) {
   log.debug("DESCRIPTION: $body")
 
   if (body) {
-    body.each { s ->
-      def name = s.name
-      logger("name: ${name}")
+    if (body instanceof java.util.HashMap) {
+        logger("Hashmap body: ${body}")
+        setSpeaker( body )
+    } else if (body instanceof java.util.List) {
+        logger("List body: ${body}")
+        atomicState.speakers = body
+        body.each { s ->
+                if (s instanceof java.util.HashMap) {
+                } else {
+                  logger("bad: ${s}")
+                }
+                setSpeaker( s )
+        }
+    } else {
+        logger("unknown body: ${body}")
+        setSpeaker( body )
     }
+  }
+}
+
+void stateHandler(physicalgraph.device.HubResponse resp) {
+  def parsedEvent = parseLanMessage(resp.description)
+  def body = new groovy.json.JsonSlurper().parseText(parsedEvent.body)
+
+  log.debug("DESCRIPTION: $body")
+
+  if (body) {
+    if (body instanceof java.util.HashMap) {
+      logger("Hashmap body: ${body}")
+      setSpeaker( body )
+    } else if (body instanceof java.util.List) {
+      logger("List body: ${body}")
+      atomicState.speakers = body
+      body.each { s ->
+        if (s instanceof java.util.HashMap) {
+        } else {
+          logger("bad: ${s}")
+        }
+        setSpeaker( s )
+      }
+    } else {
+      logger("unknown body: ${body}")
+      setSpeaker( body )
+    }
+  }
+}
+
+void speakerHandler(physicalgraph.device.HubResponse resp) {
+  def parsedEvent = parseLanMessage(resp.description)
+  def body = new groovy.json.JsonSlurper().parseText(parsedEvent.body)
+
+  log.debug("DESCRIPTION: $body")
+
+  if (body) {
+    logger("unknown body: ${body}")
+    setSpeaker( body )
   }
 }
 
@@ -154,9 +228,9 @@ private def parseEventMessage(Map event) {
 }
 
 def doDeviceSync(){
-  if (! state.subscribe) {
+  if (! state.isSubscribed) {
     subscribe(location, null, locationHandler, [filterEvents:false])
-    state.subscribe = true
+    state.isSubscribed = true
   }
 
   poll()
@@ -189,35 +263,51 @@ private poll() {
                   HOST: "${ip}:${port}", 
                   Accept: "application/json"
       ]],
-      "",
-      ""//[ callback: pollCallback ]
-    )
-  )
+      "${ip}:${port}",
+      [ callback: "stateHandler" ]
+    ))
 }
 
 def pollCallback( result ) {
 }
 
 private post(path, text, dni) {
-  def uri = "$path"
+  def uri = path.replaceAll(' ', '%20')
+  def length = text.getBytes().size().toString()
 
   log.debug "POST:  $uri"
 
-  sendHubCommand (
-    new physicalgraph.device.HubAction([
-      method: text.length() ? "POST" : "GET",
-      path: "${uri}",
-      headers: [ 
-                  HOST: "${ip}:${port}", 
-                  Accept: "application/json",
-                  "Content-type": "text/plain"
-      ],
-      body: "${text}"
-    ],
-    "",//dni,
-    ""//[ callback: pollCallback ]
-    )
-  )
+  if (length) {
+      sendHubCommand (
+        new physicalgraph.device.HubAction([
+          method: "POST",
+          path: "${uri}",
+          headers: [ 
+                      HOST: "${ip}:${port}", 
+                      "Content-type": "text/plain",
+          ],
+          body: "${text}"
+        ],
+          "${dni}", // dni
+          [ callback: "speakerHandler" ]
+        )
+      )
+  } else {
+      sendHubCommand (
+        new physicalgraph.device.HubAction([
+          method: "POST",
+          path: "${uri}",
+          headers: [ 
+                      HOST: "${ip}:${port}", 
+                      "Content-type": "text/plain",
+                      "Content-length": "$length"
+          ]
+        ],
+          "${dni}", // dni
+          [ callback: "speakerHandler" ]
+        )
+      )
+  }
 }
 
 private getHttpBody(body) {
@@ -251,7 +341,7 @@ private logger(msg, level = "trace") {
   String device_name = " : "
   String msg_text = (msg != null) ? "${msg}" : "<null>"
 
-  Integer log_level =  isTraceEnabled() ? 5 : 2
+  Integer log_level = 5// isTraceEnabled() ? 5 : 2
 
   switch(level) {
     case "warn":
@@ -286,3 +376,4 @@ private logger(msg, level = "trace") {
     break;
   }
 }
+
