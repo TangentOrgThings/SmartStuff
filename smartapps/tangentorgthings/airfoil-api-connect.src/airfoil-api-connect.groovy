@@ -1,32 +1,36 @@
 // vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 /*
-The MIT License (MIT)
+    The MIT License (MIT)
 
-Copyright (c) 2018-2019 Brian Aker <brian@tangent.org>
-Copyright (c) 2015 Jesse Newland
+    Copyright (c) 2018-2019 Brian Aker <brian@tangent.org>
+    Copyright (c) 2015 Jesse Newland
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
  */
+
+
+import groovy.json.JsonSlurper
 
 /*
-Forked from https://github.com/jnewland/airfoil-api-smartthings
+  Forked from https://github.com/jnewland/airfoil-api-smartthings
  */
+
 definition(
   name: "Airfoil API Connect",
   namespace: "TangentOrgThings",
@@ -87,9 +91,6 @@ def updated() {
 }
 
 def initialize() {
-  state.subscribe = false
-  unsubscribe()
-
   if (selectedSpeakers) {
     log.debug "addSpeakers()"
     addSpeakers()
@@ -99,11 +100,6 @@ def initialize() {
     doDeviceSync()
     runEvery5Minutes("doDeviceSync")
   }
-}
-
-def uninstalled() {
-  unschedule()
-  unsubscribe()
 }
 
 def addSpeakers() {
@@ -135,76 +131,11 @@ def addSpeakers() {
 }
 
 def locationHandler(evt) {
-  def description = evt.description
-  def hub = evt?.hubId
+  def map = stringToMap(evt.stringValue)
 
-  log.debug("DESCRIPTION: $description")
+  def body = getHttpBody(map.body);
 
-  def parsedEvent = parseEventMessage(description)
-  parsedEvent << ["hub":hub]
-
-  if (parsedEvent.headers && parsedEvent.body) {
-    def headerString = new String(parsedEvent.headers.decodeBase64())
-    def bodyString = new String(parsedEvent.body.decodeBase64())
-    def body = new groovy.json.JsonSlurper().parseText(bodyString)
-    log.trace "Airfoil API response: ${body}"
-
-    if (body instanceof java.util.HashMap) { //POST /speakers/*/* response
-      def speakers = atomicState.speakers.collect { s ->
-        if (s.id == body.id) {
-          body
-        } else {
-          s
-        }
-      }
-
-      atomicState.speakers = speakers
-      log.trace "Set atomicState.speakers to ${speakers}"
-      def dni = app.id + "/" + body.id
-      def d = getChildDevice(dni)
-
-      if (d) {
-        if (body.connected == "true") {
-          sendEvent(d.deviceNetworkId, [name: "switch", value: "on"])
-        } else {
-          sendEvent(d.deviceNetworkId, [name: "switch", value: "off"])
-        }
-
-        log.debug("VOLUME: ${body.volume}")
-        if (body.volume) {
-          def level = Math.round(body.volume * 100.00)
-          sendEvent(d.deviceNetworkId, [name: "level", value: level])
-        }
-      }
-    } else if (body instanceof java.util.List) { //GET /speakers response (application/json)
-      def bodySize = body.size() ?: 0
-
-      if (bodySize > 0 ) {
-        atomicState.speakers = body
-        body.each { s ->
-          def dni = app.id + "/" + s.id
-          def d = getChildDevice(dni)
-          if (d) {
-            if (s.connected == "true") {
-              sendEvent(d.deviceNetworkId, [name: "switch", value: "on"])
-            } else {
-              sendEvent(d.deviceNetworkId, [name: "switch", value: "off"])
-            }
-            if (s.volume) {
-              def level = Math.round(s.volume * 100.00)
-              sendEvent(dni, [name: "level", value: level])
-            }
-          }
-        }
-        log.trace "Set atomicState.speakers to ${speakers}"
-      }
-    } else {
-      //TODO: handle retries...
-      log.error "ERROR: unknown body type"
-    }
-  } else {
-    log.trace "UNKNOWN EVENT $evt.description"
-  }
+  log.debug("DESCRIPTION: $body")
 }
 
 def getSpeakers() {
@@ -215,72 +146,13 @@ private def parseEventMessage(Map event) {
   return event
 }
 
-private def parseEventMessage(String description) {
-  def event = [:]
-  def parts = description.split(',')
-  parts.each { part ->
-    part = part.trim()
-    if (part.startsWith('devicetype:')) {
-      def valueString = part.split(":")[1].trim()
-      event.devicetype = valueString
-    } else if (part.startsWith('mac:')) {
-      def valueString = part.split(":")[1].trim()
-      if (valueString) {
-        event.mac = valueString
-      }
-    } else if (part.startsWith('networkAddress:')) {
-      def valueString = part.split(":")[1].trim()
-      if (valueString) {
-        event.ip = valueString
-      }
-    }
-    else if (part.startsWith('deviceAddress:')) {
-      def valueString = part.split(":")[1].trim()
-      if (valueString) {
-        event.port = valueString
-      }
-    } else if (part.startsWith('ssdpPath:')) {
-      def valueString = part.split(":")[1].trim()
-      if (valueString) {
-        event.ssdpPath = valueString
-      }
-    } else if (part.startsWith('ssdpUSN:')) {
-      part -= "ssdpUSN:"
-      def valueString = part.trim()
-      if (valueString) {
-        event.ssdpUSN = valueString
-      }
-    } else if (part.startsWith('ssdpTerm:')) {
-      part -= "ssdpTerm:"
-      def valueString = part.trim()
-      if (valueString) {
-        event.ssdpTerm = valueString
-      }
-    } else if (part.startsWith('headers')) {
-      part -= "headers:"
-      def valueString = part.trim()
-      if (valueString) {
-        event.headers = valueString
-      }
-    } else if (part.startsWith('body')) {
-      part -= "body:"
-      def valueString = part.trim()
-      if (valueString) {
-        event.body = valueString
-      }
-    }
-  }
-
-  event
-}
-
 def doDeviceSync(){
-  poll()
-
   if (! state.subscribe) {
     subscribe(location, null, locationHandler, [filterEvents:false])
     state.subscribe = true
   }
+
+  poll()
 }
 
 def on(childDevice) {
@@ -306,21 +178,20 @@ private poll() {
   log.debug "GET: ${uri} HOST: ${ip}:${port}";
 
   sendHubCommand (
-    new physicalgraph.device.HubAction(
+    new physicalgraph.device.HubAction([
       method: "GET",
       path: "$uri",
-      headers: [ Host: "${ip}:${port}", Accept: "application/json"
-      ]
+      headers: [ 
+                  HOST: "${ip}:${port}", 
+                  Accept: "application/json"
+      ]],
+      "",
+      ""//[ callback: pollCallback ]
     )
   )
+}
 
-  if (0) {
-    sendHubCommand( new physicalgraph.device.HubAction (
-      """GET ${uri} HTTP/1.1\r\nHOST: $ip\r\nAccept: application/json\r\n\r\n""",
-      physicalgraph.device.Protocol.LAN,
-      "${ip}:${port}"
-    ))
-  }
+def pollCallback( result ) {
 }
 
 private post(path, text, dni) {
@@ -328,27 +199,28 @@ private post(path, text, dni) {
 
   log.debug "POST:  $uri"
 
-  if (0) {
-    sendHubCommand(
-      new physicalgraph.device.HubAction(
-        """POST ${uri} HTTP/1.1\r\nHOST: $ip:$port\r\nContent-length: ${length}\r\nContent-type: text/plain\r\n\r\n${text}\r\n""",
-        physicalgraph.device.Protocol.LAN,
-        dni
-      )
-    )
-  }
-
   sendHubCommand (
     new physicalgraph.device.HubAction([
       method: "POST",
       path: "${uri}",
-      headers: [ Host: "${ip}:${port}", "Content-Type": "text/plain" ],
+      headers: [ 
+                  HOST: "${ip}:${port}", 
+                  Accept: "application/json"
+      ],
       body: "${text}"
     ],
-    dni
-    // physicalgraph.device.Protocol.LAN,
+    "",//dni,
+    ""//[ callback: pollCallback ]
     )
   )
+}
+
+private getHttpBody(body) {
+  def obj = null;
+  if (body) {
+    obj = new JsonSlurper().parseText(new String(body.decodeBase64()))
+  }
+  return obj
 }
 
 def setTrace(Boolean enable) {
