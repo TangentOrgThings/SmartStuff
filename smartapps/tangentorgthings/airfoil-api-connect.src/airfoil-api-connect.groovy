@@ -136,6 +136,13 @@ def locationHandler(evt) {
   def body = getHttpBody(map.body);
 
   log.debug("DESCRIPTION: $body")
+
+  if (body) {
+    body.each { s ->
+      def name = s.name
+      logger("name: ${name}")
+    }
+  }
 }
 
 def getSpeakers() {
@@ -174,13 +181,10 @@ private getId(childDevice) {
 }
 
 private poll() {
-  def uri = "/speakers"
-  log.debug "GET: ${uri} HOST: ${ip}:${port}";
-
   sendHubCommand (
     new physicalgraph.device.HubAction([
       method: "GET",
-      path: "$uri",
+      path: "/speakers",
       headers: [ 
                   HOST: "${ip}:${port}", 
                   Accept: "application/json"
