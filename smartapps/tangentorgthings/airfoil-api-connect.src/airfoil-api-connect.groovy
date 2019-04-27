@@ -201,11 +201,12 @@ private post(path, text, dni) {
 
   sendHubCommand (
     new physicalgraph.device.HubAction([
-      method: "POST",
+      method: text.length() ? "POST" : "GET",
       path: "${uri}",
       headers: [ 
                   HOST: "${ip}:${port}", 
-                  Accept: "application/json"
+                  Accept: "application/json",
+                  "Content-type": "text/plain"
       ],
       body: "${text}"
     ],
