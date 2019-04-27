@@ -54,7 +54,7 @@ def config() {
       input(name: "name", type: "text", title: "Name", description: "Computer Name", required: true, submitOnChange: true)
     }
 
-    if (ip && port && 0) {
+    if (ip && port) {
       int speakerRefreshCount = !state.speakerRefreshCount ? 0 : state.speakerRefreshCount as int
       state.speakerRefreshCount = speakerRefreshCount + 1
       doDeviceSync()
