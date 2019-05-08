@@ -24,13 +24,14 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v1.85"
+  return "v1.87"
 }
 
 metadata {
   definition (name: "Leviton Vizia RF Button Scene Controller", namespace: "TangentOrgThings", author: "Brian Aker") {
     capability "Actuator"
     capability "Button"
+    capability "Refresh"
     capability "Sensor"
     capability "Switch"
 
@@ -79,8 +80,12 @@ metadata {
       state "default", label: '${currentValue}'
     }
 
+    standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "default", label:'', action:"refresh.refresh", icon: "st.secondary.refresh"
+    }
+
     main ("scene")
-    details(["scene", "setScene", "driverVersion"])
+    details(["scene", "setScene", "driverVersion", "refresh"])
   }
 }
 
