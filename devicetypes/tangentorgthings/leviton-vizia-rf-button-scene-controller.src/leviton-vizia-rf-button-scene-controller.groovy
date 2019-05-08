@@ -1,4 +1,4 @@
-// vim :set tabstop=2 shiftwidth=2 sts=2 expandtab smarttab :
+// vim: set filetype=groovy tabstop=2 shiftwidth=2 softtabstop=2 expandtab smarttab :
 /**
  *
  *  VIZIA RF 1 BUTTON SCENE CONTROLLER
@@ -24,7 +24,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v1.75"
+  return "v1.85"
 }
 
 metadata {
@@ -318,19 +318,19 @@ def zwaveEvent(zwave.commands.switchbinaryv1.SwitchBinarySet cmd, result) {
   }
 } 
 
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
+def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, result) {
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChange cmd, result) {	
+def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChange cmd, result) {	
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv3.SwitchMultilevelStopLevelChange cmd, result) {	
+def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelStopLevelChange cmd, result) {	
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
+def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationBusy cmd, result) {
   logger("$device.displayName $cmd")
   switch (cmd.status) {
     case 0:
@@ -348,11 +348,11 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy 
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
+def zwaveEvent(zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
+def zwaveEvent(zwave.commands.scenecontrollerconfv1.SceneControllerConfReport cmd, result) {
   logger("$device.displayName $cmd")
 
   if (cmd.groupId != cmd.sceneId) {
@@ -366,18 +366,20 @@ def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControlle
   updateDataValue("Group #${cmd.groupId} Duration", "$cmd.dimmingDuration")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
+def zwaveEvent(zwave.commands.scenecontrollerconfv1.SceneControllerConfSet cmd, result) {
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.scenecontrollerconfv1.SceneControllerConfGet cmd, result) {
+def zwaveEvent(zwave.commands.scenecontrollerconfv1.SceneControllerConfGet cmd, result) {
   logger("$device.displayName $cmd")
-  sendCommands([
-    zwave.sceneControllerConfV1.sceneControllerConfReport(groupId: cmd.groupId, dimmingDuration: 0xFF, sceneId: cmd.groupId),
-  ])
+  if (0) { // This should not happen
+    sendCommands([
+      zwave.sceneControllerConfV1.sceneControllerConfReport(groupId: cmd.groupId, dimmingDuration: 0xFF, sceneId: cmd.groupId),
+    ])
+  }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
+def zwaveEvent(zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) {
   logger("$device.displayName $cmd")
 
   if (state.lastScene == cmd.sceneId && (state.repeatCount < 4) && (now() - state.repeatStart < 3000)) {
@@ -428,7 +430,7 @@ def unsetScene(Boolean isPhysical) {
   }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
+def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, result) {
   logger("$device.displayName $cmd")
   logger("$device.displayName lastScene: $state.lastScene")
 
@@ -453,12 +455,12 @@ def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfReport cmd, r
   logger("$cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
+def zwaveEvent(zwave.commands.zwavecmdclassv1.NodeInfo cmd, result) {
   logger("$device.displayName $cmd")
   result << createEvent(name: "NIF", value: "$cmd", descriptionText: "$cmd", isStateChange: true, displayed: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
+def zwaveEvent(zwave.commands.associationv2.AssociationGroupingsReport cmd, result) {
   logger("$device.displayName $cmd")
   def cmds = []
 
@@ -473,12 +475,12 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationGroupingsRe
   result << response( delayBetween(cmds, 2000) )
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.remoteassociationactivatev1.RemoteAssociationActivate cmd, result) {
+def zwaveEvent(zwave.commands.remoteassociationactivatev1.RemoteAssociationActivate cmd, result) {
   logger("$device.displayName $cmd")
   updateDataValue("RemoteAssociationActivate", "${cmd.groupingIdentifier}")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
+def zwaveEvent(zwave.commands.associationv2.AssociationReport cmd, result) {
   logger("$device.displayName $cmd")
 
   Integer[] associate =  []
@@ -519,7 +521,7 @@ def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd,
   updateDataValue("$group_association_name", "${final_string}");
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result) {
+def zwaveEvent(zwave.commands.versionv1.VersionReport cmd, result) {
   logger("$device.displayName $cmd")
 
   def text = "$device.displayName: firmware version: ${cmd.applicationVersion}.${cmd.applicationSubVersion}, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
@@ -529,17 +531,17 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd, result)
   result << createEvent(name: "zWaveProtocolVersion", value: "${zWaveProtocolVersion}", descriptionText: "${device.displayName} ${zWaveProtocolVersion}", isStateChange: true)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
+def zwaveEvent(zwave.commands.powerlevelv1.PowerlevelReport cmd, result) {
   logger("zwaveEvent(): Powerlevel Report received: ${cmd}")
   String device_power_level = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   updateDataValue("Powerlevel Report", "Power: ${device_power_level}, Timeout: ${cmd.timeout}")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
+def zwaveEvent(zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd, result) {
   logger("$device.displayName $cmd")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
+def zwaveEvent(zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd, result) {
   logger("$device.displayName $cmd")
 
   def cmds = []
@@ -568,16 +570,16 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerS
   result << response(zwave.versionV1.versionGet())
 }
 
-def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
+def zwaveEvent(zwave.Command cmd, result) {
   logger("$device.displayName no implementation of $cmd", "error")
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd, result) {
+def zwaveEvent(zwave.commands.hailv1.Hail cmd, result) {
   logger("$device.displayName command not implemented: $cmd")
   result << createEvent(name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: false)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.networkmanagementprimaryv1.ControllerChangeStatus cmd, result) {
+def zwaveEvent(zwave.commands.networkmanagementprimaryv1.ControllerChangeStatus cmd, result) {
   logger("$device.displayName command not implemented: $cmd", "error")
 }
 
@@ -595,6 +597,7 @@ def refresh () {
   logger ("$device.displayName refresh()")
   delayBetween([
     zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
   ])
 }
 
@@ -602,6 +605,7 @@ def poll() {
   logger ("$device.displayName poll()")
   response( delayBetween([
     zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
+    zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
   ]))
 }
 
