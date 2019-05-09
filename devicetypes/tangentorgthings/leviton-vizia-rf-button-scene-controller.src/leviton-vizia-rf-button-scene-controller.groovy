@@ -333,11 +333,13 @@ def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChang
 
   state.Level = state.Level ?: 33
 
-  cmd.upDown ? state.Level++ : state.Level--
+  cmd.upDown ? --state.Level : ++state.Level
 
   state.Level = Math.max(Math.min(state.Level, 99), 0)
 
   result << createEvent(name: "level", value: state.Level, type: "physical", isStateChange: true, displayed: true)
+
+  setLevel(state.Level, 1)
 }
 
 def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelStopLevelChange cmd, result) {	
