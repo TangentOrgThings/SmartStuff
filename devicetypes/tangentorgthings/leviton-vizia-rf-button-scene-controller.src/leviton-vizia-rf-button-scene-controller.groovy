@@ -330,6 +330,14 @@ def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd, res
 
 def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelStartLevelChange cmd, result) {	
   logger("$device.displayName $cmd")
+
+  state.Level = state.Level ?: 33
+
+  cmd.upDown ? state.Level++ : state.Level--
+
+  state.Level = Math.max(Math.min(state.Level, 99), 0)
+
+  result << createEvent(name: "level", value: state.Level, type: "physical", isStateChange: true, displayed: true)
 }
 
 def zwaveEvent(zwave.commands.switchmultilevelv3.SwitchMultilevelStopLevelChange cmd, result) {	
@@ -397,23 +405,23 @@ def zwaveEvent(zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) 
     state.repeatCount = 0
     state.repeatStart = now()
 
-    setScene( cmd.sceneId )
+    setScene( cmd.sceneId, result )
   }
 }
 
 def setScene( sceneId ) {
   state.Scene = sceneId
 
-  sendEvent(name: "Scene", value: state.Scene, isStateChange: true)
-  sendEvent(name: "setScene", value: "Setting", isStateChange: true)
+  result << createEvent(name: "Scene", value: state.Scene, isStateChange: true)
+  result << createEvent(name: "setScene", value: "Setting", isStateChange: true)
 
   if (state.buttons && state.Scene >= 1 && state.Scene <= state.buttons) {
     state.Level = 33
-    sendEvent(name: "switch", value: "on", type: "physical", isStateChange: true, displayed: true)
-    sendEvent(name: "level", value: state.Level, type: "physical", isStateChange: true, displayed: true)
+    result << createEvent(name: "switch", value: "on", type: "physical", isStateChange: true, displayed: true)
+    result << createEvent(name: "level", value: state.Level, type: "physical", isStateChange: true, displayed: true)
     buttonEvent("setScene", state.Scene, true)
   } else if (state.buttons && state.Scene > state.buttons && state.Scene <= state.buttons * 2) {
-    sendEvent(name: "switch", value: "off", type: "physical", isStateChange: true, displayed: true)
+    result << createEvent(name: "switch", value: "off", type: "physical", isStateChange: true, displayed: true)
     buttonEvent("setScene", state.Scene - state.buttons, false)
   } else {
     // Error
@@ -449,6 +457,8 @@ def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, resu
   } else if ( state.Scene ) {
     scene_id = state.Scene
   }
+
+  state.Level = state.Level ?: 33
 
   result << createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
   sendCommands( [ zwave.sceneActuatorConfV1.sceneActuatorConfReport(
