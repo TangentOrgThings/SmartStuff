@@ -409,7 +409,7 @@ def zwaveEvent(zwave.commands.sceneactivationv1.SceneActivationSet cmd, result) 
   }
 }
 
-def setScene( sceneId ) {
+def setScene( sceneId, result ) {
   state.Scene = sceneId
 
   result << createEvent(name: "Scene", value: state.Scene, isStateChange: true)
