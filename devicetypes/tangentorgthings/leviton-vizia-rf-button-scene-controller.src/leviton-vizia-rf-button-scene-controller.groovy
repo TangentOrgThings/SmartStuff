@@ -24,7 +24,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v1.87"
+  return "v1.89"
 }
 
 metadata {
@@ -443,14 +443,14 @@ def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, resu
 
   if ( cmd.sceneId ) {
     scene_id = cmd.sceneId
-  } else if ( state.sceneId ) {
-    scene_id = state.sceneId
+  } else if ( state.Scene ) {
+    scene_id = state.Scene
   }
 
   result << createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
   sendCommands( [ zwave.sceneActuatorConfV1.sceneActuatorConfReport(
-    dimmingDuration: 0,
-    level: 0xFF, 
+    dimmingDuration: 0xFF,
+    level: 0x63, 
     sceneId: scene_id
   ),
   ])
@@ -601,7 +601,6 @@ def ping() {
 def refresh () {
   logger ("$device.displayName refresh()")
   delayBetween([
-    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format(),
     zwave.sceneControllerConfV1.sceneControllerConfGet(groupId: 0).format(),
   ])
 }
