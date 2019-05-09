@@ -34,6 +34,7 @@ metadata {
     capability "Refresh"
     capability "Sensor"
     capability "Switch"
+    capability "Switch Level"
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
@@ -407,13 +408,15 @@ def setScene( sceneId ) {
   sendEvent(name: "setScene", value: "Setting", isStateChange: true)
 
   if (state.buttons && state.Scene >= 1 && state.Scene <= state.buttons) {
-    sendEvent(name: "switch", value: "on", type: "digital", isStateChange: true, displayed: true)
+    state.Level = 33
+    sendEvent(name: "switch", value: "on", type: "physical", isStateChange: true, displayed: true)
+    sendEvent(name: "level", value: state.Level, type: "physical", isStateChange: true, displayed: true)
     buttonEvent("setScene", state.Scene, true)
   } else if (state.buttons && state.Scene > state.buttons && state.Scene <= state.buttons * 2) {
-    sendEvent(name: "switch", value: "off", type: "digital", isStateChange: true, displayed: true)
+    sendEvent(name: "switch", value: "off", type: "physical", isStateChange: true, displayed: true)
     buttonEvent("setScene", state.Scene - state.buttons, false)
   } else {
-    buttonEvent("setScene", state.Scene, true)
+    // Error
   }
 }
 
@@ -449,8 +452,8 @@ def zwaveEvent(zwave.commands.sceneactuatorconfv1.SceneActuatorConfGet cmd, resu
 
   result << createEvent(name: "setScene", value: "Set", isStateChange: true, displayed: true)
   sendCommands( [ zwave.sceneActuatorConfV1.sceneActuatorConfReport(
-    dimmingDuration: 0xFF,
-    level: 0x63, 
+    dimmingDuration: 0x00,
+    level: state.Level,
     sceneId: scene_id
   ),
   ])
