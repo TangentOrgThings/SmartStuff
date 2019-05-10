@@ -79,13 +79,13 @@ def parse(String description) {
 def on() {
   logger("on()")
   sendEvent(name: "presence", value: "present", displayed: true, isStateChange: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button 2 pushed", isStateChange: true, type: "digital")
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true, type: "digital")
 }
 
 def off() {
   logger("off()")
   sendEvent(name: "presence", value: "not present", displayed: true, isStateChange: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button 2 pushed", isStateChange: true, type: "digital")
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], isStateChange: true, type: "digital")
 }
 
 private initialized() {
