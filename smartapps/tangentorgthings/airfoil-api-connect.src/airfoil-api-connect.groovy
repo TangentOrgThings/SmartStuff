@@ -70,7 +70,6 @@ def config() {
       }
 
       options.removeAll([null])
-      log.trace "Speaker options: ${options}"
       def numFound = options.size() ?: 0
 
       if (name) {
@@ -92,7 +91,6 @@ def updated() {
 
 def initialize() {
   if (selectedSpeakers) {
-    log.debug "addSpeakers()"
     addSpeakers()
   }
 
@@ -104,8 +102,6 @@ def initialize() {
 
 def addSpeakers() {
   def speakers = getSpeakers()
-
-  log.debug("addSpeakers() ${speakers}")
 
   speakers.each { s ->
       if (s.id ==~ /com.rogueamoeba.airfoil.LocalSpeaker/) {
@@ -122,7 +118,6 @@ def addSpeakers() {
       def d = getChildDevice(dni)
       if (! d) {
         d = addChildDevice("tangentorgthings", "Airfoil Speaker", dni, null, ["label": "${s.name}@${name}"])
-        logger "created ${d.displayName} with id $dni"
         d.refresh()
       } else {
         logger "found ${d.displayName} with id $dni already exists, type: '$d.typeName'"
@@ -132,7 +127,6 @@ def addSpeakers() {
     }
 
   atomicState.speakers = speakers
-  logger "Set atomicState.speakers to ${speakers}"
 }
 
 def setSpeaker( speaker ) {
@@ -157,14 +151,10 @@ def locationHandler(evt) {
 
   def body = getHttpBody(map.body);
 
-  log.debug("DESCRIPTION: $body")
-
   if (body) {
     if (body instanceof java.util.HashMap) {
-        logger("Hashmap body: ${body}")
         setSpeaker( body )
     } else if (body instanceof java.util.List) {
-        logger("List body: ${body}")
         atomicState.speakers = body
         body.each { s ->
                 if (s instanceof java.util.HashMap) {
@@ -174,7 +164,6 @@ def locationHandler(evt) {
                 setSpeaker( s )
         }
     } else {
-        logger("unknown body: ${body}")
         setSpeaker( body )
     }
   }
@@ -184,14 +173,10 @@ void stateHandler(physicalgraph.device.HubResponse resp) {
   def parsedEvent = parseLanMessage(resp.description)
   def body = new groovy.json.JsonSlurper().parseText(parsedEvent.body)
 
-  log.debug("DESCRIPTION: $body")
-
   if (body) {
     if (body instanceof java.util.HashMap) {
-      logger("Hashmap body: ${body}")
       setSpeaker( body )
     } else if (body instanceof java.util.List) {
-      logger("List body: ${body}")
       atomicState.speakers = body
       body.each { s ->
         if (s instanceof java.util.HashMap) {
@@ -201,7 +186,6 @@ void stateHandler(physicalgraph.device.HubResponse resp) {
         setSpeaker( s )
       }
     } else {
-      logger("unknown body: ${body}")
       setSpeaker( body )
     }
   }
@@ -211,10 +195,7 @@ void speakerHandler(physicalgraph.device.HubResponse resp) {
   def parsedEvent = parseLanMessage(resp.description)
   def body = new groovy.json.JsonSlurper().parseText(parsedEvent.body)
 
-  log.debug("DESCRIPTION: $body")
-
   if (body) {
-    logger("unknown body: ${body}")
     setSpeaker( body )
   }
 }
@@ -237,12 +218,12 @@ def doDeviceSync(){
 }
 
 def on(childDevice) {
-  log.debug "Executing 'on'"
+  logger("on()")
   post("/speakers/${getId(childDevice)}/connect", "", getId(childDevice))
 }
 
 def off(childDevice) {
-  log.debug "Executing 'off'"
+  logger("off()")
   post("/speakers/${getId(childDevice)}/disconnect", "", getId(childDevice))
 }
 
@@ -274,8 +255,6 @@ def pollCallback( result ) {
 private post(path, text, dni) {
   def uri = path.replaceAll(' ', '%20')
   def length = text.getBytes().size().toString()
-
-  log.debug "POST:  $uri"
 
   if (length) {
       sendHubCommand (
