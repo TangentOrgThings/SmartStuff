@@ -32,26 +32,28 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v0.01"
+  return "v0.03"
 }
 
 metadata {
-	definition (name: "Avatar", namespace: "tangentorgthings", author: "Brian Aker", cstHandler: true) {
-		capability "Button"
-		capability "Presence Sensor"
-		capability "Switch"
+  definition (name: "Avatar", namespace: "tangentorgthings", author: "Brian Aker", cstHandler: true) {
+    capability "Button"
+    capability "Presence Sensor"
+    capability "Switch"
 
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
 
+    attribute "lastSeen", "string"
+
     attribute "about", "string"
     attribute "driverVersion", "string"
-	}
+  }
 
 
-	simulator {
-		// TODO: define status and reply messages here
-	}
+  simulator {
+    // TODO: define status and reply messages here
+  }
 
   tiles {
     standardTile("presence", "device.presence", width: 2, height: 2, canChangeBackground: true) {
@@ -59,9 +61,19 @@ metadata {
       state("present", label:'present', icon:"st.presence.tile.present", backgroundColor:"#00A0DC", action:"departed")
     }
 
-    main "presence"
-    details "presence"
+    valueTile("lastSeen", "device.lastSeen", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
+    }
+
+    valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
+      state "default", label: '${currentValue}', defaultState: true
+    }
+
+
+    main("presence")
+    details(["presence", "lastSeen", "driverVersion"])
   }
+
 }
 
 // parse events into attributes
@@ -80,6 +92,9 @@ def on() {
   logger("on()")
   sendEvent(name: "presence", value: "present", displayed: true, isStateChange: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true, type: "digital")
+
+  def lastSeen = new Date().time
+  result << createEvent(name: "lastSeen", value: state.lastActive, isStateChange: false)
 }
 
 def off() {
