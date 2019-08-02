@@ -39,6 +39,7 @@ metadata {
   definition (name: "Airfoil Speaker", namespace: "tangentorgthings", author: "Brian Aker") {
     capability "Actuator"
     capability "Audio Volume"
+    capability "Media Track Control"
     capability "Refresh"
     capability "Sensor"
     capability "Switch level"
@@ -91,6 +92,20 @@ def on() {
 
 def off() {
   parent.off(this)
+}
+
+def nextTrack() {
+  logger("nextTrack()")
+  parent.post("/next")
+}
+
+def previousTrack() {
+  logger("previousTrack()")
+  parent.post("/previous")
+}
+
+def play() {
+  parent.post("/playpause")
 }
 
 def setLevel(level) {

@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v0.03"
+  return "v0.07"
 }
 
 metadata {
@@ -53,6 +53,10 @@ metadata {
 
   simulator {
     // TODO: define status and reply messages here
+  }
+
+  preferences {
+    input name: "normallyHome", type: "bool", title: "Normally Home", description: "If you oopsed the switch... ", required: false,  defaultValue: false
   }
 
   tiles {
