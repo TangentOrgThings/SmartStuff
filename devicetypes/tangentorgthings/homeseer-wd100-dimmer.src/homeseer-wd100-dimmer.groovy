@@ -39,7 +39,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v7.47"
+  return "v7.49"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -54,6 +54,7 @@ metadata {
   definition (name: "Homeseer WD100 Dimmer", namespace: "TangentOrgThings", author: "brian@tangent.org", ocfDeviceType: "oic.d.light") {
     capability "Actuator"
     capability "Button"
+    capability "Indicator"
     capability "Light"
     capability "Refresh"
     capability "Sensor"
@@ -158,6 +159,12 @@ metadata {
       }
     }
 
+    standardTile("indicator", "device.indicatorStatus", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "when off", action:"indicator.indicatorWhenOn", icon:"st.indicators.lit-when-off"
+      state "when on", action:"indicator.indicatorNever", icon:"st.indicators.lit-when-on"
+      state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
+    }
+
     standardTile("refresh", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "default", label: '', action: "refresh.refresh", icon: "st.secondary.refresh"
     }
@@ -172,7 +179,7 @@ metadata {
     }
 
     main "switch"
-    details(["switch", "driverVersion", "refresh", "reset"])
+    details(["switch", "driverVersion", "indicator", "refresh", "reset"])
   }
 }
 
@@ -541,10 +548,11 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     switch (cmd.parameterNumber) {
       case 3: // Homeseer has an undocumented indicator light in the most recent versions of the firmware
       if (1) {
-        state.indicatorLight = "when off"
-        if (cmd.configurationValue[0] == 1) { state.indicatorLight = "when on" }
-        if (cmd.configurationValue[0] == 2) { state.indicatorLight = "never" }
-        logger("Indicator Light ${state.indicatorLight}", "info")
+        def indicatorStatus = "when off"
+        if (cmd.configurationValue[0] == 1) { indicatorStatus = "when on" }
+        if (cmd.configurationValue[0] == 2) { indicatorStatus = "never" }
+        logger("Indicator Light ${indicatorStatus}", "info")
+        result << createEvent(name: "indicatorStatus", value: indicatorStatus, display: true)
       }
       break;
       case 4:
@@ -1332,6 +1340,21 @@ def poll() {
   zwave.switchMultilevelV1.switchMultilevelGet().format()
 }
 
+def indicatorWhenOn() {
+	sendEvent(name: "indicatorStatus", value: "when on", display: false)
+	zwave.configurationV1.configurationSet(configurationValue: [1], parameterNumber: 3, size: 1).format()
+}
+
+def indicatorWhenOff() {
+	sendEvent(name: "indicatorStatus", value: "when off", display: false)
+	zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 3, size: 1).format()
+}
+
+def indicatorNever() {
+	sendEvent(name: "indicatorStatus", value: "never", display: false)
+	zwave.configurationV1.configurationSet(configurationValue: [2], parameterNumber: 3, size: 1).format()
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.centralscenev1.CentralSceneSupportedReport cmd, result) {
   logger("$cmd")
 
@@ -1538,6 +1561,7 @@ def prepDevice() {
     zwave.switchAllV1.switchAllGet(),
     zwave.powerlevelV1.powerlevelGet(),
     zwave.switchMultilevelV1.switchMultilevelGet(),
+    zwave.configurationV1.configurationGet(parameterNumber: 0x00),
   ]
 }
 

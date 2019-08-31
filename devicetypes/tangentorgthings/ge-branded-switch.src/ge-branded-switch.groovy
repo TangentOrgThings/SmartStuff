@@ -17,7 +17,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v4.45"
+  return "v4.47"
 }
 
 def getConfigurationOptions(String msr) {
@@ -85,8 +85,7 @@ metadata {
   preferences {
     input name: "ledIndicator", type: "enum", title: "LED Indicator", description: "Turn LED indicator... ", required: false, options:["off": "When Off", "on": "When On", "never": "Never"]
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "Invert switch? ", required: false
-    input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
-    input name: "disbableDigitalSwitchButtons", type: "bool", title: "Disable Digital Buttons", description: "Disable digital switch buttons", required: false, defaultValue: false
+    input name: "enableDigitalButtons", type: "bool", title: "Enable Digital Buttons", description: "Enable on and off commands to execute digital buttons", required: false, defaultValue: false
     input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
   }
@@ -844,7 +843,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
 def on() {
   logger("$device.displayName on()")
 
-  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+  if (settings.enableDigitalButtons) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
@@ -862,7 +861,7 @@ def on() {
 def off() {
   logger("$device.displayName off()")
 
-  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+  if (settings.enableDigitalButtons) { // Add option to have digital commands execute buttons
     buttonEvent("off()", 2, false, "digital")
   }
 

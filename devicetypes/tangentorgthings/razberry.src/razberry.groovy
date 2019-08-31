@@ -357,12 +357,12 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy 
   def msg = cmd.status == 0 ? "try again later" :
             cmd.status == 1 ? "try again in $cmd.waitTime seconds" :
             cmd.status == 2 ? "request queued" : "sorry"
-  // result << createEvent(displayed: true, descriptionText: "$device.displayName is busy, $msg")
+  result << createEvent(displayed: true, descriptionText: "$device.displayName is busy, $msg")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd, result) {
-  logger("$cmd")
   state.status = cmd.status
+  result << createEvent(displayed: true, descriptionText: "$device.displayName rejected the last request")
 }
 
 def zwaveEvent(zwave.commands.nodenamingv1.NodeNamingNodeNameReport cmd, result) {
@@ -374,7 +374,7 @@ def zwaveEvent(zwave.commands.nodenamingv1.NodeNamingNodeLocationReport cmd, res
 def zwaveEvent(zwave.commands.basicv1.BasicGet cmd, result) {
   logger("$cmd")
 
-  result << zwave.basicV1.basicReport(value: 0x255).format()
+  result << zwave.basicV1.basicReport(value: 0x00).format()
 }
 
 def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
@@ -384,12 +384,6 @@ def zwaveEvent(zwave.commands.basicv1.BasicReport cmd, result) {
 def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
   logger("$cmd")
 } 
-
-def zwaveEvent(zwave.commands.powerlevelv1.PowerlevelGet cmd, result) {
-  logger("$cmd")
-
-  result << zwave.powerlevelV1.powerlevelReport(powerLevel: 0, timeout: 0).format()
-}
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, result) {
   log.debug "ERROR: $cmd"
