@@ -16,7 +16,7 @@
 import physicalgraph.*
 
 def getDriverVersion () {
-  return "v0.23"
+  return "v0.25"
 }
 
 metadata {
@@ -130,10 +130,11 @@ def parse(String description) {
 
 def prepDevice() {
   [
+    zwave.basicV1.basicSet(value: 0xFF),
     zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
     zwave.versionV1.versionGet(),
     zwave.associationV1.associationGroupingsGet(),
-    zwave.zwaveCmdClassV1.requestNodeInfo(),
+    //zwave.zwaveCmdClassV1.requestNodeInfo(),
   ]
 }
 
@@ -146,6 +147,7 @@ def installed() {
 }
 
 def updated() {
+  log.info("$device.displayName updated()")
   logger("$device.displayName updated() debug: ${debugLevel}", "info")
 
   state.loggingLevelIDE = debugLevel ? debugLevel : 4
@@ -354,7 +356,8 @@ def off() {
 }
 
 def refresh() {
-  sendCommands([zwave.basicV1.basicGet().format()])
+  // sendCommands([zwave.basicV1.basicGet().format()])
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet().format()
 }
 
 /*****************************************************************************************************************

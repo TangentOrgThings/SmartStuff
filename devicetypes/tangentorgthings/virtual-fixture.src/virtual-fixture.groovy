@@ -2,7 +2,7 @@
 
 /**
  *
- *  Copyright 2018 Brian Aker <brian@tangent.org>
+ *  Copyright 2018-2019 Brian Aker <brian@tangent.org>
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
  */
 
 String getDriverVersion () {
-  return "v0.11"
+  return "v0.15"
 }
 
 metadata {
@@ -45,13 +45,26 @@ metadata {
       state("open", label: 'on', action: "switch.off", icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
       state("closed", label:'off', action: "switch.on", icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
     }
+    
+    standardTile("contactState", "device.contact", width: 2, height: 2) {
+      state("open", label: 'on', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
+      state("closed", label:'off', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
+    }
 
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
       state "default", label: '${currentValue}', defaultState: true
     }
+    
+    standardTile("allOn", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "default", label:'all on', action:"switch.on", icon: "st.switches.switch.on"
+    }
+
+    standardTile("allOff", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
+      state "default", label:'all off', action:"switch.off", icon: "st.switches.switch.off"
+    }
 
     main "contact"
-    details(["contact", "on", "off", "driverVersion"])
+    details(["contactState", "allOn", "allOff", "driverVersion"])
   }
 }
 
@@ -61,6 +74,8 @@ def parse(String description) {
 
 void initialize() {
   log.info "initialize()"
+  unschedule()
+  setLevel(100)
   sendEvent(name: "contact", value: "closed", isStateChange: true, displayed: true)
   sendEvent(name: "numberOfButtons", value: 2, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
@@ -93,14 +108,17 @@ def push() {
 def on() {
   log.info "on()"
   // sendEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button 1 (on) was pushed", isStateChange: true, type: "digital")
   sendEvent(name: "contact", value: "open", isStateChange: true, displayed: true)
-  sendEvent(name: "level", value: 100, isStateChange: true, displayed: true)
 }
 
 def setLevel (provided_value) {
-  sendEvent(name: "contact", value: provided_value > 0 ? "open" : "closed", isStateChange: true, displayed: true)
-  sendEvent(name: "level", value: provided_value, isStateChange: true, displayed: true)
+  if ( provided_values > 0 ) {
+  	sendEvent(name: "contact", value: "open", isStateChange: true, displayed: true)
+  } else {
+  	sendEvent(name: "level", value: provided_value, isStateChange: true, displayed: true)
+    off()
+  }
 }
 
 def setLevel(value, duration) {
@@ -110,7 +128,6 @@ def setLevel(value, duration) {
 def off() {
   log.info "off()"
   // sendEvent(name: "switch", value: "off", isStateChange: true, displayed: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button $button was pushed", isStateChange: true, type: "$buttonType")
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], descriptionText: "$device.displayName button 2 (off) was pushed", isStateChange: true, type: "digital")
   sendEvent(name: "contact", value: "closed", isStateChange: true, displayed: true)
-  sendEvent(name: "level", value: 0, isStateChange: true, displayed: true)
 }

@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v7.49"
+  return "v7.51"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -110,7 +110,7 @@ metadata {
   preferences {
     input name: "invertSwitch", type: "bool", title: "Invert Switch", description: "If you oopsed the switch... ", required: false,  defaultValue: false
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false
-    input name: "disbableDigitalSwitchButtons", type: "bool", title: "Disable Digital Buttons", description: "Disable digital switch buttons", required: false, defaultValue: false
+    input name: "enableDigitalButtons", type: "bool", title: "Enable Digital Buttons", description: "Enable on and off commands to execute digital buttons", required: false, defaultValue: false
     input name: "delayOff", type: "bool", title: "Delay Off", description: "Delay Off for three seconds", required: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false,  defaultValue: 3
     input name: "color", type: "enum", title: "Default LED Color", options: ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"], description: "Select Color", required: false
@@ -929,7 +929,7 @@ def setDefaultColor(color) {
 def on() {
   logger("on()")
 
-  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+  if (settings.enableDigitalButtons) { // Add option to have digital commands execute buttons
     buttonEvent("on()", 1, false, "digital")
   }
 
@@ -942,7 +942,7 @@ def on() {
 def off() {
   logger("off()")
 
-  if (! settings.disbableDigitalSwitchButtons) { // Add option to have digital commands execute buttons
+  if (settings.enableDigitalButtons) { // Add option to have digital commands execute buttons
     buttonEvent("off()", 2, false, "digital")
   }
 

@@ -27,7 +27,7 @@
  */
  
 String getDriverVersion () {
-  return "v0.05"
+  return "v0.11"
 }
 
 def versionNum(){
@@ -39,8 +39,8 @@ metadata {
     capability "Actuator"
     capability "Button"
     capability "Switch"
-    capability "Momentary"
     capability "Sensor"
+    capability "Health Check"
 
     attribute "about", "string"
     attribute "driverVersion", "string"
@@ -59,7 +59,7 @@ metadata {
   tiles(scale: 2) {
     multiAttributeTile(name: "switch", type: "generic", width: 6, height: 4, canChangeIcon: false, canChangeBackground: true) {
       tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
-        attributeState "off", label: 'push', action: "momentary.push", backgroundColor: "#ffffff", nextState: "on", defaultState: true
+        attributeState "off", label: 'push', action: "switch.on", backgroundColor: "#ffffff", nextState: "on", defaultState: true
         attributeState "on", label: 'running', backgroundColor: "#00a0dc" , nextState: "pushed"
         attributeState "pushed", label: 'PUSHED', backgroundColor: "#00A0DC" , nextState: "off"
       }
@@ -75,7 +75,7 @@ metadata {
 
     standardTile("basicOff", "device.switch", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
       state "off", label: 'not running', backgroundColor: "#ffffff", nextState: "on", defaultState: true
-      state "on", label: 'force off', backgroundColor: "#00a0dc" , action: "backoff"
+      state "on", label: 'force off', backgroundColor: "#00a0dc" , action: "switch.off"
     }
 
     main(["switch"])
@@ -86,19 +86,23 @@ metadata {
 def parse(String description) {
 }
 
+private initialize() {
+  off()
+  sendEvent(name: "numberOfButtons", value: 1, isStateChange: true, displayed: false)
+	sendEvent(name: "DeviceWatch-DeviceStatus", value: "online")
+	sendEvent(name: "healthStatus", value: "online")
+    sendEvent(name: "DeviceWatch-Enroll", value: [protocol: "cloud", scheme:"untracked"].encodeAsJson(), displayed: false)
+    showVersion()
+}
 
 def installed() {
   log.debug "installed()"
-  sendEvent(name: "numberOfButtons", value: 1, isStateChange: true, displayed: false)
-  off()
-  showVersion() 
+  initialize()
 }
 
 def updated() {
   log.debug "updated()"
-  sendEvent(name: "numberOfButtons", value: 1, isStateChange: true, displayed: false)
-  off()
-  showVersion() 
+  initialize()
 }
 
 def followupStateCheck() {
@@ -106,20 +110,16 @@ def followupStateCheck() {
   off()
 }
 
-def push() {
-  log.debug "push()"
-  sendEvent(name: "switch", value: "on", isStateChange: true)
-  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
-  if ( 0 ) {
-    sendEvent(name: "momentary", value: "pushed", isStateChange: true)
-  }
-
-  runIn( settings.delayTime ?: 30 , followupStateCheck)
-}
-
 def on() {
   log.debug "on()"
-  push()
+  sendEvent(name: "switch", value: "on", isStateChange: true)
+  sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button was pushed", isStateChange: true)
+  if ( settings.delayTime ) {
+    runIn( settings.delayTime ?: 30 , followupStateCheck)
+    return
+  }
+
+  sendEvent(name: "switch", value: "off", isStateChange: true)
 }
 
 def off() {

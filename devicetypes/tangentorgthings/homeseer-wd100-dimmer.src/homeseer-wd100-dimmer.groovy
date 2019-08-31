@@ -3,7 +3,7 @@
 /**
  *  HomeSeer HS-WD100+
  *
- *  Copyright 2017-2018 Brian Aker <brian@tangent.org>
+ *  Copyright 2017-2019 Brian Aker <brian@tangent.org>
  *  Copyright 2016 DarwinsDen.com
  *
  *  For device parameter information and images, questions or to provide feedback on this device handler,
@@ -39,7 +39,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v7.41"
+  return "v7.47"
 }
 
 def getConfigurationOptions(Integer model) {
@@ -135,6 +135,7 @@ metadata {
     input name: "remoteStepSize", type: "number", title: "Remote Ramp Rate: Dim level % to change each duration (1-99) [default: 1]", range: "1..99", required: false
     input name: "fastDuration", type: "bool", title: "Fast Duration", description: "Where to quickly change light state", required: false, defaultValue: true
     input name: "disbableDigitalOff", type: "bool", title: "Disable Digital Off", description: "Disallow digital turn off", required: false, defaultValue: false
+    input name: "enableDigitalButtons", type: "bool", title: "Enable Digital Buttons", description: "Enable on and off commands to execute digital buttons", required: false, defaultValue: false
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
     input name: "color", type: "enum", title: "Default LED Color", options: ["White", "Red", "Green", "Blue", "Magenta", "Yellow", "Cyan"], description: "Select Color", required: false
   }
@@ -538,6 +539,14 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
   if (1) {
     switch (cmd.parameterNumber) {
+      case 3: // Homeseer has an undocumented indicator light in the most recent versions of the firmware
+      if (1) {
+        state.indicatorLight = "when off"
+        if (cmd.configurationValue[0] == 1) { state.indicatorLight = "when on" }
+        if (cmd.configurationValue[0] == 2) { state.indicatorLight = "never" }
+        logger("Indicator Light ${state.indicatorLight}", "info")
+      }
+      break;
       case 4:
       logger("orientation ${cmd.scaledConfigurationValue}", "info")
       if (1) {
@@ -1022,7 +1031,7 @@ def childOff(String childID) {
 def on() {
   logger("on()")
 
-  if (1) { // Add option to have digital commands execute buttons
+  if (settings.enableDigitalButtons) { // Add option to have digital commands execute buttons
     buttonEvent(1, false, "digital")
   }
 
@@ -1036,7 +1045,7 @@ def on() {
 def off() {
   logger("off()")
   
-  if (1) { // Add option to have digital commands execute buttons
+  if (settings.enableDigitalButtons) { // Add option to have digital commands execute buttons
     buttonEvent(2, false, "digital")
   }
   
