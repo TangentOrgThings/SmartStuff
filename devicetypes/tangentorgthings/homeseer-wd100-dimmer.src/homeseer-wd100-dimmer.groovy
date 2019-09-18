@@ -39,12 +39,12 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v7.49"
+  return "v7.53"
 }
 
 def getConfigurationOptions(Integer model) {
   if ( model == 0x3036 ) {
-    return [ 13, 14, 21, 31, 4, 7, 8, 9, 10 ] // Removed 6, support of this has not arrived
+    return [ 13, 14, 21, 31, 4, 7, 8, 9, 10, 5 ] // Removed 6, support of this has not arrived
   }
 
   return [ 4, 7, 8, 9, 10 ]
@@ -572,6 +572,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
       } 
 
       break;
+      case 5:
+      logger("lowest dimming value ${cmd.scaledConfigurationValue}", "info")
+      break;
       case 7:
       logger("remote number of levels ${cmd.scaledConfigurationValue}", "info")
       break;
@@ -692,7 +695,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     }
   } else if (cmd.parameterNumber == 8) {
     if ( cmd.scaledConfigurationValue != 3) {
-      cmds << zwave.configurationV1.configurationSet(configurationValue: [0, 3], parameterNumber: cmd.parameterNumber, size: 2).format()
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [0, 1], parameterNumber: cmd.parameterNumber, size: 2).format()
       cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
     }
   } else if (cmd.parameterNumber == 10) {
@@ -853,7 +856,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
     }
   } else if (cmd.parameterNumber == 8) {
     if ( cmd.scaledConfigurationValue != 3) {
-      cmds << zwave.configurationV1.configurationSet(configurationValue: [0, 3], parameterNumber: cmd.parameterNumber, size: 2).format()
+      cmds << zwave.configurationV1.configurationSet(configurationValue: [0, 1], parameterNumber: cmd.parameterNumber, size: 2).format()
       cmds << zwave.configurationV1.configurationGet(parameterNumber: cmd.parameterNumber).format()
     }
   } else if (cmd.parameterNumber == 10) {
@@ -1589,7 +1592,6 @@ def installed() {
 
 def setDimRatePrefs() {
   def cmds = []
-  /*
   if (remoteStepSize) {
   def remoteStepSize = Math.max(Math.min(remoteStepSize, 99), 1)
   cmds << zwave.configurationV1.configurationSet(scaledConfigurationValue: remoteStepSize, parameterNumber: 7, size: 1)
@@ -1610,7 +1612,6 @@ def setDimRatePrefs() {
   def localStepDuration = Math.max(Math.min(localStepDuration, 255), 1)
   cmds << zwave.configurationV1.configurationSet(configurationValue: [0, localStepDuration], parameterNumber: 10, size: 2)
   }
-   */
   return cmds
 }
 
