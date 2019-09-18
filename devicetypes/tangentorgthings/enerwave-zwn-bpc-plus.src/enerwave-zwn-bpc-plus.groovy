@@ -18,7 +18,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v3.43"
+  return "v3.45"
 }
 
 def getDefaultWakeupInterval() {
@@ -146,9 +146,9 @@ metadata {
   }
 
   preferences {
-    input name: "wakeupInterval", type: "number", title: "Wakeup Interval", description: "Interval in seconds for the device to wakeup", range: "240..68400"
-    input name: "motionTimeout", type: "number", title: "Motion Timeout", description: "Interval in seconds for the device to timeout after motion (plus model is N * Wakeup Interval", range: "1..255"
-    input name: "isNewerModel", type: "bool", title: "Temp fix for model", description: "Enter true or false"
+    input name: "wakeupInterval", type: "number", title: "Wakeup Interval", description: "Interval in seconds for the device to wakeup", range: "240..68400", defaultValue: "180"
+    input name: "motionTimeout", type: "number", title: "Motion Timeout", description: "Interval in seconds for the device to timeout after motion (plus model is N * Wakeup Interval", range: "1..255", defaultValue: "3"
+    input name: "isNewerModel", type: "bool", title: "Temp fix for model", description: "Enter true or false", defaultValue: "true"
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
   }
 }
