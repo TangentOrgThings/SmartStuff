@@ -38,7 +38,9 @@ String getDriverVersion () {
 metadata {
   definition (name: "Avatar", namespace: "tangentorgthings", author: "Brian Aker", cstHandler: true) {
     capability "Button"
+    capability "Health Check"
     capability "Presence Sensor"
+    capability "Sensor"
     capability "Switch"
 
     attribute "logMessage", "string"        // Important log messages.
@@ -91,9 +93,17 @@ def parse(String description) {
 }
 
 // handle commands
+def arrived() {
+  sendEvent(name: "presence", value: "present", isStateChange: true)
+}
+
+def departed() {
+  sendEvent(name: "presence", value: "not present", isStateChange: true)
+}
+
 def on() {
   logger("on()")
-  sendEvent(name: "presence", value: "present", displayed: true, isStateChange: true)
+  sendEvent(name: "presence", value: "present", isStateChange: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true, type: "digital")
 
   def lastSeen = new Date().time
@@ -102,7 +112,7 @@ def on() {
 
 def off() {
   logger("off()")
-  sendEvent(name: "presence", value: "not present", displayed: true, isStateChange: true)
+  sendEvent(name: "presence", value: "not present", isStateChange: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], isStateChange: true, type: "digital")
 }
 
@@ -112,7 +122,7 @@ private initialized() {
   sendEvent(name: "healthStatus", value: "online")
   sendEvent(name: "DeviceWatch-Enroll", value: [protocol: "cloud", scheme:"untracked"].encodeAsJson(), displayed: false)
 
-  sendEvent(name: "numberOfButtons", value: 2, displayed: true, isStateChange: true)
+  sendEvent(name: "numberOfButtons", value: 2, isStateChange: true)
 
   buildVersion()
   setTrace(true)
@@ -120,7 +130,7 @@ private initialized() {
 
 def installed() {
   logger("installed()")
-  sendEvent(name: "presence", value: "not present", displayed: true, isStateChange: true)
+  sendEvent(name: "presence", value: "not present", isStateChange: true)
   initialized()
 }
 
