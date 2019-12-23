@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v0.07"
+  return "v0.09"
 }
 
 metadata {
@@ -72,7 +72,6 @@ metadata {
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
       state "default", label: '${currentValue}', defaultState: true
     }
-
 
     main("presence")
     details(["presence", "lastSeen", "driverVersion"])
@@ -128,6 +127,7 @@ def installed() {
 def updated() {
   logger("updated()")
   initialized()
+  off()
 }
 
 def buildVersion() {

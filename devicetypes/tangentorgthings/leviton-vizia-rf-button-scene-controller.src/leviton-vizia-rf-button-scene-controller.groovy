@@ -64,7 +64,7 @@ metadata {
 
   preferences {
     input name: "associatedDevice", type: "number", title: "Associated Device", description: "... ", required: false
-    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false
+    input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 5
   }
 
   tiles {
@@ -100,11 +100,10 @@ def getCommandClassVersions() {
     0x82: 1,  // Hail
     0x85: 2,  // Association  0x85  V1 V2
     0x86: 1,  // Version
-    0x91: 1,  // Man Prop
+    0x91: 1, // Manufacturer Proprietary
     // Note: Controlled but not supported
     0x2B: 1,  // SceneActivation
     0x2C: 1,  // Scene Actuator Conf
-    0x25: 1,  //
     0x22: 1,  // Application Status
     0x7C: 1,  // Remote Association Activate
     //    0x56: 1,  // Crc16 Encap
