@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v0.09"
+  return "v0.11"
 }
 
 metadata {
@@ -95,24 +95,27 @@ def parse(String description) {
 // handle commands
 def arrived() {
   sendEvent(name: "presence", value: "present", isStateChange: true)
+
+  def lastSeen = new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
+  sendEvent(name: "lastSeen", value: lastSeen, isStateChange: true)
 }
 
 def departed() {
   sendEvent(name: "presence", value: "not present", isStateChange: true)
+
+  def lastSeen = new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
+  sendEvent(name: "lastSeen", value: lastSeen, isStateChange: true)
 }
 
 def on() {
   logger("on()")
-  sendEvent(name: "presence", value: "present", isStateChange: true)
+  arrived()
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true, type: "digital")
-
-  def lastSeen = new Date().time
-  result << createEvent(name: "lastSeen", value: state.lastActive, isStateChange: false)
 }
 
 def off() {
   logger("off()")
-  sendEvent(name: "presence", value: "not present", isStateChange: true)
+  departed()
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], isStateChange: true, type: "digital")
 }
 
