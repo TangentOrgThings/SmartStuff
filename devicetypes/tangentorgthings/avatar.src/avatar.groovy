@@ -50,11 +50,15 @@ metadata {
 
     attribute "about", "string"
     attribute "driverVersion", "string"
+
+    command "arrived"
+    command "departed"
   }
 
 
   simulator {
-    // TODO: define status and reply messages here
+    status "present": "presence: present"
+    status "not present": "presence: not present"
   }
 
   preferences {
@@ -63,8 +67,8 @@ metadata {
 
   tiles {
     standardTile("presence", "device.presence", width: 2, height: 2, canChangeBackground: true) {
-      state("not present", label:'not present', icon:"st.presence.tile.not-present", backgroundColor:"#ffffff", action:"arrived")
-      state("present", label:'present', icon:"st.presence.tile.present", backgroundColor:"#00A0DC", action:"departed")
+      state("not present", label:'away', icon:"st.presence.tile.not-present", backgroundColor:"#ffffff")
+      state("present", label:'present', icon:"st.presence.tile.present", backgroundColor:"#00A0DC")
     }
 
     valueTile("lastSeen", "device.lastSeen", width: 2, height: 2, decoration: "flat") {
