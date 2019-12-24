@@ -19,14 +19,15 @@
  */
 
 String getDriverVersion () {
-  return "v0.15"
+  return "v0.19"
 }
 
 metadata {
   definition (name: "Virtual Fixture", namespace: "TangentOrgThings", author: "Brian Aker", vid: "generic-switch") {
     capability "Actuator"
     capability "Button"
-    capability "Color Mode"
+    capability "Color Control"
+    capability "Color Temperature"
     capability "Contact Sensor"
     capability "Light"
     capability "Sensor"
@@ -40,15 +41,41 @@ metadata {
     input name: "debugLevel", type: "number", title: "Debug Level", description: "Adjust debug level for log", range: "1..5", displayDuringSetup: false, defaultValue: 3
   }
 
-  tiles {
+  tiles(scale: 2) {
     standardTile("contact", "device.contact", width: 2, height: 2) {
       state("open", label: 'on', action: "switch.off", icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
       state("closed", label:'off', action: "switch.on", icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
     }
     
+    multiAttributeTile(name:"contactState", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
+        tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+            attributeState "on", label:'${name}', action:"switch.off", icon: "st.motion.motion.active", backgroundColor: "#53a7c0"
+            attributeState "off", label:'${name}', action:"switch.on", icon: "st.motion.motion.inactive", backgroundColor: "#ffffff"
+        }
+        tileAttribute ("device.colorTemperature", key: "SECONDARY_CONTROL") {
+            attributeState "colorTemperature", label:'${currentValue}W'
+        }
+        tileAttribute ("device.level", key: "SLIDER_CONTROL") {
+            attributeState "level", action:"switch level.setLevel"
+        }
+        tileAttribute ("device.color", key: "COLOR_CONTROL") {
+            attributeState "color", action:"setColor"
+        }
+    }
+    
+    /*
     standardTile("contactState", "device.contact", width: 2, height: 2) {
       state("open", label: 'on', icon: "st.motion.motion.active", backgroundColor: "#53a7c0")
       state("closed", label:'off', icon: "st.motion.motion.inactive", backgroundColor: "#ffffff")
+    }
+    */
+    
+    controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 2) {
+        state "level", action:"switch level.setLevel"
+    }
+    
+    controlTile("colorTempSliderControl", "device.colorTemperature", "slider", width: 4, height: 2, inactiveLabel: false, range:"(2700..6500)") {
+        state "colorTemperature", action:"color temperature.setColorTemperature"
     }
 
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
@@ -64,7 +91,7 @@ metadata {
     }
 
     main "contact"
-    details(["contactState", "allOn", "allOff", "driverVersion"])
+    details(["contactState", "levelSliderControl", "colorTempSliderControl", "allOn", "allOff", "driverVersion"])
   }
 }
 
@@ -80,6 +107,14 @@ void initialize() {
   sendEvent(name: "numberOfButtons", value: 2, displayed: false)
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
   sendEvent(name: "switch", value: "", isStateChange: true, displayed: true)
+  sendEvent(name: "level", value: 100, unit: "%")
+  sendEvent(name: "colorTemperature", value: 2700)
+  
+  if (0) {
+    sendEvent(name: "color", value: hexColor)
+    sendEvent(name: "hue", value: hsv.hue)
+    sendEvent(name: "saturation", value: hsv.saturation)
+  }
 }
 
 def installed() {
@@ -110,19 +145,57 @@ def on() {
   // sendEvent(name: "switch", value: "on", isStateChange: true, displayed: true)
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName button 1 (on) was pushed", isStateChange: true, type: "digital")
   sendEvent(name: "contact", value: "open", isStateChange: true, displayed: true)
+  
+  if (device.currentValue("level") == 0) {
+    sendEvent(name: "level", value: 100, unit: "%")
+  }	
+}
+
+def setColorTemperature(value) {
+  log.info "setColorTemperature(${value})"
+  sendEvent(name: "color", value: "#ffffff")
+  sendEvent(name: "saturation", value: 0)
+  if (device.currentValue("contact") != "open") {
+    on()
+  }
 }
 
 def setLevel (provided_value) {
-  if ( provided_values > 0 ) {
-  	sendEvent(name: "contact", value: "open", isStateChange: true, displayed: true)
+  def intValue = provided_value as Integer
+  def newLevel = Math.max(Math.min(intValue, 100), 0)
+	
+  if ( newLevel > 0 ) {
+  	sendEvent(name: "level", value: newLevel, unit: "%", isStateChange: true, displayed: true)
+    
+    if (device.currentValue("contact") != "open") {
+      on()
+    }
   } else {
-  	sendEvent(name: "level", value: provided_value, isStateChange: true, displayed: true)
     off()
   }
 }
 
 def setLevel(value, duration) {
   setLevel(value)
+}
+
+def setSaturation(percent) {
+	log.info "setSaturation($percent)"
+    sendEvent(name: "saturation", value: percent, isStateChange: true, displayed: true)
+	// setColor(saturation: percent)
+}
+
+def setHue(value) {
+	log.info "setHue($value)"
+    sendEvent(name: "hue", value: value, isStateChange: true, displayed: true)
+	// setColor(hue: value)
+}
+
+def setColor(value) {
+	log.info "setColor($value)"
+    sendEvent(name: "color", value: value.hex, isStateChange: true, displayed: true)
+    sendEvent(name: "saturation", value: value.saturation, isStateChange: true, displayed: true)
+    sendEvent(name: "hue", value: value.hue, isStateChange: true, displayed: true)
 }
 
 def off() {
