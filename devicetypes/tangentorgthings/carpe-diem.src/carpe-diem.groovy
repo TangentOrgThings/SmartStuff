@@ -16,16 +16,15 @@
  */
 
 def getDriverVersion () {
-  return "v0.17"
+  return "v0.19"
 }
 
 metadata {
   definition (name: "Carpe Diem", namespace: "TangentOrgThings", author: "Brian Aker") {
-    capability "Actuator"
     capability "Button"
-    capability "Light"
-    capability "Sensor"
     capability "Illuminance Measurement"
+    capability "Sensor"
+    capability "Switch"
 
     attribute "driverVersion", "string"
     attribute "lastSunrise", "number"
