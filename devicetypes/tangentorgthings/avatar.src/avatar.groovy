@@ -32,7 +32,7 @@
 import physicalgraph.*
 
 String getDriverVersion () {
-  return "v0.11"
+  return "v0.17"
 }
 
 metadata {
@@ -46,7 +46,8 @@ metadata {
     attribute "logMessage", "string"        // Important log messages.
     attribute "lastError", "string"        // Last error message
 
-    attribute "lastSeen", "string"
+    attribute "lastArrived", "string"
+    attribute "lastDeparted", "string"
 
     attribute "about", "string"
     attribute "driverVersion", "string"
@@ -70,9 +71,13 @@ metadata {
       state("not present", label:'away', icon:"st.presence.tile.not-present", backgroundColor:"#ffffff")
       state("present", label:'present', icon:"st.presence.tile.present", backgroundColor:"#00A0DC")
     }
+    
+    valueTile("lastArrived", "device.lastArrived", width: 2, height: 2, decoration: "flat") {
+      state "default", label: 'Arrived: ${currentValue}', defaultState: true
+    }
 
-    valueTile("lastSeen", "device.lastSeen", width: 2, height: 2, decoration: "flat") {
-      state "default", label: '${currentValue}', defaultState: true
+    valueTile("lastDeparted", "device.lastDeparted", width: 2, height: 2, decoration: "flat") {
+      state "default", label: 'Departed: ${currentValue}', defaultState: true
     }
 
     valueTile("driverVersion", "device.driverVersion", width: 2, height: 2, decoration: "flat") {
@@ -80,7 +85,7 @@ metadata {
     }
 
     main("presence")
-    details(["presence", "lastSeen", "driverVersion"])
+    details(["presence", "lastArrived", "lastDeparted", "driverVersion"])
   }
 
 }
@@ -100,25 +105,25 @@ def parse(String description) {
 def arrived() {
   sendEvent(name: "presence", value: "present", isStateChange: true)
 
-  def lastSeen = new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
-  sendEvent(name: "lastSeen", value: lastSeen, isStateChange: true)
+  def lastArrived = new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
+  sendEvent(name: "lastArrived", value: "${lastArrived}", isStateChange: true)
 }
 
 def departed() {
   sendEvent(name: "presence", value: "not present", isStateChange: true)
 
-  def lastSeen = new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
-  sendEvent(name: "lastSeen", value: lastSeen, isStateChange: true)
+  def lastDeparted = new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
+  sendEvent(name: "lastDeparted", value: "${lastDeparted}", isStateChange: true)
 }
 
 def on() {
-  logger("on()")
+  log.debug("on()")
   arrived()
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], isStateChange: true, type: "digital")
 }
 
 def off() {
-  logger("off()")
+  log.debug("off()")
   departed()
   sendEvent(name: "button", value: "pushed", data: [buttonNumber: 2], isStateChange: true, type: "digital")
 }
