@@ -29,6 +29,7 @@ metadata {
     capability "Relative Humidity Measurement"
     capability "Tamper Alert"
     capability "Configuration"
+    capability "Refresh"
 
     attribute "DeviceReset", "enum", ["false", "true"]
     attribute "logMessage", "string"        // Important log messages.
@@ -138,6 +139,7 @@ def getConfigurationOptions(Integer model) {
     0 - 60	The humidity differential to report.
 
    */
+
   return [ 5, 7, 10, 13, 14, 20, 21, 23 ]
 }
 
@@ -248,9 +250,9 @@ def zwaveEvent(zwave.commands.associationv2.AssociationGroupingsReport cmd, resu
   if (cmd.supportedGroupings) {
     def cmds = []
     for (def x = 1; x <= cmd.supportedGroupings; x++) {
-      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format()
-        cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00).format()
-        cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x).format()
+      cmds << zwave.associationGrpInfoV1.associationGroupNameGet(groupingIdentifier: x).format();
+      cmds << zwave.associationGrpInfoV1.associationGroupInfoGet(groupingIdentifier: x, listMode: 0x00).format();
+      cmds << zwave.associationGrpInfoV1.associationGroupCommandListGet(allowCache: true, groupingIdentifier: x).format();
     }
 
     result << response(delayBetween(cmds, 2000))
@@ -490,6 +492,9 @@ def installed() {
   sendCommands( prepDevice(), 2000 )
 }
 
+def refresh() {
+}
+
 def updated() {
   configure()
 }
@@ -510,7 +515,9 @@ def configure() {
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed: true)
 
   sendCommands( prepDevice(), 2000 )
-  response(refresh())
+  if (0) {
+    response(refresh())
+  }
 
   // Avoid calling updated() twice
   state.updatedDate = Calendar.getInstance().getTimeInMillis()
