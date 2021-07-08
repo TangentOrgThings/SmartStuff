@@ -56,7 +56,7 @@ metadata {
       ]
     }
     valueTile("humidity", "device.humidity", inactiveLabel: false) {
-      state "humidity", '${currentValue}% humidity', unit: "",
+      state "humidity", label:'${currentValue}% humidity', unit: "",
       backgroundColors:[
         [value: 31, color: "#153591"],
         [value: 44, color: "#1e9cbb"],
