@@ -204,6 +204,61 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
 	log.warn cmd
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
+	log.debug "BasicSet with CMD = ${cmd}"
+
+	// Allows Basic to represent Alarm state
+	if (1) {
+		def result = []
+		def map = [:]
+
+		map.name = "water"
+		map.value = cmd.value ? "wet" : "dry"
+		map.descriptionText = "${device.displayName} is ${map.value}"
+
+		result << createEvent(map)
+
+		result
+	}
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd)
+{
+	def map = [:]
+
+	if (cmd.sensorType == 0x05) {
+		map.name = "water"
+		map.value = cmd.sensorState ? "wet" : "dry"
+		map.descriptionText = "${device.displayName} is ${map.value}"
+
+		log.debug "CMD = SensorAlarmReport: ${cmd}"
+	} else if ( cmd.sensorType == 0) {
+		map.name = "tamper"
+		map.isStateChange = true
+		map.value = cmd.sensorState ? "tampered" : "secure"
+		map.descriptionText = "${device.displayName} has been tampered with"
+		if (0) runIn(30, "resetTamper") //device does not send alarm cancelation
+
+	} else if ( cmd.sensorType == 1) {
+		map.name = "tamper"
+		map.value = cmd.sensorState ? "tampered" : "secure"
+		map.descriptionText = "${device.displayName} has been tampered with"
+		if (0) runIn(30, "resetTamper") //device does not send alarm cancelation
+
+	} else {
+		map.descriptionText = "${device.displayName}: ${cmd}"
+	}
+	createEvent(map)
+}
+
+def resetTamper() {
+	def map = [:]
+	map.name = "tamper"
+	map.value = "secure"
+	map.descriptionText = "$device.displayName is secure"
+	sendEvent(map)
+}
+
 /*
 ####################
 ## Z-Wave Toolkit ##
