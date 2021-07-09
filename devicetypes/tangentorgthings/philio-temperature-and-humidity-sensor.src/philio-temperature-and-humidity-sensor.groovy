@@ -22,7 +22,7 @@ String getDriverVersion () {
 }
 
 metadata {
-	definition (name: "Philio Temperature and Humidity Sensor", namespace: "TangentOrgThings", author: "Brian Aker", vid: "generic-leak-5", ocfDeviceType: "x.com.st.d.sensor.moisture") {
+	definition (name: "Philio Temperature and Humidity Sensor", namespace: "TangentOrgThings", author: "Brian Aker", vid: "generic-leak-5", ocfDeviceType: "x.com.st.d.sensor.moisture", cstHandler: true) {
 		capability "Battery"
 		capability "Tamper Alert"
 		capability "Temperature Measurement"
