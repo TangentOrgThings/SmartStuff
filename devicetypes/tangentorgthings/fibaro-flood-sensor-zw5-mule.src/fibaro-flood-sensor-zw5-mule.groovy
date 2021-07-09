@@ -4,12 +4,10 @@
 metadata {
 	definition(name: "Fibaro Flood Sensor ZW5 Mule", namespace: "TangentOrgThings", author: "Brian Aker and Fibar Group", ocfDeviceType: "x.com.st.d.sensor.moisture") {
 		capability "Battery"
-		capability "Configuration"
 		capability "Sensor"
 		capability "Tamper Alert"
 		capability "Temperature Measurement"
 		capability "Water Sensor"
-		capability "Power Source"
 		capability "Health Check"
 
 		attribute "lastAlarmDate", "string"
@@ -154,14 +152,12 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 				map.descriptionText = "${device.displayName} is ${map.value}"
 				state.lastAlarmDate = "\n"+new Date().format("yyyy MMM dd EEE HH:mm:ss")
 				//state.lastAlarmDate = "\n"+new Date().format("yyyy MMM dd EEE HH:mm:ss", location.timeZone)
-				multiStatusEvent(alarmInfo + state.lastAlarmDate)
 				break
 
 			case 0:
 				map.name = "water"
 				map.value = "dry"
 				map.descriptionText = "${device.displayName} is ${map.value}"
-				multiStatusEvent(alarmInfo + state.lastAlarmDate)
 				break
 		}
 	} else if (cmd.notificationType == 7) {
@@ -378,16 +374,4 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupported
 
 private Map cmdVersions() {
 	[0x31: 5, 0x56: 1, 0x71: 3, 0x72: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x98: 1]
-}
-
-def configure() {
-	state.lastAlarmDate = "-"
-	def cmds = []
-	sendEvent(name: "water", value: "dry", displayed: "true")
-	cmds += zwave.manufacturerSpecificV2.manufacturerSpecificGet()
-	cmds += zwave.manufacturerSpecificV2.deviceSpecificGet()
-	cmds += zwave.versionV1.versionGet()
-	cmds += zwave.batteryV1.batteryGet()
-	cmds += zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
-	encapSequence(cmds, 500)
 }
