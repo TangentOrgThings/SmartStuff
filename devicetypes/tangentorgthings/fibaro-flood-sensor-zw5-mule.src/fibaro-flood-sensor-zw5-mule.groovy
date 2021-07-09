@@ -141,7 +141,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
-	log.debug "NotificationReport"
+	log.debug "NotificationReport: ${cmd.notificationType} : ${cmd.event}"
 	def map = [:]
 	def alarmInfo = "Last alarm detection: "
 	if (cmd.notificationType == 5) {
