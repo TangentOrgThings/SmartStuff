@@ -530,6 +530,12 @@ def getSpecText(){
       case 8: return "Triple-Tap Lower Paddle"; break
     }
   }
+  if(state.buttonType.contains("Virtual Fixture")) {
+    switch (state.currentButton){
+      case 1: return "On"; break
+      case 2: return "Off"; break
+    }
+  }
   if(state.buttonType.contains("WS-100 Switch")) {
     switch (state.currentButton) {
       case 1: return "Single Tap Upper Paddle"; break
