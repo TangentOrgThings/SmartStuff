@@ -437,7 +437,6 @@ def zwaveEvent(zwave.commands.batteryv1.BatteryReport cmd, result) {
 		map.descriptionText = "$device.displayName battery is low!"
 	} else {
 		map.value = cmd.batteryLevel
-		map.value = cmd.batteryLevel > 0 ? cmd.batteryLevel.toString() : 1
 	}
 	result << createEvent(map)
 }

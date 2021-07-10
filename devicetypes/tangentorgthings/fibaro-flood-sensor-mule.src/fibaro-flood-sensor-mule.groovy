@@ -36,6 +36,7 @@
  */
 metadata {
 	definition (name: "Fibaro Flood Sensor Mule", namespace: "TangentOrgThings", author: "Brian Aker and SmartThings") {
+		capability "Tamper Alert"
 		capability "Water Sensor"
 		capability "Temperature Measurement"
 		capability "Battery"
@@ -70,17 +71,24 @@ metadata {
 				[value: 96, color: "#bc2323"]
 			]
 		}
-		standardTile("tamper", "device.tamper", width: 2, height: 2) {
-			state("secure", label:"secure", icon:"st.locks.lock.locked",   backgroundColor:"#ffffff")
-			state("tampered", label:"tampered", icon:"st.locks.lock.unlocked", backgroundColor:"#00a0dc")
-		}
+		standardTile("tamper", "device.tamper", decoration: "flat", width: 2, height: 2) {			
+			state "clear", label: 'tamper clear', backgroundColor: "#ffffff"
+			state "detected", label: 'tampered', action:"clearTamper", backgroundColor: "#ff0000"
+		}        
 		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "battery", label:'${currentValue}% battery', unit:""
 		}
 
-		main(["water", "temperature"])
-		details(["water", "temperature", "battery"])
+		main(["water"])
+		details(["water", "temperature", "battery", "tamper"])
 	}
+}
+
+def clearTamper() {
+  if (state.isTamper) {
+    sendEvent(name: "tamper", value: "clear", isStateChange: true)
+    state.isTamper= false
+  }	
 }
 
 // Parse incoming device messages to generate events
@@ -137,8 +145,17 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv2.SensorMultilevelR
 			break;
 		case 0:
 			// here's our tamper alarm = acceleration
-			map.value = cmd.sensorState == 255 ? "active" : "inactive"
-			map.name = "acceleration"
+			map.name = "tamper"
+			map.isStateChange = true
+			map.descriptionText = "${device.displayName} has been tampered with"
+			if (cmd.sensorState == 255) {
+				map.value = "detected"
+				state.isTamper= true
+				runIn(30, "resetTamper") //device does not send alarm cancelation
+			} else {
+				map.value = "clear"
+				state.isTamper= false
+			}
 			break;
 	}
 	createEvent(map)
@@ -210,26 +227,29 @@ def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd)
 	} else if ( cmd.sensorType == 0) {
 		map.name = "tamper"
 		map.isStateChange = true
-		map.value = cmd.sensorState ? "tampered" : "secure"
+		map.value = cmd.sensorState ? "detected" : "clear"
 		map.descriptionText = "${device.displayName} has been tampered with"
+		state.isTamper= cmd.sensorState ? true : false
 		runIn(30, "resetTamper") //device does not send alarm cancelation
 
 	} else if ( cmd.sensorType == 1) {
 		map.name = "tamper"
-		map.value = cmd.sensorState ? "tampered" : "secure"
+		map.value = cmd.sensorState ? "detected" : "clear"
 		map.descriptionText = "${device.displayName} has been tampered with"
+		state.isTamper= cmd.sensorState ? true : false
 		runIn(30, "resetTamper") //device does not send alarm cancelation
 
 	} else {
-		map.descriptionText = "${device.displayName}: ${cmd}"
+		map.descriptionText = "${device.displayName}: unknown SensorAlarmReport ${cmd}"
 	}
 	createEvent(map)
 }
 
 def resetTamper() {
 	def map = [:]
+	state.isTamper= false
 	map.name = "tamper"
-	map.value = "secure"
+	map.value = "clear"
 	map.descriptionText = "$device.displayName is secure"
 	sendEvent(map)
 }
