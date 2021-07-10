@@ -95,7 +95,7 @@ def clearTamper() {
 def parse(String description) {
 	def result = []
 
-	def cmd = zwave.parse(description, cmdVersions())
+	def cmd = zwave.parse(description, getCommandClassVersions())
 
 	if (cmd) {
 		result += zwaveEvent(cmd) //createEvent(zwaveEvent(cmd))   
@@ -273,6 +273,19 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 	result
 }
 
-private Map cmdVersions() {
-	[0x20: 1, 0x31: 2, 0x30: 1, 0x70: 2, 0x71: 1, 0x84: 1, 0x80: 1, 0x9C: 1, 0x72: 2, 0x56: 2, 0x60: 3, 0x8E: 2]
+def getCommandClassVersions() {
+	return [
+		0x20: 1,  // Basic
+		0x31: 2, 
+		0x30: 1, 
+		0x70: 2, 
+		0x71: 1, 
+		0x84: 1, 
+		0x80: 1, 
+		0x9C: 1, 
+		0x72: 2, 
+		0x56: 2, 
+		0x60: 3, 
+		0x8E: 2,
+	]
 }

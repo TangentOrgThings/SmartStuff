@@ -271,10 +271,12 @@ def parse(String description) {
 		)
 	} else if (description == "updated") {
 		return null
+	} else if (! description) {
+		log.warn "parse() called with NULL description"
 	} else {
-		def cmd = zwave.parse(description, cmdVersions())
+		def cmd = zwave.parse(description, getCommandClassVersions())
 		if (cmd) {
-			log.info("${device.displayName} - Parsed: ${cmd}")
+			log.info "${device.displayName} - Parsed: ${cmd}"
 			zwaveEvent(cmd)
 		}
 	}
@@ -286,7 +288,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
-	def encapsulatedCommand = cmd.encapsulatedCommand(cmdVersions())
+	def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
 	if (encapsulatedCommand) {
 		log.info("${device.displayName} - Parsed SecurityMessageEncapsulation into: ${encapsulatedCommand}")
 		zwaveEvent(encapsulatedCommand)
@@ -296,7 +298,7 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) {
-	def version = cmdVersions()[cmd.commandClass as Integer]
+	def version = getCommandClassVersions()[cmd.commandClass as Integer]
 	def ccObj = version ? zwave.commandClass(cmd.commandClass, version) : zwave.commandClass(cmd.commandClass)
 	def encapsulatedCommand = ccObj?.command(cmd.command)?.parse(cmd.data)
 	if (encapsulatedCommand) {
@@ -316,7 +318,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
 		cmd.command = cmd.parameter[1]
 		cmd.parameter = cmd.parameter.drop(2)
 	}
-	def encapsulatedCommand = cmd.encapsulatedCommand(cmdVersions())
+	def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
 	if (encapsulatedCommand) {
 		log.info("${device.displayName} - Parsed MultiChannelCmdEncap ${encapsulatedCommand}")
 		zwaveEvent(encapsulatedCommand)
@@ -434,10 +436,27 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupported
 	commandClass id="008e" version="2"
 	commandClass id="0098" version="1"
 	commandClass id="009c" version="1"
-	commandClass id="0060" version="1"
+	commandClass id="0060" version="3"
  
  */
-
-private Map cmdVersions() {
-	[0x20: 1, 0x22: 1, 0x31: 5, 0x56: 1, 0x59: 1, 0x5A: 1, 0x70: 1, 0x71: 3, 0x72: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9c: 1, 0x60: 1]
+def getCommandClassVersions() {
+	return [
+		0x20: 1, // Basic
+		0x22: 1, // Application Status
+		0x31: 5, // Sensor Multilevel
+		0x56: 1, // Crc16 Encap
+		0x59: 1, // Association Grp Info
+		0x5A: 1, // Device Reset Locally
+		0x60: 3, // Multi Channel
+		0x70: 1, // Configuration
+		0x71: 3, // Notification
+		0x72: 2, // Manufacturer Specific
+		0x80: 1, // Battery
+		0x84: 2, // Wake Up
+		0x85: 2, // Association
+		0x86: 1, // Version
+		0x8E: 2, // Multi Channel Association
+		0x98: 1, // Security
+		0x9C: 1, // Sensor Alarm
+	]
 }
