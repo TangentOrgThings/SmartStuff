@@ -92,11 +92,10 @@ def clearTamper() {
 }
 
 // Parse incoming device messages to generate events
-def parse(String description)
-{
+def parse(String description) {
 	def result = []
 
-	def cmd = zwave.parse(description, [0x31: 2, 0x30: 1, 0x70: 2, 0x71: 1, 0x84: 1, 0x80: 1, 0x9C: 1, 0x72: 2, 0x56: 2, 0x60: 3])
+	def cmd = zwave.parse(description, cmdVersions())
 
 	if (cmd) {
 		result += zwaveEvent(cmd) //createEvent(zwaveEvent(cmd))   
@@ -118,7 +117,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
 		cmd.command = cmd.parameter[1]
 		cmd.parameter = cmd.parameter.drop(2)
 	}
-	def encapsulatedCommand = cmd.encapsulatedCommand([0x30: 2, 0x31: 2]) // can specify command class versions here like in zwave.parse
+	def encapsulatedCommand = cmd.encapsulatedCommand([0x20: 1, 0x30: 2, 0x31: 2]) // can specify command class versions here like in zwave.parse
 	log.debug ("Command from endpoint ${cmd.sourceEndPoint}: ${encapsulatedCommand}")
 	if (encapsulatedCommand) {
 		return zwaveEvent(encapsulatedCommand)
@@ -131,8 +130,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv2.SensorMultilevelReport cmd)
-{
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv2.SensorMultilevelReport cmd) {
 	def map = [:]
 
 	switch (cmd.sensorType) {
@@ -147,15 +145,15 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv2.SensorMultilevelR
 			// here's our tamper alarm = acceleration
 			map.name = "tamper"
 			map.isStateChange = true
-			map.descriptionText = "${device.displayName} has been tampered with"
 			if (cmd.sensorState == 255) {
 				map.value = "detected"
 				state.isTamper= true
-				runIn(30, "resetTamper") //device does not send alarm cancelation
+				runIn(300, "resetTamper") //device does not send alarm cancelation
 			} else {
 				map.value = "clear"
 				state.isTamper= false
 			}
+			map.descriptionText = "${device.displayName} SensorMultilevelReport(0) been tampered with: ${map.value}"
 			break;
 	}
 	createEvent(map)
@@ -179,14 +177,19 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
 	def map = [:]
-	map.value = cmd.sensorValue ? "active" : "inactive"
-	map.name = "acceleration"
+	map.name = "tamper"
+	map.value = cmd.sensorValue ? "detected" : "clear"
+	map.name = "tamper"
 
-	if (map.value == "active") {
-		map.descriptionText = "$device.displayName detected vibration"
+	if (cmd.sensorValue) {
+		map.descriptionText = "$device.displayName SensorBinaryReport detected vibration"
+		map.value = "detected"
+		state.isTamper= true
 	}
 	else {
-		map.descriptionText = "$device.displayName vibration has stopped"
+		map.descriptionText = "$device.displayName SensorBinaryReport has stopped"
+		map.value = "clear"
+		state.isTamper= false
 	}
 	createEvent(map)
 }
@@ -228,16 +231,16 @@ def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd)
 		map.name = "tamper"
 		map.isStateChange = true
 		map.value = cmd.sensorState ? "detected" : "clear"
-		map.descriptionText = "${device.displayName} has been tampered with"
+		map.descriptionText = "${device.displayName} SensorAlarmReport(General Purpose Alarm) : ${map.value}"
 		state.isTamper= cmd.sensorState ? true : false
-		runIn(30, "resetTamper") //device does not send alarm cancelation
+		if (state.isTamper) runIn(300, "resetTamper") //device does not send alarm cancelation
 
 	} else if ( cmd.sensorType == 1) {
 		map.name = "tamper"
 		map.value = cmd.sensorState ? "detected" : "clear"
-		map.descriptionText = "${device.displayName} has been tampered with"
+		map.descriptionText = "${device.displayName} SensorAlarmReport(1) : ${map.value}"
 		state.isTamper= cmd.sensorState ? true : false
-		runIn(30, "resetTamper") //device does not send alarm cancelation
+		if (state.isTamper) runIn(300, "resetTamper") //device does not send alarm cancelation
 
 	} else {
 		map.descriptionText = "${device.displayName}: unknown SensorAlarmReport ${cmd}"
@@ -268,4 +271,8 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
 	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 	result
+}
+
+private Map cmdVersions() {
+	[0x20: 1, 0x31: 2, 0x30: 1, 0x70: 2, 0x71: 1, 0x84: 1, 0x80: 1, 0x9C: 1, 0x72: 2, 0x56: 2, 0x60: 3, 0x8E: 2]
 }

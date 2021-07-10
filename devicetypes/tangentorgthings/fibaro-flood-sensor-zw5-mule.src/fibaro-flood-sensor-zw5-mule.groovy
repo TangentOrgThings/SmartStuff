@@ -226,14 +226,14 @@ def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd)
 		map.name = "tamper"
 		map.isStateChange = true
 		map.value = cmd.sensorState ? "detected" : "clear"
-		map.descriptionText = "${device.displayName} has been tampered with"
+		map.descriptionText = "${device.displayName} SensorAlarmReport(General Purpose Alarm) : ${map.value}"
 		state.isTamper= cmd.sensorState ? true : false
 		runIn(30, "resetTamper") //device does not send alarm cancelation
 
 	} else if ( cmd.sensorType == 1) {
 		map.name = "tamper"
 		map.value = cmd.sensorState ? "detected" : "clear"
-		map.descriptionText = "${device.displayName} has been tampered with"
+		map.descriptionText = "${device.displayName} SensorAlarmReport(1) : ${map.value}"
 		state.isTamper= cmd.sensorState ? true : false
 		runIn(30, "resetTamper") //device does not send alarm cancelation
 
@@ -260,7 +260,7 @@ def resetTamper() {
 
 def parse(String description) {
 	def result = []
-	logging("${device.displayName} - Parsing: ${description}")
+	log.info("${device.displayName} - Parsing: ${description}")
 	if (description.startsWith("Err 106")) {
 		result = createEvent(
 				descriptionText: "Failed to complete the network security key exchange. If you are unable to receive data from it, you must remove it from your network and add it again.",
@@ -274,7 +274,7 @@ def parse(String description) {
 	} else {
 		def cmd = zwave.parse(description, cmdVersions())
 		if (cmd) {
-			logging("${device.displayName} - Parsed: ${cmd}")
+			log.info("${device.displayName} - Parsed: ${cmd}")
 			zwaveEvent(cmd)
 		}
 	}
@@ -288,7 +288,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
 	def encapsulatedCommand = cmd.encapsulatedCommand(cmdVersions())
 	if (encapsulatedCommand) {
-		logging("${device.displayName} - Parsed SecurityMessageEncapsulation into: ${encapsulatedCommand}")
+		log.info("${device.displayName} - Parsed SecurityMessageEncapsulation into: ${encapsulatedCommand}")
 		zwaveEvent(encapsulatedCommand)
 	} else {
 		log.warn "Unable to extract Secure command from $cmd"
@@ -300,7 +300,7 @@ def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) {
 	def ccObj = version ? zwave.commandClass(cmd.commandClass, version) : zwave.commandClass(cmd.commandClass)
 	def encapsulatedCommand = ccObj?.command(cmd.command)?.parse(cmd.data)
 	if (encapsulatedCommand) {
-		logging("${device.displayName} - Parsed Crc16Encap into: ${encapsulatedCommand}")
+		log.info("${device.displayName} - Parsed Crc16Encap into: ${encapsulatedCommand}")
 		zwaveEvent(encapsulatedCommand)
 	} else {
 		log.warn "Unable to extract CRC16 command from $cmd"
@@ -318,7 +318,7 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
 	}
 	def encapsulatedCommand = cmd.encapsulatedCommand(cmdVersions())
 	if (encapsulatedCommand) {
-		logging("${device.displayName} - Parsed MultiChannelCmdEncap ${encapsulatedCommand}")
+		log.info("${device.displayName} - Parsed MultiChannelCmdEncap ${encapsulatedCommand}")
 		zwaveEvent(encapsulatedCommand)
 		// zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
 	} else {
@@ -332,24 +332,18 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	[:]
 }
 
-private logging(text, type = "debug") {
-	if (settings.logging == "true") {
-		log."$type" text
-	}
-}
-
 private secEncap(physicalgraph.zwave.Command cmd) {
-	logging("${device.displayName} - encapsulating command using Secure Encapsulation, command: $cmd", "info")
+	log.info "${device.displayName} - encapsulating command using Secure Encapsulation, command: $cmd"
 	zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
 
 private crcEncap(physicalgraph.zwave.Command cmd) {
-	logging("${device.displayName} - encapsulating command using CRC16 Encapsulation, command: $cmd", "info")
+	log.info "${device.displayName} - encapsulating command using CRC16 Encapsulation, command: $cmd"
 	zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
 private multiEncap(physicalgraph.zwave.Command cmd, Integer ep) {
-	logging("${device.displayName} - encapsulating command using MultiChannel Encapsulation, ep: $ep command: $cmd", "info")
+	log.info "${device.displayName} - encapsulating command using MultiChannel Encapsulation, ep: $ep command: $cmd"
 	zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: ep).encapsulate(cmd)
 }
 
@@ -371,7 +365,7 @@ private encap(physicalgraph.zwave.Command cmd) {
 	} else if (zwaveInfo?.cc?.contains("56")) {
 		crcEncap(cmd)
 	} else {
-		logging("${device.displayName} - no encapsulation supported for command: $cmd", "info")
+		log.info "${device.displayName} - no encapsulation supported for command: $cmd"
 		cmd.format()
 	}
 }
@@ -419,8 +413,31 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupported
 	0x84: 2 - Wake Up
 	0x85: 2 - Association
 	0x86: 1 - Version
-	0x98: 1 - Security */
+	0x98: 1 - Security 
+
+	commandClass id="0020" version="1"
+	commandClass id="0022" version="1"
+	commandClass id="0031" version="5"
+	commandClass id="0056" version="1"
+	commandClass id="0059" version="1"
+	commandClass id="005a" version="1"
+	commandClass id="005e" version="2"
+	commandClass id="0070" version="1"
+	commandClass id="0071" version="5"
+	commandClass id="0072" version="2"
+	commandClass id="0073" version="1"
+	commandClass id="007a" version="3"
+	commandClass id="0080" version="1"
+	commandClass id="0084" version="2"
+	commandClass id="0085" version="2"
+	commandClass id="0086" version="2"
+	commandClass id="008e" version="2"
+	commandClass id="0098" version="1"
+	commandClass id="009c" version="1"
+	commandClass id="0060" version="1"
+ 
+ */
 
 private Map cmdVersions() {
-	[0x31: 5, 0x56: 1, 0x71: 3, 0x72: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x98: 1]
+	[0x20: 1, 0x22: 1, 0x31: 5, 0x56: 1, 0x59: 1, 0x5A: 1, 0x70: 1, 0x71: 3, 0x72: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9c: 1, 0x60: 1]
 }
