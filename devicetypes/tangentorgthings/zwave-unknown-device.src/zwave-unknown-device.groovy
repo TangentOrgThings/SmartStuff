@@ -250,6 +250,10 @@ def zwaveEvent(zwave.commands.basicv1.BasicSet cmd, result) {
   }
 } 
 
+def zwaveEvent(zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd, reset) {
+  logger("${device.displayName}: received command: $cmd - device has reset itself")
+}
+
 def zwaveEvent(zwave.commands.securityv1.SecurityMessageEncapsulation cmd, result) {
   logger("$cmd")
 
@@ -266,7 +270,21 @@ def zwaveEvent(zwave.commands.securityv1.SecurityMessageEncapsulation cmd, resul
     }
 
     result += sec_result
+  } else {
+    log.warn "Unable to extract Secure command from $cmd"
   }
+}
+
+def zwaveEvent(zwave.commands.securityv1.NetworkKeyVerify cmd, result) {
+  logger("$cmd")
+}
+
+def zwaveEvent(zwave.commands.securityv1.SecuritySchemeReport cmd, result) {
+  logger("$cmd")
+}
+
+def zwaveEvent(zwave.commands.securityv1.SecurityCommandsSupportedReport cmd, result) {
+  logger("$cmd")
 }
 
 def zwaveEvent(zwave.commands.crc16encapv1.Crc16Encap cmd, result) {

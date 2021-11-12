@@ -247,7 +247,7 @@ def resetTamper() {
 	def map = [:]
 	map.name = "tamper"
 	map.value = "clear"
-	map.descriptionText = "$device.displayName is secure"
+	map.descriptionText = "$device.displayName has been cleared automatically"
 	state.isTamper= false
 	sendEvent(map)
 }
