@@ -1,4 +1,5 @@
 /**
+ *  Copyright Brian Aker
  *  Copyright 2017 Eric Maycock
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -11,6 +12,9 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
+
+import physicalgraph.*
+
 metadata {
   definition (name: "Aeon SmartStrip", namespace: "tangentorgthings", author: "Brian Aker", 
               ocfDeviceType: "oic.d.switch",
@@ -561,8 +565,10 @@ void executeConfigureCmds() {
   // zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: 4).format(),    
   ]
 
-  if (0) delayBetween(cmds, 1000) + "delay 5000" + refresh()
-    sendCommands(cmds, 1000)
+  if (0) {
+    delayBetween(cmds, 1000) + "delay 5000" + refresh()
+  }
+  sendCommands(cmds, 1000)
 }
 
 def installed() {
