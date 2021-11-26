@@ -17,7 +17,7 @@
 import physicalgraph.*
 
 String getDriverVersion() {
-  return "v3.05"
+  return "v3.10"
 }
 
 Integer getAssociationGroup() {
@@ -25,7 +25,7 @@ Integer getAssociationGroup() {
 }
 
 Integer getWattMin() {
-  return 5
+  return 2
 }
 
 metadata {
@@ -33,9 +33,10 @@ metadata {
     capability "Actuator"
     capability "Acceleration Sensor"
     capability "Energy Meter"
-    capability "Polling"
+    //capability "Polling"
     capability "Power Meter"
     capability "Refresh"
+    capability "Health Check"
     capability "Sensor"
     capability "Switch"
 
@@ -58,6 +59,8 @@ metadata {
     attribute "ProductCode", "string"
 
     attribute "NIF", "string"
+    
+    attribute "lastCheckIn", "string"
 
     fingerprint type: "1001", mfr: "0086",  prod: "0003", model: "0006", deviceJoinName: "Aeon Smart Energy Switch 1.43"
     // fingerprint mfr: "1001", prod: "0003", model: "0006", inClusters: "0x20,0x25,0x32,0x27,0x70,0x85,0x72,0x86", ccOut: "0x20,0x82"
@@ -127,7 +130,7 @@ def getCommandClassVersions() { // 25, 31, 32, 27, 70, 85, 72, 86
     0x20: 1,  // Basic
     0x25: 1,  // Switch Binary
     0x27: 1,  // Switch All
-    0x31: 3,  // SensorMultilevel V3 sensormultilevelv3
+    0x31: 5, // 3,  // SensorMultilevel V3 sensormultilevelv3
     0x32: 3,  // Meter V2
     0x70: 2,  // Configuration V2
     0x72: 2,  // Manufacturer Specific V2
@@ -157,24 +160,58 @@ def parse(String description) {
   } else if (description != "updated") {
     logger("description: '$description'")
     def cmd = zwave.parse(description, getCommandClassVersions())
-
+    
     if (cmd) {
       zwaveEvent(cmd, result)
 
     } else {
-      logger( "zwave.parse(getCommandClassVersions()) failed for: ${description}", "parse" )
+      logger( "zwave.parse(getCommandClassVersions()) failed for: '${description}'", "warn" )
       // Try it without check for classes
       cmd = zwave.parse(description)
 
       if (cmd) {
         zwaveEvent(cmd, result)
       } else {
+        String check_command = description.toString()
+        logger( "Stringify: $check_command" )
+        if ( check_command.indexOf("3202") != -1 ) {
+          logger( "Got match")
+        }   
         logger( "zwave.parse() failed for: ${description}", "error" )
       }
     }
   }
+  
+  updateLastCheckIn()
 
   return result
+}
+
+void updateLastCheckIn() {
+	if (!isDuplicateCommand(state.lastCheckInTime, 60000)) {
+		state.lastCheckInTime = new Date().time
+
+		sendEvent(name: "lastCheckIn", value: convertToLocalTimeString(new Date()), displayed: false)
+	}
+}
+
+boolean isDuplicateCommand(lastExecuted, allowedMil) {
+	!lastExecuted ? false : (lastExecuted + allowedMil > new Date().time)
+}
+
+String convertToLocalTimeString(dt) {
+	try {
+		def timeZoneId = location?.timeZone?.ID
+		if (timeZoneId) {
+			return dt.format("MM/dd/yyyy hh:mm:ss a", TimeZone.getTimeZone(timeZoneId))
+		}
+		else {
+			return "$dt"
+		}
+	}
+	catch (ex) {
+		return "$dt"
+	}
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd, result) {
@@ -237,7 +274,9 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, result) {
     break;    
     case 0x02:
     result << createEvent(name: "power", value: Math.round(cmd.scaledMeterValue), unit: "W")
-    result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledMeterValue) > getWattMin() ) ? "active" : "inactive")
+    result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledMeterValue) > getWattMin() ) ? "active" : "inactive", descriptionText: "MeterReport()")
+    def accelerationState= ( Math.round(cmd.scaledMeterValue) > getWattMin() ) ? "active" : "inactive";
+    logger("$device.displayName: acceleration() $accelerationState");
     break;
     default:
     result << createEvent(descriptionText: "$device.displayName scale not implemented: $cmd")
@@ -260,7 +299,9 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
     case 4:
     if (cmd.scale == 0) {
       result << createEvent(name: "power", value: Math.round(cmd.scaledSensorValue), unit: "W", descriptionText: "$device.displayName ${cmd.scaledSensorValue}")
-      result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive")
+      result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive", descriptionText: "SensorMultilevelReport()")
+      def accelerationState= ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive";
+      logger("$device.displayName: acceleration() $accelerationState");
       return
     }
     logger("$device.displayName: SensorMultilevelReport Unknown power scale ${cmd.scale}", "error")
@@ -282,7 +323,9 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv3.SensorMultilevelR
     case 4:
     if (cmd.scale == 0) {
       result << createEvent(name: "power", value: Math.round(cmd.scaledSensorValue), unit: "W", descriptionText: "$device.displayName ${cmd.scaledSensorValue}")
-      result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive")
+      result << createEvent(name: "acceleration", value: ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive", descriptionText: "SensorMultilevelReport()")
+      def accelerationState= ( Math.round(cmd.scaledSensorValue) > getWattMin() ) ? "active" : "inactive";
+      logger("$device.displayName: acceleration() $accelerationState");
       return
     }
     logger("$device.displayName: SensorMultilevelReport Unknown power scale ${cmd.scale}", "error")
@@ -475,6 +518,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchallv1.SwitchAllReport cmd, res
 
 def refresh() {
   logger("$device.displayName: refresh()");
+
   delayBetween([
     zwave.switchBinaryV1.switchBinaryGet().format(),
     // zwave.sensorMultilevelV3.sensorMultilevelGet().format(),
@@ -500,15 +544,20 @@ private prepDevice() {
     zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 80, size: 1, scaledConfigurationValue: 2),
     zwave.configurationV1.configurationSet(parameterNumber: 90, size: 1, scaledConfigurationValue: 1),
-    zwave.configurationV1.configurationSet(parameterNumber: 91, size: 2, scaledConfigurationValue: 20),
+    zwave.configurationV1.configurationSet(parameterNumber: 91, size: 2, scaledConfigurationValue: 5),
     zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: 10),
     zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 8),   // energy in KW
     zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: 3600), // every 60 min
-    zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 0),
+    zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 4),
     zwave.configurationV1.configurationSet(parameterNumber: 112, size: 4, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 103, size: 4, scaledConfigurationValue: 0),
     zwave.configurationV1.configurationSet(parameterNumber: 113, size: 4, scaledConfigurationValue: 0),
     zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.multiChannelV3.multiChannelEndPointGet(),
+    zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: 1),
+    zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: 2),
+    zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: 3),
+    zwave.multiChannelV3.multiChannelCapabilityGet(endPoint: 4),
     // zwave.sensorMultilevelV3.sensorMultilevelGet(),
     zwave.meterV2.meterGet(scale: 0x00),
     zwave.meterV2.meterGet(scale: 0x02),
@@ -520,12 +569,19 @@ private prepDevice() {
 
 def installed() {
   logger("$device.displayName installed()")
+  
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
   if (0) {
   def zwInfo = getZwaveInfo()
   log.debug("$device.displayName $zwInfo")
   sendEvent(name: "NIF", value: "$zwInfo", isStateChange: true, displayed: true)
   }
+  
+  sendEvent(name: "lastError", value: "", displayed: false)
+  sendEvent(name: "logMessage", value: "", displayed: false)
+  state.parseErrorCount = 0
+  state.unknownCommandErrorCount = 0
 
   sendEvent(name: "driverVersion", value: getDriverVersion(), descriptionText: getDriverVersion(), isStateChange: true, displayed:true)
 
@@ -537,6 +593,8 @@ def updated() {
     return
   }
   logger("$device.displayName updated() debug: ${settings.debugLevel}")
+  
+  sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
   sendEvent(name: "lastError", value: "", displayed: false)
   sendEvent(name: "logMessage", value: "", displayed: false)
